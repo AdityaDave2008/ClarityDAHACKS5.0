@@ -22,14 +22,6 @@ final class ScanModel: ObservableObject {
     @Published private(set) var multitaskingSupported: Bool?
     /// True once the capture session actually grants camera access while backgrounded.
     @Published private(set) var multitaskingEnabled: Bool?
-    /// User switch for keeping the scanner in a floating window.
-    @Published var pictureInPictureRequested: Bool {
-        didSet {
-            UserDefaults.standard.set(pictureInPictureRequested, forKey: "stepsense.pip")
-            pip.setEnabled(pictureInPictureRequested && cameraRunning)
-            if !pictureInPictureRequested { pip.stop() }
-        }
-    }
     @Published private(set) var processingMs: Int?
     @Published private(set) var roundTripMs: Int?
     @Published private(set) var alertReason = "idle"
@@ -48,7 +40,6 @@ final class ScanModel: ObservableObject {
     private let maxResultAge: TimeInterval = 2.5
 
     init() {
-        pictureInPictureRequested = UserDefaults.standard.object(forKey: "stepsense.pip") as? Bool ?? true
         if let data = UserDefaults.standard.data(forKey: "stepsense.preferences"),
            let saved = try? JSONDecoder().decode(ScanPreferences.self, from: data) {
             preferences = saved
@@ -108,7 +99,7 @@ final class ScanModel: ObservableObject {
                 PiPDiagnostics.log("camera.started", "multitaskingSupported=\(diagnostics.multitaskingSupported) multitaskingEnabled=\(diagnostics.multitaskingEnabled)")
                 detail = "Camera preview only. Loading the bundled offline detector…"
                 // The floating window can show the camera before the local model is ready.
-                pip.setEnabled(pictureInPictureRequested)
+                pip.setEnabled(true)
                 refreshPiPOverlay()
                 zone = try await detector.start()
                 try Task.checkCancellation()
@@ -117,7 +108,6 @@ final class ScanModel: ObservableObject {
                 sequence = 0
                 phase = .scanning
                 detail = "Scanning the marked image zone offline."
-                pip.setEnabled(pictureInPictureRequested)
                 refreshPiPOverlay()
                 camera.requestFrame()
             } catch {
@@ -169,7 +159,6 @@ final class ScanModel: ObservableObject {
 
     func startPictureInPicture() {
         PiPDiagnostics.log("scan.pipButton", "camera=\(cameraRunning) checked=\(checkedFrames)")
-        pictureInPictureRequested = true
         pip.setEnabled(cameraRunning)
         pip.start()
     }

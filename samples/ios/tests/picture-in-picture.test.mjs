@@ -17,8 +17,42 @@ test('the floating window is offered whenever the camera runs, not only once det
   assert.doesNotMatch(view, /\.disabled\([^)]*model\.phase != \.scanning/);
 });
 
-test('the toggle honors both the saved preference and a running camera', () => {
-  assert.match(model, /pip\.setEnabled\(pictureInPictureRequested && cameraRunning\)/);
+test('automatic preparation is not gated by the obsolete saved toggle', () => {
+  assert.doesNotMatch(model, /stepsense\.pip|pictureInPictureRequested/);
+  assert.doesNotMatch(view, /Toggle\("Use floating window"/);
+  const start = model.slice(model.indexOf('    func start()'), model.indexOf('    func stop()'));
+  assert.match(start, /cameraRunning = true[\s\S]*pip\.setEnabled\(true\)/);
+  assert.equal((start.match(/pip\.setEnabled/g) ?? []).length, 1,
+    'Detector completion must not re-arm automatic entry after a dismissal');
+});
+
+test('launch prepares the anchor without starting the camera or opening PiP', () => {
+  const app = readFileSync(new URL('../StepSense/StepSenseApp.swift', import.meta.url), 'utf8');
+  const init = model.slice(model.indexOf('    init()'), model.indexOf('    var isBusy'));
+  assert.match(model, /cameraRunning = false/);
+  assert.match(model, /var phase: Phase = \.idle/);
+  assert.match(pip, /private var enabled = false/);
+  assert.doesNotMatch(init + app, /(?:model|camera|pip)\.start\(/);
+  const attach = pip.slice(pip.indexOf('    func attach('), pip.indexOf('    func setEnabled('));
+  assert.match(attach, /rebuildController\(\)/);
+  assert.doesNotMatch(attach, /startPictureInPicture\(|setEnabled\(true\)/);
+});
+
+test('dismissal disarms automatic entry and cancels pending manual starts', () => {
+  const dismissed = pip.slice(pip.indexOf('nonisolated func pictureInPictureControllerDidStop'), pip.indexOf('failedToStartPictureInPictureWithError'));
+  assert.match(dismissed, /setEnabled\(false\)/);
+  assert.doesNotMatch(dismissed, /\.start\(|startPictureInPicture\(/);
+  const stop = model.slice(model.indexOf('private func stop(nextPhase:'));
+  assert.match(stop, /camera\.stop\(\)/);
+  assert.match(stop, /pip\.setEnabled\(false\)/);
+});
+
+test('manual opening remains explicit and foreground return never re-arms PiP', () => {
+  const manual = model.slice(model.indexOf('    func startPictureInPicture()'), model.indexOf('    private func handleCameraInterruption'));
+  assert.match(manual, /pip\.setEnabled\(cameraRunning\)/);
+  assert.match(manual, /pip\.start\(\)/);
+  const foreground = model.slice(model.indexOf('    func returnedToForeground()'), model.indexOf('    func startPictureInPicture()'));
+  assert.doesNotMatch(foreground, /setEnabled|pip\.start/);
 });
 
 test('backgrounding keeps a preview-only session alive in the window', () => {

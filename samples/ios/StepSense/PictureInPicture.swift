@@ -374,6 +374,8 @@ final class PictureInPictureController: NSObject, ObservableObject, AVPictureInP
         Task { @MainActor [weak self] in
             guard let self else { return }
             isActive = false
+            // Respect dismissal. Only a new scan or the explicit Open button may re-arm entry.
+            setEnabled(false)
             resetDisplay()
         }
     }

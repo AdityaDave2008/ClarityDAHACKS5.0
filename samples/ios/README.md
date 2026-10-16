@@ -30,7 +30,7 @@ Initialization times out after 60 seconds and inference after 15 seconds. Result
 
 The existing video-call Picture in Picture camera implementation is retained. It requires an active PiP window, the declared `voip` background mode, and granted `AVCaptureSession.isMultitaskingCameraAccessEnabled`. Where background camera access is unavailable the camera pauses rather than implying live frames.
 
-The floating window is offered as soon as the camera runs, even if the model fails. WebKit may suspend offline analysis while the app is backgrounded, even when the camera continues in PiP. Old boxes expire and the UI warns about this limitation. Background object alerts are **not guaranteed or verified**. The `voip` mode remains a hackathon prototype choice, not an assertion of App Store eligibility.
+On launch the scanner is stopped and the floating window is closed. The PiP controller is prepared automatically, without a toggle or a saved opt-out preference. Tapping **Start scanning** arms automatic PiP entry once the camera starts, even if the model fails. Leaving the app can then open PiP when iOS permits. **Open floating window now** remains the explicit fallback (and can open an empty window before scanning). **Stop scanning** releases the camera and closes PiP. Dismissing PiP disarms automatic entry until a new scan or an explicit Open request, so returning to the app or finishing model loading does not force it open again. WebKit may suspend offline analysis while the app is backgrounded, even when the camera continues in PiP. Old boxes expire and the UI warns about this limitation. Background object alerts are **not guaranteed or verified**. The `voip` mode remains a hackathon prototype choice, not an assertion of App Store eligibility.
 
 ## Verification
 
@@ -46,8 +46,8 @@ xcrun devicectl device process launch --device YOUR_DEVICE_UDID \
 ```
 
 On the phone tap **Start scanning**, then **Open floating window now**, wait three seconds,
-swipe Home, wait five seconds, and return to StepSense. Merely toggling **Use floating window**
-does not start the camera or explicitly request PiP. Look for `scan.start`, `camera.started`,
+swipe Home, wait five seconds, and return to StepSense. Launch alone does not start the camera
+or explicitly request PiP. Look for `scan.start`, `camera.started`,
 `scan.pipButton`, `pip.start.invoke`, and `pip.delegate.didStart` or `pip.delegate.failed`.
 `pip.start.timeout` means readiness never became true during the existing two-second wait.
 Compare `camera.frames` with `display.frames`, scene transitions, and interruption reason codes.
