@@ -55,9 +55,9 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
         for observer in observers { NotificationCenter.default.removeObserver(observer) }
     }
 
-    func start(onFrame: @escaping @Sendable (CapturedFrame) -> Void,
-               onPreview: @escaping @Sendable (PiPFrame) -> Void,
-               onFailure: @escaping @Sendable (String) -> Void) async throws -> CameraDiagnostics {
+    /// May be requested before connecting to the backend. Does not start capture.
+    func requestAuthorization() async throws {
+        try Task.checkCancellation()
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .authorized: break
         case .notDetermined:
@@ -65,6 +65,12 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
         default: throw CameraFailure.permission
         }
         try Task.checkCancellation()
+    }
+
+    func start(onFrame: @escaping @Sendable (CapturedFrame) -> Void,
+               onPreview: @escaping @Sendable (PiPFrame) -> Void,
+               onFailure: @escaping @Sendable (String) -> Void) async throws -> CameraDiagnostics {
+        try await requestAuthorization()
         return try await withCheckedThrowingContinuation { continuation in
             sessionQueue.async { [self] in
                 do {

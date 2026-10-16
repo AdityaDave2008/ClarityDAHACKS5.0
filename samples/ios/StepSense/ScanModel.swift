@@ -83,7 +83,7 @@ final class ScanModel: ObservableObject {
         generation = UUID()
         let current = generation
         phase = .connecting
-        detail = "Connecting to the detection model…"
+        detail = "Checking camera permission…"
         detections = []
         processingMs = nil
         roundTripMs = nil
@@ -94,6 +94,12 @@ final class ScanModel: ObservableObject {
         startTask = Task { [weak self] in
             guard let self else { return }
             do {
+                // Permission must not depend on a reachable model server.
+                // Capture still starts only once a usable detection session exists.
+                try await camera.requestAuthorization()
+                try Task.checkCancellation()
+                guard generation == current else { return }
+                detail = "Camera permission granted. Connecting to the detection model…"
                 let api = try BackendClient(address: backendAddress)
                 let metadata = try await api.metadata()
                 try Task.checkCancellation()

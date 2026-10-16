@@ -12,6 +12,14 @@ Three separate conditions must all hold for live scanning to continue over anoth
 
 Where the third condition is unavailable, the floating window still presents, but it shows a clearly marked paused state rather than implying a live camera feed, and the app releases the camera as before. Settings reports all three values after the camera starts. The App Store reviews the `voip` background mode against an app's actual calling functionality; this hackathon sample is not an App Store submission.
 
+## Camera permission before networking
+
+Tapping **Start scanning** checks camera permission before contacting the backend. On the first request, iOS displays its camera permission dialog even when the backend cannot be reached. An existing authorization is reused. Denied or restricted permission produces an error without starting the network scan. After denial, enable access in Settings rather than expecting iOS to show the dialog repeatedly.
+
+This requests permission only. Live capture still waits for a ready backend session, so granting permission alone does not fix a connection failure or provide offline detection. Stop or backgrounding while the dialog is open must not continue startup when the dialog returns.
+
+Run the structural regression guards with `node --test samples/ios/tests/camera-permission.test.mjs` from the repository root. They check source ordering and cancellation guards, not the operating system's permission behavior. Physical acceptance: with an unreachable backend and permission not yet determined, tap Start and verify the camera dialog appears first. Also test Allow, Don't Allow, subsequent starts, and Stop/background transitions. Do not reset an existing device's permissions just to run this test without its owner's consent.
+
 ## Run one sample at a time
 
 The shared backend processes one frame globally at a time. Stop the browser or Android scanner before starting the iPhone sample, or competing requests can receive `429` responses.
