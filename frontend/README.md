@@ -10,3 +10,4 @@ Coordinate ownership of individual files before editing shared components. Use [
 When choosing the stack, document exact install, development, build, and test commands here, plus safe public environment-variable examples. Keep component tests beside the app code.
 
 First milestone: one user journey connected to the deployed backend, not just mock data.
+
