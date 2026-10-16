@@ -1,0 +1,116 @@
+# StepSense — native iPhone sample
+
+A dependency-free SwiftUI application using the repository's real Node backend. It shows a rear-camera preview, the backend's image zone and object boxes, editable alert settings, and Start/Stop controls. Sound, speech, and haptics are delivered on the phone only when the backend returns `alert.triggered: true`.
+
+**This is a foreground scanner.** Switching to another app or locking the phone pauses scanning, cancels requests, releases the camera, and ends the API session. Returning requires an explicit Start. Scanning while Instagram is foreground is not established by this sample.
+
+## Run one sample at a time
+
+The shared backend processes one frame globally at a time. Stop the browser or Android scanner before starting the iPhone sample, or competing requests can receive `429` responses.
+
+### 1. Start the backend
+
+Use Node.js 24 or newer. From the repository root:
+
+```sh
+cd backend
+npm ci
+HOST=0.0.0.0 npm start
+```
+
+For a physical phone, the backend must listen on a reachable interface such as `0.0.0.0`, rather than its default loopback interface. Keep the phone and laptop on the same network. Allow the Node development server through your laptop's firewall if prompted. The first startup needs internet access to fetch model weights.
+
+Check the backend on the laptop:
+
+```sh
+curl http://127.0.0.1:3001/ready
+```
+
+Wait for `{"ready":true,"modelState":"ready"}`. A successful `/health` response alone does not mean the detector is ready. See [backend setup](../../backend/README.md) and [the API contract](../../docs/api.md).
+
+If an existing backend already listens only on `127.0.0.1:3001`, keep it running and expose the repository's fixed API proxy on a separate local-network port. From the repository root, in another terminal:
+
+```sh
+HOST=0.0.0.0 PORT=3002 npm --prefix frontend start
+```
+
+In the native app, use `http://<laptop-LAN-address>:3002` as the backend origin. This forwards API requests to the existing backend without starting another detector. On the iPhone, opening that address followed by `/ready` in Safari is a quick network check; it should show `"ready": true`. The HTTP address is for this native development sample. Browser camera access on a phone still requires trusted HTTPS. If the Wi-Fi isolates connected devices, the local-network address will not be reachable from the phone; use a network that permits device-to-device traffic or an HTTPS-hosted backend.
+
+### 2. Build and install with Xcode
+
+Requirements: a Mac with Xcode and the iOS SDK, plus an iPhone running iOS 16 or newer for live camera and haptic testing. The project uses only Apple frameworks; there are no Swift package dependencies or package-generation steps.
+
+1. Open `samples/ios/StepSense.xcodeproj` in Xcode.
+2. Select the **StepSense** target and open **Signing & Capabilities**.
+3. Choose your development team. A personal team can be used for local device development where supported.
+4. Change `com.dahacks.stepsense.sample` to a unique bundle identifier for your team if Xcode requests it.
+5. Connect and select your iPhone. Complete Xcode's device pairing, trust, and Developer Mode prompts if required.
+6. Run the **StepSense** scheme. Approve camera and local-network access when asked.
+
+The app is portrait-only to keep preview, frame orientation, and normalized overlays consistent. No VoIP background mode, PiP entitlement, or fake video call is configured.
+
+#### iPhone 18 running iOS 27
+
+The app uses APIs available from iOS 16; do not raise the minimum deployment target just to match the phone's installed OS. The existing successful build used Xcode 26.3 with the iOS 26.2 SDK and has not been run on iOS 27. Pair the actual phone in Xcode and check its run-destination status before concluding that an SDK or OS upgrade is necessary.
+
+Apple distinguishes SDK versions from physical-device support. Xcode 27 includes the iOS 27 SDK and, according to the current [system requirements](https://developer.apple.com/xcode/system-requirements), requires macOS Tahoe 26.6 or later. This workspace's Mac currently runs macOS 15.8.1 with Xcode 26.3, so switching to Xcode 27 would also require a supported macOS version. No operating-system or Xcode upgrade is performed by the sample. Follow Apple's [physical-device signing and run instructions](https://developer.apple.com/documentation/xcode/running-your-app-on-simulated-or-physical-devices) for pairing, development-team selection, and required device support.
+
+### 3. Connect the phone
+
+Open **Scan settings** using the sliders button. Enter the backend **origin**, with no API path:
+
+- Simulator, on the same Mac: `http://127.0.0.1:3001`.
+- Physical iPhone: your laptop's LAN address, such as `http://192.168.1.20:3001`.
+- Deployed backend: its reachable HTTPS origin.
+
+`127.0.0.1` on a physical iPhone means the phone itself. Tap **Check connection**, then choose notification channels and **Apply**. Backend URL and preferences are saved on the device; session IDs are kept only in memory. Native `URLSession` requests do not use browser CORS permission, so browser origin configuration is not a substitute for making the server reachable.
+
+The sample's `Info.plist` includes camera/local-network purpose strings and **development HTTP transport exceptions** for connecting to a laptop. Those exceptions are not a production hosting configuration. Use HTTPS and remove unnecessary arbitrary-load exceptions before shipping.
+
+### 4. Try the real flow
+
+1. Tap **Test selected alert modes** using the speaker button and confirm your chosen channels on the actual phone.
+2. Tap **Start scanning**. Point the rear camera forward and slightly down toward a controlled scene.
+3. Place a supported object, such as a backpack, suitcase, or chair, so its bottom-center falls in the outlined image zone.
+4. Two nearby matching detections can produce an alert. A confirmed object can trigger again after the selected cooldown; it does not alert on every frame.
+5. Tap **Stop scanning**. The camera stops and late results cannot play another alert.
+6. Start again, switch to another app, and return. Confirm the paused state and explicit restart.
+
+Yellow boxes identify supported objects whose bottom-center is in the zone; teal boxes identify other retained detections. An empty result does not establish a clear path. Potholes, curbs, stairs, cones, and generic construction barriers are outside the selected model's categories. The zone is an image heuristic, not depth or collision prediction.
+
+## Implementation
+
+| File | Responsibility |
+| --- | --- |
+| `StepSense/APIClient.swift` | Actual session, preferences, metadata/readiness, raw JPEG upload, and error contracts |
+| `StepSense/CameraCapture.swift` | Rear camera, portrait buffers/preview, fresh JPEG encoding, and camera diagnostics |
+| `StepSense/ScanModel.swift` | Serialized frame loop, increasing sequence, session lifetime, preferences, and stale-result protection |
+| `StepSense/AlertPlayer.swift` | Generated beep, speech synthesis, and native warning haptic |
+| `StepSense/ScannerView.swift` | Teal-on-black UI, normalized aspect-fit overlay, and settings |
+
+The camera output is sampled only after the previous request completes. Fresh images are resized to a longest edge of at most 640 pixels and JPEG-encoded at quality 0.65. Uploads are serialized and capped at approximately three per second; actual rate depends on network and inference latency. Busy responses wait one second before sampling a new frame. A preference change sends the exact top-level PATCH fields without resetting sequence numbers.
+
+The backend confirms matching detections within 2.5 seconds, measured at backend processing completion. If the complete loop is slower, confirmation may never occur. The client separately rejects results older than 2.5 seconds from frame receipt, using a monotonic clock and including JPEG encoding and the request. Those results display no boxes and produce no alert. Displayed detections also expire after that age if the next request stalls. The screen shows the most recent capture-to-response duration and server processing time; these are measurements for that frame, not a performance guarantee.
+
+Sound and speech use a temporary audio session with ducking. Audio-player and speech delegates track each current alert independently; other audio recovers after both outputs complete. Queued speech counts as pending so a short beep cannot deactivate the session before speech starts. Stop invalidates those completions, stops both outputs, and deactivates immediately.
+
+Settings show the runtime value of `AVCaptureSession.isMultitaskingCameraAccessSupported` after camera startup. The sample deliberately does not enable multitasking camera access. A true value does not establish eligibility for a non-call background scanner. Apple's [support conditions](https://developer.apple.com/documentation/avfoundation/avcapturesession/ismultitaskingcameraaccesssupported) and [video-call PiP documentation](https://developer.apple.com/documentation/avkit/adopting-picture-in-picture-for-video-calls) describe specific supported cases.
+
+## Build verification
+
+From the repository root, an unsigned simulator compile can be run without selecting a signing team:
+
+```sh
+xcodebuild \
+  -project samples/ios/StepSense.xcodeproj \
+  -scheme StepSense \
+  -configuration Debug \
+  -sdk iphonesimulator \
+  -destination 'generic/platform=iOS Simulator' \
+  -derivedDataPath /private/tmp/stepsense-ios-build \
+  CODE_SIGNING_ALLOWED=NO build
+```
+
+Simulator compilation does not validate camera hardware, lens orientation, sound routing, speech voices, haptics, device permissions, app switching, or the phone-to-backend network. A physical iPhone is required for those checks. There are no prerecorded camera frames or fake detector responses in this application.
+
+Verified on October 16, 2026: the command above completed successfully with the installed iOS Simulator 26.2 SDK. `Info.plist` and `project.pbxproj` also passed `plutil -lint`. Simulator services were unavailable in the execution sandbox, so the application was compiled but not launched here; no physical iPhone test was performed.

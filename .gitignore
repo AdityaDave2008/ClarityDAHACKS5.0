@@ -25,3 +25,14 @@ test-results/
 .DS_Store
 .idea/
 .vscode/
+
+# Backend model/runtime scratch files
+.cache/
+
+# Native sample build output and machine-specific settings
+.gradle/
+.kotlin/
+local.properties
+DerivedData/
+xcuserdata/
+*.xcuserstate
