@@ -1,0 +1,687 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#111111">
+<title>Obstacle Alert — Sample</title>
+<!--
+  LEARNING SAMPLE, not the production frontend.
+  One file, no build step. Read top to bottom:
+    1. Layout + styles
+    2. Config + state
+    3. Backend API helpers (docs/api.md)
+    4. Camera, wake lock, motion sensor
+    5. Distance + direction (ground-plane estimate)
+    6. Frame capture + the scan loop
+    7. Alert manager (what to say, and when)
+    8. Output: speech, stereo beeps, vibration
+    9. Drawing the zone and boxes
+   10. Start / Stop / page-hidden lifecycle
+   11. Mock detector
+  Ideas adapted (not copied) from open-source projects: see ATTRIBUTION.md.
+-->
+<style>
+  :root { --bg:#111; --fg:#f4f4f4; --muted:#9a9a9a; --ok:#3ecf8e; --warn:#ffb020; --bad:#ff5a5a; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.4 system-ui, -apple-system, sans-serif;
+         padding: env(safe-area-inset-top) 16px env(safe-area-inset-bottom); }
+  header { display:flex; justify-content:space-between; align-items:center; padding:12px 0; gap:8px; flex-wrap:wrap; }
+  h1 { font-size:18px; margin:0; }
+  .pills { display:flex; gap:6px; flex-wrap:wrap; }
+  .pill { font-size:13px; padding:4px 10px; border-radius:999px; background:#2a2a2a; }
+  .pill.ok { background:#123d2b; color:var(--ok); } .pill.warn { background:#3d2e10; color:var(--warn); } .pill.bad { background:#3d1515; color:var(--bad); }
+
+  /* Camera view: video fills the box with object-fit: cover; the canvas sits exactly on top. */
+  #view { position:relative; width:100%; aspect-ratio:3/4; max-height:62vh; background:#000; border-radius:12px; overflow:hidden; }
+  #video, #overlay { position:absolute; inset:0; width:100%; height:100%; }
+  #video { object-fit:cover; }
+  #banner { position:absolute; left:0; right:0; top:0; padding:10px; text-align:center; font-weight:700; font-size:18px; }
+  #banner.alert { background:var(--bad); color:#fff; }
+  #banner.info { background:#333; }
+
+  #status { min-height:2.8em; margin:10px 0; color:var(--muted); }
+  .controls { display:flex; gap:8px; flex-wrap:wrap; }
+  button { font:inherit; font-weight:600; padding:14px 18px; border-radius:10px; border:0; background:#2c2c2c; color:var(--fg); flex:1; min-width:120px; }
+  button.primary { background:var(--ok); color:#06210f; }
+  button.stop { background:var(--bad); color:#fff; }
+  button:disabled { opacity:.4; }
+  fieldset { border:1px solid #2c2c2c; border-radius:10px; margin:12px 0; padding:10px 12px; }
+  legend { color:var(--muted); font-size:14px; }
+  label { display:inline-flex; align-items:center; gap:6px; margin:4px 12px 4px 0; }
+  select, input[type=text] { font:inherit; background:#1b1b1b; color:var(--fg); border:1px solid #333; border-radius:6px; padding:4px 6px; }
+  small { color:var(--muted); }
+  pre { background:#1b1b1b; padding:10px; border-radius:8px; font-size:12px; overflow-x:auto; max-height:200px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Obstacle Alert <small>sample</small></h1>
+  <div class="pills">
+    <span id="modelPill" class="pill">model: checking…</span>
+    <span id="surfacePill" class="pill">surface: —</span>
+    <span id="tiltPill" class="pill">tilt: —</span>
+  </div>
+</header>
+
+<div id="view">
+  <video id="video" autoplay muted playsinline></video>
+  <canvas id="overlay"></canvas>
+  <div id="banner" hidden></div>
+</div>
+
+<!-- role=status + aria-live: screen readers hear state changes, not every frame. -->
+<div id="status" role="status" aria-live="polite">Tap Start scanning. Hold the phone upright at chest height. Scanning pauses if you leave this page.</div>
+
+<div class="controls">
+  <button id="startBtn" class="primary">Start scanning</button>
+  <button id="stopBtn" class="stop" hidden>Stop</button>
+  <button id="testBtn">Test alert</button>
+</div>
+
+<fieldset>
+  <legend>Alert settings</legend>
+  <label><input type="checkbox" name="mode" value="sound" checked> Sound</label>
+  <label><input type="checkbox" name="mode" value="speech" checked> Spoken</label>
+  <label><input type="checkbox" name="mode" value="vibration" id="vibBox"> Vibration</label>
+  <div id="vibNote"><small></small></div>
+  <label>Phone held at
+    <select id="camHeight">
+      <option value="1.3" selected>chest (1.3 m)</option>
+      <option value="1.1">waist (1.1 m)</option>
+      <option value="1.5">face (1.5 m)</option>
+    </select>
+  </label>
+</fieldset>
+
+<fieldset>
+  <legend>Developer</legend>
+  <label>API <input type="text" id="apiBase" size="28"></label><br>
+  <label><input type="checkbox" id="mockMode"> Mock mode (fake detections, no backend needed)</label>
+  <div><small id="timing">—</small></div>
+  <pre id="lastJson">Last response appears here.</pre>
+</fieldset>
+
+<script>
+// ============================================================
+// 2. CONFIG + STATE
+// ============================================================
+const $ = (id) => document.getElementById(id);
+const video = $('video'), overlay = $('overlay'), ctx = overlay.getContext('2d');
+
+// Fallback zone (same as docs/api.md). Replaced by GET /api/v1/model when the backend is up.
+let zone = [{x:.38,y:.42},{x:.62,y:.42},{x:.95,y:1},{x:.05,y:1}];
+
+const state = {
+  scanning: false,
+  stream: null,       // MediaStream from the camera
+  wakeLock: null,     // keeps the screen on
+  sessionId: null,    // backend session (a private bearer token — don't log or screenshot it)
+  sequence: 0,        // X-Frame-Sequence; must strictly increase per session
+  runId: 0,           // bumps on every Start/Stop so stale responses are ignored
+  abort: null,        // AbortController for the in-flight frame
+  audio: null,        // AudioContext, unlocked by a tap
+  pitchDown: null,    // degrees the camera points below the horizon (from the motion sensor)
+  lastDetections: [],
+  lastSurface: null,
+};
+
+// Served by serve.mjs (or a tunnel to it), the API is on the same origin.
+$('apiBase').value = location.origin;
+const apiBase = () => $('apiBase').value.replace(/\/$/, '');
+const mock = () => $('mockMode').checked;
+const selectedModes = () => [...document.querySelectorAll('input[name=mode]:checked')].map(i => i.value);
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+function setStatus(text) { if ($('status').textContent !== text) $('status').textContent = text; }
+function setPill(id, text, cls) { const p = $(id); p.textContent = text; p.className = 'pill ' + (cls || ''); }
+
+// Feature-detect vibration. iPhone Safari/WebKit has no Vibration API, so we say so instead of failing silently.
+if (!('vibrate' in navigator)) {
+  $('vibBox').disabled = true;
+  $('vibNote').firstElementChild.textContent = 'Vibration is not supported in this browser (e.g. iPhone Safari). Sound beeps pan left/right instead.';
+}
+
+// ============================================================
+// 3. BACKEND API (see docs/api.md)
+// ============================================================
+async function api(path, opts = {}) {
+  const res = await fetch(apiBase() + path, opts);
+  const body = res.status === 204 ? null : await res.json().catch(() => null);
+  if (!res.ok) {
+    const err = new Error(body?.error?.message || `HTTP ${res.status}`);
+    err.status = res.status; err.code = body?.error?.code; throw err;
+  }
+  return body;
+}
+
+async function checkModel() {
+  if (mock()) { setPill('modelPill', 'model: mock', 'warn'); setPill('surfacePill', 'surface: mock', 'warn'); return true; }
+  try {
+    const r = await fetch(apiBase() + '/ready');
+    const j = await r.json();
+    if (j.ready) {
+      const m = await api('/api/v1/model');
+      zone = m.zone;                     // always draw the server's zone
+      setPill('modelPill', 'model: ready', 'ok');
+      const s = m.surface?.state || 'disabled';
+      setPill('surfacePill', 'surface: ' + s, s === 'ready' ? 'ok' : 'warn');
+      return true;
+    }
+    setPill('modelPill', 'model: ' + j.modelState, j.modelState === 'error' ? 'bad' : 'warn');
+  } catch { setPill('modelPill', 'backend offline', 'bad'); }
+  return false;
+}
+
+async function createSession() {
+  if (mock()) { state.sessionId = 'mock'; state.sequence = 0; return; }
+  const s = await api('/api/v1/sessions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ preset: 'standard', preferences: { alertModes: selectedModes() } }),
+  });
+  state.sessionId = s.sessionId;
+  state.sequence = 0;
+}
+
+async function deleteSession() {
+  const id = state.sessionId; state.sessionId = null;
+  if (!id || mock()) return;
+  try { await api(`/api/v1/sessions/${encodeURIComponent(id)}`, { method: 'DELETE' }); } catch {}
+}
+
+async function sendFrame(blob, signal) {
+  if (mock()) return fakeResult();
+  state.sequence += 1;                   // increment before EVERY attempt, even retries
+  return api(`/api/v1/sessions/${encodeURIComponent(state.sessionId)}/frames`, {
+    method: 'POST',
+    headers: { 'Content-Type': blob.type, 'X-Frame-Sequence': String(state.sequence) },
+    body: blob,                          // raw bytes — not multipart, not base64
+    signal,
+  });
+}
+
+// ============================================================
+// 4. CAMERA, WAKE LOCK, MOTION SENSOR
+// ============================================================
+async function openCamera() {
+  state.stream = await navigator.mediaDevices.getUserMedia({
+    audio: false,
+    video: { facingMode: { ideal: 'environment' }, width: { ideal: 640 }, height: { ideal: 480 } },
+  });
+  video.srcObject = state.stream;
+  await video.play();
+  while (!video.videoWidth) await sleep(50);   // wait for real dimensions
+  // iOS can end the track (e.g. another app grabs the camera). Don't keep "scanning" a dead stream.
+  state.stream.getVideoTracks()[0].addEventListener('ended', () => {
+    if (state.scanning) stop('Camera stopped. Tap Start scanning to try again.');
+  });
+}
+
+function closeCamera() {
+  state.stream?.getTracks().forEach(t => t.stop());
+  state.stream = null;
+  video.srcObject = null;
+}
+
+async function keepScreenOn() {
+  try {
+    state.wakeLock = await navigator.wakeLock?.request('screen');
+    // The OS can drop the lock (low battery etc.). Re-request while we're still scanning.
+    state.wakeLock?.addEventListener('release', () => {
+      if (state.scanning && !document.hidden) keepScreenOn();
+    });
+  } catch { state.wakeLock = null; }
+  return !!state.wakeLock;
+}
+
+// iOS asks for motion permission, and only from inside a tap. Returns a promise; call it
+// synchronously from the click handler (before any other await).
+function requestMotion() {
+  const DOE = window.DeviceOrientationEvent;
+  if (!DOE) return Promise.resolve(false);
+  const ask = typeof DOE.requestPermission === 'function' ? DOE.requestPermission() : Promise.resolve('granted');
+  return ask.then((answer) => {
+    if (answer !== 'granted') return false;
+    window.addEventListener('deviceorientation', onOrientation);
+    return true;
+  }).catch(() => false);
+}
+
+function onOrientation(e) {
+  if (e.beta == null) return;
+  // Portrait, phone upright: beta = 90 when the rear camera looks at the horizon.
+  // Tipping the top away (camera toward the ground) lowers beta.
+  const raw = 90 - e.beta;
+  state.pitchDown = state.pitchDown == null ? raw : state.pitchDown * 0.8 + raw * 0.2;   // smooth jitter
+  const p = Math.round(state.pitchDown);
+  setPill('tiltPill', `tilt: ${p}° down`, p < 0 || p > 50 ? 'warn' : 'ok');
+}
+
+// ============================================================
+// 5. DISTANCE + DIRECTION
+// ============================================================
+// Ground-plane estimate: the box's bottom edge is where the object meets the floor. Knowing
+// the camera's height and how far below the horizon that pixel is gives the distance:
+//     d = H / tan(pitchDown + atan((y - 0.5) / f))
+// f is the focal length in normalized image units, from the camera's field of view.
+// ESTIMATE ONLY — assumes flat ground, object touching the ground, and a typical iPhone 1x lens.
+const FOV_LONG_SIDE = 67, FOV_SHORT_SIDE = 53;   // degrees, approx. iPhone main camera (4:3)
+const ASSUMED_PITCH = 10;                         // used when the motion sensor is unavailable
+const deg = (r) => r * 180 / Math.PI, rad = (d) => d * Math.PI / 180;
+
+function estimateDistance(anchorY) {
+  const portrait = video.videoHeight >= video.videoWidth;
+  const vfov = portrait ? FOV_LONG_SIDE : FOV_SHORT_SIDE;
+  const f = 0.5 / Math.tan(rad(vfov / 2));
+  const pitch = state.pitchDown ?? ASSUMED_PITCH;
+  const below = pitch + deg(Math.atan((anchorY - 0.5) / f));   // degrees below horizon
+  if (below <= 2) return Infinity;                              // at/above horizon → far
+  return Number($('camHeight').value) / Math.tan(rad(below));
+}
+
+function bucketOf(meters) { return meters < 1.5 ? 'very close' : meters < 3 ? 'close' : 'ahead'; }
+function directionOf(x) { return x < 0.4 ? 'left' : x > 0.6 ? 'right' : 'ahead'; }
+function describeDistance(m) { return !isFinite(m) ? 'far' : m < 1 ? 'under 1 metre' : `${Math.round(m)} metres`; }
+
+// ============================================================
+// 6. FRAME CAPTURE + SCAN LOOP
+// ============================================================
+const grab = document.createElement('canvas');
+const tiny = document.createElement('canvas'); tiny.width = tiny.height = 24;
+
+function captureFrame() {
+  // Downscale so the longest side is ~640px (backend limit is 1280px / 1 MiB).
+  const scale = Math.min(1, 640 / Math.max(video.videoWidth, video.videoHeight));
+  grab.width = Math.round(video.videoWidth * scale);
+  grab.height = Math.round(video.videoHeight * scale);
+  grab.getContext('2d').drawImage(video, 0, 0, grab.width, grab.height);
+  return new Promise(r => grab.toBlob(r, 'image/jpeg', 0.7));
+}
+
+// Average brightness of a 24x24 thumbnail. A covered lens or dark scene must NOT read as "clear".
+function frameBrightness() {
+  const t = tiny.getContext('2d', { willReadFrequently: true });
+  t.drawImage(grab, 0, 0, 24, 24);
+  const d = t.getImageData(0, 0, 24, 24).data;
+  let sum = 0;
+  for (let i = 0; i < d.length; i += 4) sum += 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2];
+  return sum / (d.length / 4);
+}
+
+async function scanLoop(runId) {
+  // One frame in flight at a time: capture → upload → wait → repeat.
+  while (state.scanning && state.runId === runId) {
+    const t0 = performance.now();
+    state.abort = new AbortController();
+    const timeout = setTimeout(() => state.abort.abort(), 8000);
+    try {
+      const blob = await captureFrame();
+      const dark = frameBrightness() < 18;
+      const result = await sendFrame(blob, state.abort.signal);
+      if (state.runId !== runId) return;          // user hit Stop meanwhile → drop it
+
+      state.lastDetections = result.detections.map(d => {
+        const meters = estimateDistance(d.anchor.y);
+        return { ...d, meters, bucket: bucketOf(meters), direction: directionOf(d.anchor.x) };
+      });
+      state.lastSurface = result.surface ?? null;
+      draw();
+      $('lastJson').textContent = JSON.stringify(result, null, 2);
+      $('timing').textContent = `round trip ${Math.round(performance.now() - t0)} ms · server ${result.processingMs ?? '—'} ms`;
+
+      alerts.update(result, state.lastDetections, dark, performance.now());
+    } catch (e) {
+      if (state.runId !== runId) return;
+      state.lastDetections = []; draw();          // never leave stale boxes up
+      await handleError(e);
+    } finally { clearTimeout(timeout); }
+  }
+}
+
+async function handleError(e) {
+  if (e.status === 404) { setStatus('Session expired — reconnecting…'); await createSession(); return; }
+  if (e.status === 429) { setStatus('Detector busy — retrying…'); await sleep(1000); return; }
+  if (e.status === 409) return;                               // stale/changed → just send a fresh frame
+  if (e.status === 503) { setStatus('Model not ready.'); await checkModel(); await sleep(2000); return; }
+  setStatus('Analysis unavailable — check connection. Retrying…');
+  alerts.say('Connection lost.', { key: 'net', cooldown: 10000 });
+  await sleep(1500);
+}
+
+// ============================================================
+// 7. ALERT MANAGER — decides what to announce, and when
+// ============================================================
+// Rules (ideas from BlindSpot, AIVI, VISION_AI, SmartObstacleDetector):
+//  - The SERVER confirms objects (2 matching frames). We only announce confirmed ones.
+//  - Announce when something new appears, changes direction, or gets closer (edge-triggered).
+//  - The same thing (label + direction + distance band) repeats at most 3 times, ≥4 s apart.
+//  - Getting closer to "very close" is urgent: it interrupts whatever is being spoken.
+//  - Forget an object 2 s after it was last seen. Never say "path is clear".
+const BUCKET_RANK = { 'ahead': 1, 'close': 2, 'very close': 3 };
+const SURFACE_PHRASE = {
+  stairs: 'Stairs ahead, careful', stairway: 'Stairs ahead, careful', step: 'Step ahead, careful', escalator: 'Escalator ahead',
+  wall: 'Wall ahead', fence: 'Fence ahead', railing: 'Railing ahead', pole: 'Pole ahead', column: 'Pillar ahead',
+  door: 'Door ahead', water: 'Water ahead, careful', 'swimming pool': 'Water ahead, careful',
+};
+
+const alerts = {
+  tracks: new Map(),       // label → { lastSeen, lastKey, count, lastAt, rank, heights: [{t, h}] }
+  keyTimes: new Map(),     // spoken key → last time
+  lastSpokenAt: 0,
+  surfaceStreak: { label: null, seq: -1, n: 0 },
+  darkFrames: 0,
+  lastTiltHint: 0,
+
+  update(result, detections, dark, now) {
+    // Camera blocked / too dark
+    this.darkFrames = dark ? this.darkFrames + 1 : 0;
+    if (this.darkFrames >= 3) {
+      setStatus('Camera blocked or too dark — no detection is possible.');
+      this.say('Camera blocked or too dark.', { key: 'dark', cooldown: 8000 });
+      return;
+    }
+
+    // Tilt guidance from the motion sensor
+    if (state.pitchDown != null && now - this.lastTiltHint > 10000) {
+      if (state.pitchDown < -5) { this.lastTiltHint = now; this.say('Tilt the phone down a little.', { key: 'tilt' }); }
+      else if (state.pitchDown > 50) { this.lastTiltHint = now; this.say('Tilt the phone up.', { key: 'tilt' }); }
+    }
+
+    // Track box heights per label, for the "getting closer" cue
+    for (const d of detections) {
+      const t = this.tracks.get(d.label) || { lastSeen: 0, lastKey: null, count: 0, lastAt: 0, rank: 0, heights: [] };
+      t.lastSeen = now;
+      t.heights.push({ t: now, h: d.bbox.height });
+      t.heights = t.heights.filter(x => now - x.t < 1500);
+      this.tracks.set(d.label, t);
+    }
+    for (const [label, t] of this.tracks) if (now - t.lastSeen > 2000) this.tracks.delete(label);
+
+    const reason = result.alert.reason;
+    const confirmed = reason === 'triggered' || reason === 'cooldown';
+    const inZone = detections.filter(d => d.inZone)
+      .sort((a, b) => (BUCKET_RANK[b.bucket] * 10 + b.confidence * 4) - (BUCKET_RANK[a.bucket] * 10 + a.confidence * 4));
+    const top = inZone[0];
+    let said = false;
+
+    if (confirmed && top) {
+      const t = this.tracks.get(top.label);
+      const key = `${top.label}|${top.direction}|${top.bucket}`;
+      const rank = BUCKET_RANK[top.bucket];
+      const first = t.heights[0], last = t.heights[t.heights.length - 1];
+      const approaching = first && last && last.t - first.t > 500 && last.h > first.h * 1.15;
+      const closer = rank > t.rank;
+      const changed = key !== t.lastKey;
+      const urgent = top.bucket === 'very close' && (changed || closer);
+      const repeatOk = !changed && t.count < 3 && now - t.lastAt >= 4000;
+
+      if (changed || repeatOk || (approaching && now - t.lastAt >= 2500)) {
+        const where = top.direction === 'ahead' ? 'ahead' : `on your ${top.direction}`;
+        const msg = `${cap(top.label)} ${where}, ${top.bucket === 'very close' ? 'very close' : describeDistance(top.meters)}${approaching ? ', getting closer' : ''}.`;
+        if (this.fire(msg, { urgent, pan: top.direction, bucket: top.bucket })) {
+          t.count = changed ? 1 : t.count + 1; t.lastKey = key; t.lastAt = now; t.rank = rank;
+          said = true;
+        }
+      }
+      if (!said) setStatus(`${cap(top.label)} ${top.direction === 'ahead' ? 'ahead' : 'on your ' + top.direction} · ~${describeDistance(top.meters)}`);
+    }
+
+    // Surface hazards (walls, poles, stairs…) from the segmentation model.
+    // Require the same label on 2 different segmentation results before speaking.
+    const w = result.surface?.warning;
+    const s = this.surfaceStreak;
+    if (w && result.surface.sequence !== s.seq) {
+      s.n = w.label === s.label ? s.n + 1 : 1; s.label = w.label; s.seq = result.surface.sequence;
+    } else if (!w) { s.n = 0; s.label = null; }
+    if (!said && w && s.n >= 2) {
+      const msg = (SURFACE_PHRASE[w.label] || `${cap(w.label)} ahead`) + '.';
+      said = this.fire(msg, { key: 'surface|' + w.label, cooldown: 6000, pan: 'ahead', bucket: 'close' });
+      if (!said) setStatus(msg);
+    }
+
+    if (!said && !(confirmed && top) && !(w && s.n >= 2)) {
+      setStatus(reason === 'confirming' ? 'Possible object in zone — confirming…' : 'No supported object in zone in the last frame.');  // NOT "path is clear"
+    }
+  },
+
+  // Deliver an alert in the user's chosen modes. Returns false if suppressed.
+  fire(message, { urgent = false, key = message, cooldown = 0, pan = 'ahead', bucket = 'ahead' } = {}) {
+    const now = performance.now();
+    if (cooldown && now - (this.keyTimes.get(key) || 0) < cooldown) return false;
+    if (!urgent && now - this.lastSpokenAt < 2000) return false;     // global gap
+    this.keyTimes.set(key, now); this.lastSpokenAt = now;
+    const modes = selectedModes();
+    if (modes.includes('sound')) beep(bucket, pan);
+    if (modes.includes('speech')) speech.say(message, urgent);
+    if (modes.includes('vibration') && navigator.vibrate) navigator.vibrate(bucket === 'very close' ? [100, 50, 100, 50, 100] : [200, 100, 200]);
+    showBanner('⚠ ' + message, 'alert');                              // visual always
+    setStatus(message);
+    return true;
+  },
+
+  // Plain spoken notice (status messages), rate-limited by key.
+  say(message, { key = message, cooldown = 5000 } = {}) {
+    const now = performance.now();
+    if (now - (this.keyTimes.get(key) || 0) < cooldown) return;
+    this.keyTimes.set(key, now);
+    if (selectedModes().includes('speech')) speech.say(message, false);
+  },
+
+  reset() { this.tracks.clear(); this.keyTimes.clear(); this.lastSpokenAt = 0; this.surfaceStreak = { label: null, seq: -1, n: 0 }; this.darkFrames = 0; },
+};
+const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+
+// ============================================================
+// 8. OUTPUT — speech, stereo beeps, vibration
+// ============================================================
+function unlockAudio() {
+  // MUST run inside a tap handler, or iOS keeps audio/speech silent.
+  state.audio ??= new (window.AudioContext || window.webkitAudioContext)();
+  state.audio.resume();
+  if ('speechSynthesis' in window) speechSynthesis.speak(new SpeechSynthesisUtterance(''));
+}
+
+// Pitch + rhythm encode distance; stereo pan encodes direction (a stand-in for iPhone haptics).
+function beep(bucket = 'ahead', direction = 'ahead') {
+  const a = state.audio; if (!a) return;
+  if (a.state === 'suspended') a.resume();
+  const freq = { 'very close': 1100, 'close': 880, 'ahead': 620 }[bucket];
+  const count = bucket === 'very close' ? 3 : bucket === 'close' ? 2 : 1;
+  const panner = a.createStereoPanner ? a.createStereoPanner() : null;
+  if (panner) { panner.pan.value = { left: -0.8, right: 0.8, ahead: 0 }[direction]; panner.connect(a.destination); }
+  for (let i = 0; i < count; i++) {
+    const t = a.currentTime + i * 0.16;
+    const o = a.createOscillator(), g = a.createGain();
+    o.type = 'square'; o.frequency.value = freq;
+    g.gain.setValueAtTime(0.35, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+    o.connect(g).connect(panner || a.destination); o.start(t); o.stop(t + 0.12);
+  }
+}
+
+// Newest-only speech: urgent messages interrupt; normal ones replace whatever is waiting.
+const speech = {
+  speaking: false, pending: null, guard: 0,
+  say(text, urgent) {
+    if (!('speechSynthesis' in window)) return;
+    if (urgent) { speechSynthesis.cancel(); this.speaking = false; this.pending = null; }
+    if (this.speaking) { this.pending = text; return; }
+    this.speak(text);
+  },
+  speak(text) {
+    this.speaking = true;
+    speechSynthesis.resume();                       // iOS sometimes leaves synthesis paused
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = 1.1;
+    const done = () => {
+      clearTimeout(this.guard);
+      this.speaking = false;
+      const next = this.pending; this.pending = null;
+      if (next) this.speak(next);
+    };
+    u.onend = done; u.onerror = done;
+    this.guard = setTimeout(done, 6000);            // Safari occasionally never fires onend
+    speechSynthesis.speak(u);
+  },
+  stop() { this.pending = null; this.speaking = false; clearTimeout(this.guard); if ('speechSynthesis' in window) speechSynthesis.cancel(); },
+};
+
+function showBanner(text, kind) {
+  const b = $('banner'); b.textContent = text; b.className = kind; b.hidden = false;
+  clearTimeout(showBanner.t);
+  if (kind === 'alert') showBanner.t = setTimeout(() => { b.hidden = true; }, 1500);
+}
+
+// ============================================================
+// 9. DRAWING — zone + boxes over an object-fit:cover video
+// ============================================================
+// The video is cropped to fill the box, so normalized (0..1) frame coords must be
+// mapped through the same scale + offset the browser used for the crop.
+function coverTransform() {
+  const cw = overlay.clientWidth, ch = overlay.clientHeight;
+  const vw = video.videoWidth || cw, vh = video.videoHeight || ch;
+  const s = Math.max(cw / vw, ch / vh);
+  const dw = vw * s, dh = vh * s;
+  return { cw, ch, dw, dh, ox: (cw - dw) / 2, oy: (ch - dh) / 2 };
+}
+
+function draw() {
+  const dpr = window.devicePixelRatio || 1;
+  const t = coverTransform();
+  overlay.width = t.cw * dpr; overlay.height = t.ch * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, t.cw, t.ch);
+  const X = (nx) => t.ox + nx * t.dw, Y = (ny) => t.oy + ny * t.dh;
+
+  // Zone polygon from the server; tinted orange when the surface model flags it
+  const surfaceWarn = state.lastSurface?.warning;
+  ctx.beginPath();
+  zone.forEach((p, i) => i ? ctx.lineTo(X(p.x), Y(p.y)) : ctx.moveTo(X(p.x), Y(p.y)));
+  ctx.closePath();
+  ctx.fillStyle = surfaceWarn ? 'rgba(255,176,32,.25)' : 'rgba(62,207,142,.18)'; ctx.fill();
+  ctx.strokeStyle = surfaceWarn ? 'rgba(255,176,32,.9)' : 'rgba(62,207,142,.8)'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.font = '600 14px system-ui';
+  if (state.lastSurface) {
+    const txt = surfaceWarn ? `surface: ${surfaceWarn.label} ${Math.round(surfaceWarn.ratio * 100)}%` : `walkable ${Math.round(state.lastSurface.walkableRatio * 100)}%`;
+    ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(8, t.ch - 28, ctx.measureText(txt).width + 12, 22);
+    ctx.fillStyle = surfaceWarn ? '#ffb020' : '#3ecf8e'; ctx.fillText(txt, 14, t.ch - 12);
+  }
+
+  // Detection boxes; red if the object's anchor (bottom-center) is inside the zone
+  for (const d of state.lastDetections) {
+    const b = d.bbox, color = d.inZone ? '#ff5a5a' : '#ffb020';
+    ctx.strokeStyle = color; ctx.lineWidth = 3;
+    ctx.strokeRect(X(b.x), Y(b.y), b.width * t.dw, b.height * t.dh);
+    const label = `${d.label} ~${isFinite(d.meters) ? d.meters.toFixed(1) + 'm' : 'far'}`;
+    ctx.fillStyle = color;
+    ctx.fillRect(X(b.x), Y(b.y) - 20, ctx.measureText(label).width + 10, 20);
+    ctx.fillStyle = '#000'; ctx.fillText(label, X(b.x) + 5, Y(b.y) - 5);
+  }
+}
+window.addEventListener('resize', draw);
+
+// ============================================================
+// 10. LIFECYCLE — Start / Stop / page hidden
+// ============================================================
+async function start() {
+  unlockAudio();                                 // first thing in the tap, before any await
+  const motion = requestMotion();                // iOS permission prompt must also start in the tap
+  $('startBtn').disabled = true;
+  setStatus('Starting…');
+  try {
+    if (!(await checkModel())) throw new Error('Backend/model not ready. Start the backend or enable Mock mode.');
+    await openCamera();
+    await createSession();
+    const awake = await keepScreenOn();
+    const hasMotion = await motion;
+    if (!hasMotion) setPill('tiltPill', 'tilt: unavailable', 'warn');
+    alerts.reset();
+    state.scanning = true;
+    const runId = ++state.runId;
+    $('banner').hidden = true;
+    $('startBtn').hidden = true; $('stopBtn').hidden = false;
+    setStatus('Scanning. Point the rear camera at the path ahead.'
+      + (awake ? '' : ' Tip: this browser can\'t keep the screen on — turn off auto-lock.')
+      + (hasMotion ? '' : ' Motion sensor off — distances are rougher.'));
+    scanLoop(runId);
+  } catch (e) {
+    closeCamera();
+    setStatus(e.name === 'NotAllowedError' ? 'Camera permission denied. Allow camera access in browser settings and retry.' : e.message);
+  } finally { $('startBtn').disabled = false; }
+}
+
+async function stop(reason = 'Stopped.') {
+  state.scanning = false;
+  state.runId++;                                 // invalidates any in-flight response
+  state.abort?.abort();
+  speech.stop();
+  closeCamera();
+  state.wakeLock?.release().catch(() => {}); state.wakeLock = null;
+  state.lastDetections = []; state.lastSurface = null; draw();
+  await deleteSession();
+  $('startBtn').hidden = false; $('stopBtn').hidden = true;
+  $('startBtn').textContent = reason.startsWith('Paused') ? 'Resume scanning' : 'Start scanning';
+  setStatus(reason);
+}
+
+// iOS (and Android) freeze hidden pages, so we pause explicitly and ask the user to resume.
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && state.scanning) {
+    stop('Paused — you left the app. Tap Resume scanning.');
+    showBanner('Scanning paused', 'info');
+  }
+});
+
+$('startBtn').onclick = start;
+$('stopBtn').onclick = () => stop();
+$('testBtn').onclick = () => {
+  unlockAudio();
+  requestMotion();
+  // Left, center, right so you can hear the stereo direction cue.
+  beep('ahead', 'left'); setTimeout(() => beep('close', 'ahead'), 500); setTimeout(() => beep('very close', 'right'), 1000);
+  if (selectedModes().includes('speech')) speech.say('Test alert. Chair ahead, 2 metres.', true);
+  if (selectedModes().includes('vibration') && navigator.vibrate) navigator.vibrate([200, 100, 200]);
+  showBanner('⚠ Test alert', 'alert');
+};
+$('mockMode').onchange = checkModel;
+
+// ============================================================
+// 11. MOCK DETECTOR — a backpack walks toward you, then drifts away; a wall appears.
+// "Server" confirms after 2 in-zone frames, 3 s cooldown — same rules as the real backend.
+// ============================================================
+let mockT = 0, mockStreak = 0, mockLastAlert = 0;
+async function fakeResult() {
+  await sleep(250);
+  mockT += 0.12;
+  const phase = (Math.sin(mockT * 0.6) + 1) / 2;                 // 0 → 1 → 0
+  const x = 0.38 + 0.25 * Math.sin(mockT * 0.9);
+  const h = 0.15 + 0.35 * phase;
+  const bbox = { x, y: 0.95 - h, width: h * 0.7, height: h };
+  const anchor = { x: x + bbox.width / 2, y: 0.55 + 0.4 * phase };
+  const inZone = anchor.x > 0.25 && anchor.x < 0.75;
+  mockStreak = inZone ? mockStreak + 1 : 0;
+  const cooldown = Math.max(0, 3000 - (Date.now() - mockLastAlert));
+  const triggered = mockStreak >= 2 && cooldown === 0;
+  if (triggered) mockLastAlert = Date.now();
+  const seq = ++state.sequence;
+  const wall = Math.sin(mockT * 0.2) > 0.7;
+  return {
+    frame: { sequence: seq, width: grab.width, height: grab.height },
+    detections: [{ label: 'backpack', confidence: 0.87, bbox, anchor, inZone }],
+    alert: {
+      triggered,
+      reason: !inZone ? 'no_candidate' : mockStreak < 2 ? 'confirming' : triggered ? 'triggered' : 'cooldown',
+      modalities: triggered ? selectedModes() : [],
+      message: triggered ? 'Object in camera zone. Check your surroundings.' : null,
+      cooldownRemainingMs: triggered ? 3000 : cooldown,
+    },
+    surface: { sequence: seq - 1, walkableRatio: wall ? 0.4 : 0.9, hazards: wall ? [{ label: 'wall', ratio: 0.5 }] : [], warning: wall ? { label: 'wall', ratio: 0.5 } : null },
+    processingMs: 250,
+  };
+}
+
+checkModel(); draw();
+</script>
+</body>
+</html>
