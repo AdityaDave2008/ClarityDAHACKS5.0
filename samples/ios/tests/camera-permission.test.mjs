@@ -26,3 +26,17 @@ test('capture retains its permission guard independently of startup caller', () 
   const captureStart = camera.slice(camera.indexOf('    func start(onFrame:'), camera.indexOf('    func requestFrame()'));
   assert.match(captureStart, /try await requestAuthorization\(\)/);
 });
+
+test('camera capture starts before backend construction', () => {
+  assert.ok(start.indexOf('try await camera.start(') < start.indexOf('let api = try BackendClient('));
+});
+
+test('network failure retains a clearly labeled preview-only state', () => {
+  assert.match(start, /if cameraRunning \{[\s\S]*phase = \.previewing/);
+  assert.match(start, /Preview only/);
+});
+
+test('view does not cover an active camera while connecting or offline', () => {
+  const view = readFileSync(new URL('../StepSense/ScannerView.swift', import.meta.url), 'utf8');
+  assert.match(view, /if !model.cameraRunning \{/);
+});

@@ -4,11 +4,12 @@ import SwiftUI
 
 @MainActor
 final class ScanModel: ObservableObject {
-    enum Phase: Equatable { case idle, connecting, scanning, paused, failed }
+    enum Phase: Equatable { case idle, connecting, previewing, scanning, paused, failed }
 
     let camera = CameraCapture()
     let pip = PictureInPictureController()
     private let alerts = AlertPlayer()
+    @Published private(set) var cameraRunning = false
     @Published var phase: Phase = .idle
     @Published var detail = "Point the rear camera forward and slightly down."
     @Published var backendAddress: String {
@@ -58,7 +59,7 @@ final class ScanModel: ObservableObject {
         }
     }
 
-    var isBusy: Bool { phase == .connecting || phase == .scanning }
+    var isBusy: Bool { phase == .connecting || phase == .scanning || phase == .previewing }
     var hasCandidate: Bool { detections.contains(where: \.inZone) }
 
     func checkConnection() async {
@@ -95,11 +96,29 @@ final class ScanModel: ObservableObject {
             guard let self else { return }
             do {
                 // Permission must not depend on a reachable model server.
-                // Capture still starts only once a usable detection session exists.
+                // Local preview must also work when the detector cannot be reached.
                 try await camera.requestAuthorization()
                 try Task.checkCancellation()
                 guard generation == current else { return }
-                detail = "Camera permission granted. Connecting to the detection model…"
+                detail = "Starting the rear camera…"
+                let diagnostics = try await camera.start(onFrame: { [weak self] frame in
+                    Task { @MainActor in self?.analyze(frame, generation: current) }
+                }, onPreview: { [weak self] preview in
+                    Task { @MainActor in
+                        guard let self, self.generation == current else { return }
+                        self.pip.enqueue(preview)
+                    }
+                }, onFailure: { [weak self] message in
+                    Task { @MainActor in
+                        guard let self, self.generation == current else { return }
+                        self.stop(nextPhase: .failed, message: message)
+                    }
+                })
+                guard generation == current, !Task.isCancelled else { return }
+                multitaskingSupported = diagnostics.multitaskingSupported
+                multitaskingEnabled = diagnostics.multitaskingEnabled
+                cameraRunning = true
+                detail = "Camera preview only. Connecting to detection…"
                 let api = try BackendClient(address: backendAddress)
                 let metadata = try await api.metadata()
                 try Task.checkCancellation()
@@ -115,23 +134,6 @@ final class ScanModel: ObservableObject {
                 client = api
                 sessionID = created.sessionId
                 sequence = 0
-                detail = "Starting the rear camera…"
-                let diagnostics = try await camera.start(onFrame: { [weak self] frame in
-                    Task { @MainActor in self?.analyze(frame, generation: current) }
-                }, onPreview: { [weak self] preview in
-                    Task { @MainActor in
-                        guard let self, self.generation == current else { return }
-                        self.pip.enqueue(preview)
-                    }
-                }, onFailure: { [weak self] message in
-                    Task { @MainActor in
-                        guard let self, self.generation == current else { return }
-                        self.stop(nextPhase: .failed, message: message)
-                    }
-                })
-                guard generation == current, !Task.isCancelled else { camera.stop(); return }
-                multitaskingSupported = diagnostics.multitaskingSupported
-                multitaskingEnabled = diagnostics.multitaskingEnabled
                 phase = .scanning
                 detail = "Scanning the marked image zone."
                 pip.setEnabled(pictureInPictureRequested)
@@ -139,7 +141,14 @@ final class ScanModel: ObservableObject {
                 camera.requestFrame()
             } catch {
                 guard generation == current else { return }
-                stop(nextPhase: .failed, message: readable(error))
+                if cameraRunning {
+                    phase = .previewing
+                    alertReason = "unavailable"
+                    modelStatus = "Detection unavailable"
+                    detail = "Preview only. No detection or obstacle alerts. \(readable(error)) Stop and Start to retry."
+                } else {
+                    stop(nextPhase: .failed, message: readable(error))
+                }
             }
         }
     }
@@ -308,6 +317,7 @@ final class ScanModel: ObservableObject {
         startTask = nil
         frameTask = nil
         camera.stop()
+        cameraRunning = false
         alerts.stop()
         pip.setEnabled(false)
         let previousClient = client

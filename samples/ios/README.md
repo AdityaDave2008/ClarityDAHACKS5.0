@@ -145,3 +145,9 @@ Simulator compilation does not validate camera hardware, lens orientation, sound
 The iOS Simulator does not provide a rear camera, so Picture in Picture behavior, background camera access, and the floating window must be checked on a physical iPhone.
 
 Verified on October 16, 2026: the command above completed successfully, including the Picture in Picture sources. `Info.plist` and `project.pbxproj` also passed `plutil -lint`. Simulator services were unavailable in the execution sandbox, so the application was compiled but not launched here; no physical iPhone test was performed.
+
+### Preview independent of detection
+
+Start now requests camera access and starts local capture before constructing the backend client. The preview remains visible during connection and after connection failure. Preview-only mode explicitly provides no detection or obstacle alerts. Stop releases the camera. Stop then Start retries detection. Backgrounding preview-only mode pauses capture. No on-device detector is implemented.
+
+Verification: six structural regression checks passed and the signed device build installed and launched on the connected iPhone. Physical preview, denied permission, background/resume, and restored-backend behavior still require device acceptance. These structural checks do not prove camera hardware behavior.

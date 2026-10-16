@@ -14,6 +14,7 @@ struct ScannerView: View {
         switch model.phase {
         case .idle: return "Ready when you are"
         case .connecting: return "Connecting…"
+        case .previewing: return "Camera preview only"
         case .paused: return "Scanning paused"
         case .failed: return "Unable to start"
         case .scanning:
@@ -213,7 +214,8 @@ struct ScannerView: View {
                 DetectionOverlay(zone: model.zone, detections: model.detections, imageSize: model.imageSize)
                     .allowsHitTesting(false)
                     .accessibilityHidden(true)
-            } else {
+            }
+            if !model.cameraRunning {
                 Color.senseSurface
                 VStack(spacing: 14) {
                     Image(systemName: model.phase == .paused ? "pause.circle" : "viewfinder")
