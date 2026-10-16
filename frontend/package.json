@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "node --watch server.js",
     "start": "node server.js",
-    "check": "node --check server.js && node --check app.js && node --check logic.js && node --check sw.js"
+    "check": "node --check server.js && node --check app.js && node --check logic.js && node --check sw.js && node --check site.js && node --check camera/camera.js && node --check camera/backend-detector.js && node --check camera/standalone.js",
+    "test": "node --test camera/*.test.js site.test.js"
   }
 }
