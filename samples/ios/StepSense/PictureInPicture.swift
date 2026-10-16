@@ -44,6 +44,8 @@ final class PiPContentView: UIView {
     private let bannerLayer = CALayer()
     private let bannerText = CATextLayer()
     private var state = PiPOverlayState()
+    private var needsFlush = false
+    private var shown = 0
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -71,20 +73,48 @@ final class PiPContentView: UIView {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is unavailable") }
 
+    override func willMove(toWindow newWindow: UIWindow?) {
+        super.willMove(toWindow: newWindow)
+        // Moving between the app and the floating window invalidates the decoder's state.
+        needsFlush = true
+    }
+
     override func layoutSubviews() {
         super.layoutSubviews()
         bannerText.contentsScale = UIScreen.main.scale
         redraw()
     }
 
+    /// Displays a camera frame.
+    ///
+    /// Two things otherwise freeze the window. Without the display-immediately attachment the
+    /// layer honors each buffer's presentation timestamp against a timebase that is never
+    /// running, so frames queue without being shown. Separately, the layer's decoder fails when
+    /// the window is stashed off screen or the app is backgrounded, and it refuses every later
+    /// frame until it is flushed.
     func enqueue(_ sampleBuffer: CMSampleBuffer) {
-        // The layer can fail or be flushed while the window moves between positions and sizes.
-        // Recover in place so the feed resumes instead of freezing on the last frame.
-        if displayLayer.status == .failed {
+        if displayLayer.status == .failed || needsFlush {
             displayLayer.flush()
+            needsFlush = false
         }
         guard displayLayer.isReadyForMoreMediaData else { return }
+        if let attachments = CMSampleBufferGetSampleAttachmentsArray(sampleBuffer, createIfNecessary: true),
+           CFArrayGetCount(attachments) > 0 {
+            let raw = CFArrayGetValueAtIndex(attachments, 0)
+            let dictionary = unsafeBitCast(raw, to: CFMutableDictionary.self)
+            CFDictionarySetValue(dictionary,
+                                 Unmanaged.passUnretained(kCMSampleAttachmentKey_DisplayImmediately).toOpaque(),
+                                 Unmanaged.passUnretained(kCFBooleanTrue).toOpaque())
+        }
         displayLayer.enqueue(sampleBuffer)
+        shown += 1
+        // A live counter distinguishes "frames stopped arriving" from "frames stopped drawing".
+        if shown % 10 == 0 { redraw() }
+    }
+
+    /// Requests a flush before the next frame, after a decode failure or a visibility change.
+    func markNeedsFlush() {
+        needsFlush = true
     }
 
     func apply(_ next: PiPOverlayState) {
@@ -145,7 +175,7 @@ final class PiPContentView: UIView {
             ? .systemYellow
             : (state.live ? UIColor(red: 0.29, green: 0.91, blue: 0.79, alpha: 1) : .systemOrange)
         bannerText.foregroundColor = accent.cgColor
-        bannerText.string = state.live ? state.title : "Paused · open StepSense"
+        bannerText.string = state.live ? "\(state.title)  ·  \(shown)" : "Paused · open StepSense"
         bannerLayer.borderWidth = state.alerting ? 1 : 0
         bannerLayer.borderColor = accent.cgColor
     }
@@ -283,6 +313,11 @@ final class PictureInPictureController: NSObject, ObservableObject, AVPictureInP
         callViewController.content.enqueue(frame.sampleBuffer)
     }
 
+    /// Forces the next frame to rebuild the display layer's decoder.
+    func resetDisplay() {
+        callViewController.content.markNeedsFlush()
+    }
+
     func update(_ transform: (inout PiPOverlayState) -> Void) {
         transform(&state)
         callViewController.content.apply(state)
@@ -294,11 +329,20 @@ final class PictureInPictureController: NSObject, ObservableObject, AVPictureInP
     // published state.
 
     nonisolated func pictureInPictureControllerDidStartPictureInPicture(_ controller: AVPictureInPictureController) {
-        Task { @MainActor [weak self] in self?.isActive = true }
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            isActive = true
+            // The content view just moved to the floating window's own window.
+            resetDisplay()
+        }
     }
 
     nonisolated func pictureInPictureControllerDidStopPictureInPicture(_ controller: AVPictureInPictureController) {
-        Task { @MainActor [weak self] in self?.isActive = false }
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            isActive = false
+            resetDisplay()
+        }
     }
 
     nonisolated func pictureInPictureController(_ controller: AVPictureInPictureController,

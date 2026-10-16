@@ -158,6 +158,8 @@ final class ScanModel: ObservableObject {
     }
 
     func returnedToForeground() {
+        // The display layer's decoder does not survive backgrounding.
+        pip.resetDisplay()
         if cameraRunning { refreshPiPOverlay() }
     }
 
@@ -181,6 +183,8 @@ final class ScanModel: ObservableObject {
             pip.update { $0.live = false }
             return
         }
+        // Capture restarting produces a new format description; the layer must be rebuilt.
+        pip.resetDisplay()
         detail = phase == .scanning ? "Scanning the marked image zone offline." : "Camera preview resumed."
         pip.update { $0.live = true }
         refreshPiPOverlay()

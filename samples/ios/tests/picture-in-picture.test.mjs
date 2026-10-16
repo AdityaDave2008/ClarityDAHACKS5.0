@@ -60,3 +60,30 @@ test('video-call Picture in Picture requirements stay declared', () => {
   assert.match(pip, /canStartPictureInPictureAutomaticallyFromInline = enabled/);
   assert.match(pip, /controller\?\.canStartPictureInPictureAutomaticallyFromInline = newValue/);
 });
+
+test('frames are displayed immediately instead of waiting on an idle timebase', () => {
+  // AVSampleBufferDisplayLayer honors presentation timestamps against its timebase, which is
+  // never started here, so camera buffers queued without this attachment are never shown.
+  const enqueue = pip.slice(pip.indexOf('func enqueue(_ sampleBuffer:'), pip.indexOf('func markNeedsFlush()'));
+  assert.match(enqueue, /kCMSampleAttachmentKey_DisplayImmediately/);
+});
+
+test('the display layer is rebuilt across transitions that kill its decoder', () => {
+  assert.match(pip, /override func willMove\(toWindow newWindow: UIWindow\?\)/);
+  const enqueue = pip.slice(pip.indexOf('func enqueue(_ sampleBuffer:'), pip.indexOf('func markNeedsFlush()'));
+  assert.match(enqueue, /displayLayer\.status == \.failed \|\| needsFlush/);
+  assert.match(pip, /func resetDisplay\(\)/);
+});
+
+test('entering and leaving the floating window resets the display', () => {
+  const start = pip.slice(pip.indexOf('DidStartPictureInPicture'), pip.indexOf('failedToStartPictureInPictureWithError'));
+  assert.match(start, /resetDisplay\(\)/);
+});
+
+test('returning to the foreground and resuming capture reset the display', () => {
+  const model = readFileSync(new URL('../StepSense/ScanModel.swift', import.meta.url), 'utf8');
+  const foreground = model.slice(model.indexOf('func returnedToForeground()'), model.indexOf('func startPictureInPicture()'));
+  assert.match(foreground, /pip\.resetDisplay\(\)/);
+  const interruption = model.slice(model.indexOf('private func handleCameraInterruption('), model.indexOf('private func refreshPiPOverlay()'));
+  assert.match(interruption, /pip\.resetDisplay\(\)/);
+});
