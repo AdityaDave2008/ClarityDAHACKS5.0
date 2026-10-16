@@ -4,11 +4,15 @@
   "private": true,
   "type": "module",
   "description": "Dependency-free local preview and API proxy for the StepSense browser demo.",
-  "engines": { "node": ">=24" },
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "dev": "node --watch server.js",
     "start": "node server.js",
     "check": "node --check server.js && node --check app.js && node --check logic.js && node --check sw.js && node --check site.js && node --check camera.js && node --check backend-detector.js && node --check standalone.js",
     "test": "node --test camera.test.js backend-detector.test.js site.test.js"
+    "check": "node --check server.js && node --check app.js && node --check logic.js && node --check sw.js",
+    "test": "node --test server.test.js"
   }
 }

@@ -78,3 +78,10 @@ Open **http://127.0.0.1:5180/**, choose Camera, then Start camera. Starting send
 Existing Settings speech controls are connected to the accessible camera. The AI recognizes selected objects; it does not measure distance or establish that a path is safe.
 
 Camera controller, detector adapter, and their tests live alongside the main app files. Run `npm run check` at the root and `npm --prefix frontend test` for frontend validation.
+## Camera page and team design
+
+The shared home, settings, and tab design lives in `index.html` with `homePage.css`. The retained AI camera page is **`camera.html`**, styled by **`styles.css`** and powered by **`app.js`** and **`logic.js`**. There is no separate `frontend/camera/` implementation.
+
+Open **http://127.0.0.1:5180/camera.html**. Choose Live camera, select Accessibility for spoken alerts, then Start camera and allow permission. Live mode sends frames to the running backend. Walkthrough mode uses simulated detections. The main page's own Camera tab currently provides a camera preview; it does not run this page's AI loop. Settings can link directly to `/camera.html`.
+
+Run `npm run check` at the repository root and `npm --prefix frontend test`. See [sharing and hosting](../docs/SHARE_AND_HOST.md) for PowerShell commands and HTTPS phone access, and [phone checks](../docs/PWA_INTEGRATION.md) for device validation.

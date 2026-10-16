@@ -31,6 +31,7 @@ for (const project of projects) {
 }
 console.log('Starting the combined ClearPath website at http://localhost:5180');
 console.log('Open Camera, then Start. AI detection needs the backend model to finish loading. The original walkthrough is at /camera.html.');
+console.log('For AI detection, open /camera.html, choose Live camera, then Start camera. Wait for the backend model to finish loading. Walkthrough mode uses simulated detections.');
 if (lan) {
   if (reuseBackend) console.log('An existing API is being reused. Native phones can reach it only if it was started with HOST=0.0.0.0.');
   for (const entries of Object.values(networkInterfaces())) for (const address of entries || []) {
