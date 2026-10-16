@@ -46,6 +46,7 @@ final class PiPContentView: UIView {
     private var state = PiPOverlayState()
     private var needsFlush = false
     private var shown = 0
+    private var received = 0
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -75,6 +76,7 @@ final class PiPContentView: UIView {
 
     override func willMove(toWindow newWindow: UIWindow?) {
         super.willMove(toWindow: newWindow)
+        PiPDiagnostics.log("display.window", "attached=\(newWindow != nil) bounds=\(bounds)")
         // Moving between the app and the floating window invalidates the decoder's state.
         needsFlush = true
     }
@@ -93,7 +95,13 @@ final class PiPContentView: UIView {
     /// the window is stashed off screen or the app is backgrounded, and it refuses every later
     /// frame until it is flushed.
     func enqueue(_ sampleBuffer: CMSampleBuffer) {
+        received += 1
+        if received == 1 || received % 150 == 0 {
+            PiPDiagnostics.log("display.frames", "received=\(received) enqueued=\(shown) ready=\(displayLayer.isReadyForMoreMediaData) status=\(displayLayer.status.rawValue) window=\(window != nil) bounds=\(bounds)")
+        }
         if displayLayer.status == .failed || needsFlush {
+            PiPDiagnostics.log("display.flush", "status=\(displayLayer.status.rawValue) requested=\(needsFlush)")
+            if let error = displayLayer.error { PiPDiagnostics.error("display.error", error) }
             displayLayer.flush()
             needsFlush = false
         }
@@ -229,16 +237,22 @@ final class PictureInPictureController: NSObject, ObservableObject, AVPictureInP
     /// report readiness before a scan begins.
     private var enabled = false
 
+    private func diagnose(_ event: String) {
+        PiPDiagnostics.log(event, "supported=\(isSupported) enabled=\(enabled) possible=\(controller?.isPictureInPicturePossible ?? false) active=\(controller?.isPictureInPictureActive ?? false) suspended=\(controller?.isPictureInPictureSuspended ?? false) sourceWindow=\(sourceView?.window != nil) sourceBounds=\(sourceView?.bounds ?? .zero) sourceHidden=\(sourceView?.isHidden ?? true) sourceAlpha=\(sourceView?.alpha ?? 0) appState=\(UIApplication.shared.applicationState.rawValue) audioCategory=\(AVAudioSession.sharedInstance().category.rawValue) audioMode=\(AVAudioSession.sharedInstance().mode.rawValue)")
+    }
+
     /// Connects the on-screen anchor that the floating window animates from.
     func attach(sourceView view: UIView) {
         guard isSupported, sourceView !== view else { return }
         sourceView = view
+        diagnose("pip.attach")
         rebuildController()
     }
 
     /// Turns automatic entry on or off. The controller itself stays built.
     func setEnabled(_ newValue: Bool) {
         enabled = newValue
+        diagnose("pip.enabled")
         controller?.canStartPictureInPictureAutomaticallyFromInline = newValue
         if !newValue { stop() }
     }
@@ -263,14 +277,19 @@ final class PictureInPictureController: NSObject, ObservableObject, AVPictureInP
         // Matches the behavior people expect from video-call apps: swiping away keeps the window.
         created.canStartPictureInPictureAutomaticallyFromInline = enabled
         controller = created
+        diagnose("pip.built")
         possibleObservation = created.observe(\.isPictureInPicturePossible, options: [.initial, .new]) { [weak self] controller, _ in
             let possible = controller.isPictureInPicturePossible
-            Task { @MainActor [weak self] in self?.isPossible = possible }
+            Task { @MainActor [weak self] in
+                self?.isPossible = possible
+                self?.diagnose("pip.possible.\(possible)")
+            }
         }
     }
 
     /// Starts the floating window, waiting briefly for a freshly built controller to become ready.
     func start() {
+        diagnose("pip.start.request")
         failureMessage = nil
         guard isSupported else {
             failureMessage = "This device does not support Picture in Picture."
@@ -282,6 +301,7 @@ final class PictureInPictureController: NSObject, ObservableObject, AVPictureInP
         }
         guard !controller.isPictureInPictureActive else { return }
         if controller.isPictureInPicturePossible {
+            diagnose("pip.start.invoke")
             controller.startPictureInPicture()
             return
         }
@@ -293,16 +313,19 @@ final class PictureInPictureController: NSObject, ObservableObject, AVPictureInP
                 guard let self, !Task.isCancelled, let controller = self.controller else { return }
                 if controller.isPictureInPictureActive { return }
                 if controller.isPictureInPicturePossible {
+                    self.diagnose("pip.start.invokeAfterWait")
                     controller.startPictureInPicture()
                     return
                 }
             }
             guard let self, !Task.isCancelled else { return }
+            self.diagnose("pip.start.timeout")
             self.failureMessage = "The floating window is not ready yet. Keep this screen visible and try again."
         }
     }
 
     func stop() {
+        diagnose("pip.stop.request")
         startAttempt?.cancel()
         startAttempt = nil
         guard let controller, controller.isPictureInPictureActive else { return }
@@ -328,7 +351,16 @@ final class PictureInPictureController: NSObject, ObservableObject, AVPictureInP
     // AVKit declares these as nonisolated, so each one hops to the main actor before touching
     // published state.
 
+    nonisolated func pictureInPictureControllerWillStartPictureInPicture(_ controller: AVPictureInPictureController) {
+        PiPDiagnostics.log("pip.delegate.willStart")
+    }
+
+    nonisolated func pictureInPictureControllerWillStopPictureInPicture(_ controller: AVPictureInPictureController) {
+        PiPDiagnostics.log("pip.delegate.willStop")
+    }
+
     nonisolated func pictureInPictureControllerDidStartPictureInPicture(_ controller: AVPictureInPictureController) {
+        PiPDiagnostics.log("pip.delegate.didStart")
         Task { @MainActor [weak self] in
             guard let self else { return }
             isActive = true
@@ -338,6 +370,7 @@ final class PictureInPictureController: NSObject, ObservableObject, AVPictureInP
     }
 
     nonisolated func pictureInPictureControllerDidStopPictureInPicture(_ controller: AVPictureInPictureController) {
+        PiPDiagnostics.log("pip.delegate.didStop")
         Task { @MainActor [weak self] in
             guard let self else { return }
             isActive = false
@@ -347,6 +380,7 @@ final class PictureInPictureController: NSObject, ObservableObject, AVPictureInP
 
     nonisolated func pictureInPictureController(_ controller: AVPictureInPictureController,
                                                 failedToStartPictureInPictureWithError error: Error) {
+        PiPDiagnostics.error("pip.delegate.failed", error)
         let description = error.localizedDescription
         Task { @MainActor [weak self] in
             guard let self else { return }

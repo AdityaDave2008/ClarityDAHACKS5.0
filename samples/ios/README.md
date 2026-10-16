@@ -34,6 +34,42 @@ The floating window is offered as soon as the camera runs, even if the model fai
 
 ## Verification
 
+### PiP runtime diagnostics
+
+After installing a Debug build, launch with opt-in diagnostics and keep this command running:
+
+```sh
+xcrun devicectl device process launch --device YOUR_DEVICE_UDID \
+  --terminate-existing --console \
+  --environment-variables '{"STEPSENSE_PIP_DIAGNOSTICS":"1"}' \
+  com.dahacks.stepsense.sample
+```
+
+On the phone tap **Start scanning**, then **Open floating window now**, wait three seconds,
+swipe Home, wait five seconds, and return to StepSense. Merely toggling **Use floating window**
+does not start the camera or explicitly request PiP. Look for `scan.start`, `camera.started`,
+`scan.pipButton`, `pip.start.invoke`, and `pip.delegate.didStart` or `pip.delegate.failed`.
+`pip.start.timeout` means readiness never became true during the existing two-second wait.
+Compare `camera.frames` with `display.frames`, scene transitions, and interruption reason codes.
+Enqueued frame counts do not prove pixels appeared on screen.
+
+`[PiPDiag]` logs contain readiness, source geometry/window membership, audio category/mode and
+activation outcomes, camera/frame counts, inference timings, and NSError domains/codes.
+They do not contain camera images, detections, speech, or error descriptions. The app does not
+persist these logs. They are off unless the launch environment opts in. `--console` also captures
+Apple framework messages, which are outside this logger's control. A normal icon relaunch does
+not retain the diagnostic environment, so rerun the command if the process exits.
+
+Initial physical-iPhone diagnostic launch on October 16 confirmed `supported=true`,
+`possible=true`, `sourceWindow=true`, source bounds approximately 349×230 points, and successful
+Playback/SpokenAudio setup and activation. That launch ended after toggle changes and backgrounding
+with `phase=idle`, `camera=false`, and no PiP start request. It does **not** establish the cause of
+the reported failure or prove PiP works. The instrumented scan/start/background sequence is still
+required. No background mode, audio mode, or PiP behavior was changed for this diagnostic build.
+
+The logger privacy/opt-in test compiles and executes Swift on macOS. Other platforms skip that
+test, while the remaining structural tests run normally.
+
 Run structural, bundle integrity, and exact-policy tests:
 
 ```sh

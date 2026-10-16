@@ -42,6 +42,8 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
     private var failureHandler: (@Sendable (String) -> Void)?
     private var observers: [NSObjectProtocol] = []
     private var interrupted = false
+    // Accessed only on frameQueue.
+    private var diagnosticFrames = 0
     /// Reports recoverable pauses and resumptions separately from fatal failures.
     private var interruptionHandler: (@Sendable (Bool, String) -> Void)?
 
@@ -62,7 +64,8 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
         // A runtime error is different: capture has actually stopped and must be restarted.
         observers.append(NotificationCenter.default.addObserver(
             forName: AVCaptureSession.runtimeErrorNotification, object: session, queue: nil
-        ) { [weak self] _ in
+        ) { [weak self] note in
+            if let error = note.userInfo?[AVCaptureSessionErrorKey] as? Error { PiPDiagnostics.error("camera.runtimeError", error) }
             self?.restartAfterRuntimeError()
         })
     }
@@ -73,6 +76,7 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
 
     private func handleInterruption(_ note: Notification) {
         let raw = note.userInfo?[AVCaptureSessionInterruptionReasonKey] as? Int
+        PiPDiagnostics.log("camera.interrupted", "reason=\(raw ?? -1)")
         let reason = raw.flatMap(AVCaptureSession.InterruptionReason.init(rawValue:))
         let message: String
         switch reason {
@@ -95,6 +99,7 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
     }
 
     private func handleInterruptionEnded() {
+        PiPDiagnostics.log("camera.interruptionEnded")
         lock.lock()
         let shouldReport = active && interrupted
         interrupted = false
@@ -251,6 +256,10 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
         lock.unlock()
 
         // Every frame feeds the Picture in Picture window; only requested frames are uploaded.
+        diagnosticFrames += 1
+        if diagnosticFrames == 1 || diagnosticFrames % 150 == 0 {
+            PiPDiagnostics.log("camera.frames", "captured=\(diagnosticFrames) previewHandler=\(preview != nil)")
+        }
         preview?(PiPFrame(sampleBuffer: sampleBuffer))
 
         guard wanted, let handler else { return }

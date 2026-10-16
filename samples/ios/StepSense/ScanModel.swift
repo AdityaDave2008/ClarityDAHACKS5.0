@@ -61,6 +61,7 @@ final class ScanModel: ObservableObject {
     var hasCandidate: Bool { detections.contains(where: \.inZone) }
 
     func start() {
+        PiPDiagnostics.log("scan.start", "phase=\(phase)")
         guard !isBusy else { return }
         generation = UUID()
         let current = generation
@@ -104,6 +105,7 @@ final class ScanModel: ObservableObject {
                 multitaskingSupported = diagnostics.multitaskingSupported
                 multitaskingEnabled = diagnostics.multitaskingEnabled
                 cameraRunning = true
+                PiPDiagnostics.log("camera.started", "multitaskingSupported=\(diagnostics.multitaskingSupported) multitaskingEnabled=\(diagnostics.multitaskingEnabled)")
                 detail = "Camera preview only. Loading the bundled offline detector…"
                 // The floating window can show the camera before the local model is ready.
                 pip.setEnabled(pictureInPictureRequested)
@@ -143,6 +145,7 @@ final class ScanModel: ObservableObject {
     /// scanning continues and the floating window keeps showing live detections. Otherwise the
     /// previous behavior applies: release the camera and require an explicit restart.
     func pauseForBackground() {
+        PiPDiagnostics.log("scan.background", "phase=\(phase) camera=\(cameraRunning) pipActive=\(pip.isActive) multitasking=\(multitaskingEnabled == true) checked=\(checkedFrames)")
         guard isBusy else { alerts.stop(); return }
         // Preview-only sessions keep the window too: the camera is what the window shows.
         if cameraRunning, pip.isActive, multitaskingEnabled == true {
@@ -158,12 +161,14 @@ final class ScanModel: ObservableObject {
     }
 
     func returnedToForeground() {
+        PiPDiagnostics.log("scan.foreground", "camera=\(cameraRunning) checked=\(checkedFrames)")
         // The display layer's decoder does not survive backgrounding.
         pip.resetDisplay()
         if cameraRunning { refreshPiPOverlay() }
     }
 
     func startPictureInPicture() {
+        PiPDiagnostics.log("scan.pipButton", "camera=\(cameraRunning) checked=\(checkedFrames)")
         pictureInPictureRequested = true
         pip.setEnabled(cameraRunning)
         pip.start()
@@ -248,6 +253,9 @@ final class ScanModel: ObservableObject {
                 let age = ProcessInfo.processInfo.systemUptime - frame.capturedAt
                 roundTripMs = Int(age * 1000)
                 checkedFrames += 1
+                if checkedFrames == 1 || checkedFrames % 30 == 0 {
+                    PiPDiagnostics.log("scan.inference", "checked=\(checkedFrames) processingMs=\(result.processingMs) ageMs=\(Int(age * 1000))")
+                }
                 if age > maxResultAge {
                     clearDisplayedResult()
                     alertReason = "stale"
@@ -335,6 +343,7 @@ final class ScanModel: ObservableObject {
     }
 
     private func stop(nextPhase: Phase, message: String) {
+        PiPDiagnostics.log("scan.stop", "phase=\(phase) next=\(nextPhase)")
         generation = UUID()
         startTask?.cancel()
         frameTask?.cancel()

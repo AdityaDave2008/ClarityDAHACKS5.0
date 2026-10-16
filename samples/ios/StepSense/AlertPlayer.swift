@@ -27,8 +27,14 @@ final class AlertPlayer: NSObject, AVAudioPlayerDelegate, AVSpeechSynthesizerDel
         player?.stop()
         speech.stopSpeaking(at: .immediate)
         if modes.contains(.sound) || modes.contains(.speech) {
-            try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
-            try? AVAudioSession.sharedInstance().setActive(true)
+            do {
+                try AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
+                PiPDiagnostics.log("audio.category.success")
+            } catch { PiPDiagnostics.error("audio.category.failure", error) }
+            do {
+                try AVAudioSession.sharedInstance().setActive(true)
+                PiPDiagnostics.log("audio.activate.success")
+            } catch { PiPDiagnostics.error("audio.activate.failure", error) }
         }
         if modes.contains(.vibration) {
             haptics.prepare()
