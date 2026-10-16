@@ -12,6 +12,7 @@ export class CameraFeature {
     this.detector = null;
     this.detectionRunning = false;
     this.cooldownMs = 3000;
+    this.repeatCount = 1;
     this.lastObstacleAt = -Infinity;
     this.speechSupported = Boolean(speech && Utterance);
     this.voices = [];
@@ -58,6 +59,7 @@ export class CameraFeature {
       }
       if (run !== this.generation) { stream.getTracks().forEach(track => track.stop()); return; }
       this.stream = stream;
+      this.emit('clearpath:permissionchange', { kind: 'camera', state: 'granted' });
       for (const track of stream.getTracks()) {
         track.addEventListener('ended', () => {
           if (run === this.generation) this.stop('Camera interrupted. Close other camera apps, then tap Start again.');
@@ -189,7 +191,7 @@ export class CameraFeature {
     // Render without automatic speech so there is only one spoken obstacle message.
     this.render({ ...this.state, pending: Boolean(this.pending), speechSupported: this.speechSupported }, this.state.obstacle);
     this.emit('camera:obstacle', { simulated });
-    if (this.state.speechEnabled) this.speak('Object ahead.');
+    if (this.state.speechEnabled) this.speak('Object ahead.', this.repeatCount);
     this.obstacleTimer = this.schedule(() => { this.state.obstacle = ''; this.update(); }, 5000);
     return true;
   }
@@ -200,32 +202,47 @@ export class CameraFeature {
     this.utterance = null;
   }
 
-  speak(message) {
+  setRepeatCount(count) {
+    const parsed = Number(count);
+    this.repeatCount = Number.isFinite(parsed) ? Math.min(5, Math.max(1, Math.round(parsed))) : 1;
+  }
+
+  speak(message, repeatCount = 1) {
     if (!this.speechSupported) return;
     this.cancelSpeech();
     const token = this.speechGeneration;
-    try {
-      const utterance = new this.Utterance(message);
-      utterance.lang = 'en-US';
-      const voice = this.voices.find(voice => voice.lang?.startsWith('en') && voice.localService);
-      if (voice) utterance.voice = voice;
-      utterance.onerror = event => {
-        if (token !== this.speechGeneration || ['canceled', 'interrupted'].includes(event.error)) return;
+    let remaining = Math.min(5, Math.max(1, Math.round(Number(repeatCount) || 1)));
+    const speakNext = () => {
+      if (token !== this.speechGeneration) return;
+      try {
+        const utterance = new this.Utterance(message);
+        utterance.lang = 'en-US';
+        const voice = this.voices.find(voice => voice.lang?.startsWith('en') && voice.localService);
+        if (voice) utterance.voice = voice;
+        utterance.onend = () => {
+          if (token !== this.speechGeneration) return;
+          remaining--;
+          if (remaining > 0) speakNext();
+        };
+        utterance.onerror = event => {
+          if (token !== this.speechGeneration || ['canceled', 'interrupted'].includes(event.error)) return;
+          this.state.speechEnabled = false;
+          this.state.announcements = 'screen-reader';
+          this.state.speechStatus = 'Speech could not play. Try Test Speech; screen-reader announcements are available.';
+          this.cancelSpeech();
+          this.update(this.state.speechStatus);
+        };
+        this.utterance = utterance;
+        this.speech.speak(utterance);
+      } catch {
         this.state.speechEnabled = false;
         this.state.announcements = 'screen-reader';
-        this.state.speechStatus = 'Speech could not play. Try Test Speech; screen-reader announcements are available.';
+        this.state.speechStatus = 'Speech could not play. Try Test Speech; visible alerts remain available.';
         this.cancelSpeech();
         this.update(this.state.speechStatus);
-      };
-      this.utterance = utterance;
-      this.speech.speak(utterance);
-    } catch {
-      this.state.speechEnabled = false;
-      this.state.announcements = 'screen-reader';
-      this.state.speechStatus = 'Speech could not play. Try Test Speech; visible alerts remain available.';
-      this.cancelSpeech();
-      this.update(this.state.speechStatus);
-    }
+      }
+    };
+    speakNext();
   }
 
   enableSpeech(enabled) {
@@ -261,13 +278,43 @@ export class CameraFeature {
 export function mountCamera(root, platform = window, { onState = () => {} } = {}) {
   const find = id => root.querySelector(`#camera-${id}`);
   const announcer = find('announcer');
+  let permissionState = 'prompt';
   let announceTimer;
+  function renderPermission(state) {
+    const light = find('permission-light');
+    const label = find('permission-label');
+    if (state.phase === 'active') permissionState = 'granted';
+    else if (/permission denied/i.test(state.camera)) permissionState = 'denied';
+    const granted = permissionState === 'granted';
+    const cameraLabel = granted
+      ? state.phase === 'active' ? 'Camera permission allowed — scanning is active' : 'Camera permission allowed'
+      : permissionState === 'denied'
+        ? 'Camera permission denied — allow it in browser settings, then tap Start'
+        : state.phase === 'requesting'
+          ? 'Waiting for camera permission — choose Allow in the browser prompt'
+          : 'Camera permission needed — tap Start to allow';
+    const readyLight = root.ownerDocument.getElementById('ready-permission-light');
+    const readyStatus = root.ownerDocument.getElementById('ready-to-walk');
+    const readyLabel = root.ownerDocument.getElementById('ready-to-walk-label');
+    const settingStatus = root.ownerDocument.getElementById('cameraPermissionSetting');
+    [light, readyLight].filter(Boolean).forEach(indicator => {
+      indicator.classList.toggle('needs-permission', !granted);
+      indicator.classList.toggle('permission-granted', granted);
+    });
+    if (label) label.textContent = cameraLabel;
+    if (readyLabel) readyLabel.textContent = granted ? 'Ready to walk' : 'Not ready to walk';
+    if (readyStatus) readyStatus.setAttribute('aria-label', granted ? 'Ready to walk. Camera permission granted.' : `Not ready to walk. ${cameraLabel}`);
+    if (settingStatus) settingStatus.textContent = granted
+      ? 'Allowed'
+      : permissionState === 'denied' ? 'Denied — allow access in browser settings' : 'Not allowed yet';
+  }
   const feature = new CameraFeature({
     video: find('video'), mediaDevices: platform.navigator.mediaDevices, secure: platform.isSecureContext,
     speech: platform.speechSynthesis, Utterance: platform.SpeechSynthesisUtterance,
     development: new URLSearchParams(platform.location.search).get('dev') === '1',
     emit: (name, detail) => platform.dispatchEvent(new CustomEvent(name, { detail })),
     render: (state, message) => {
+      renderPermission(state);
       find('status').textContent = state.camera;
       root.querySelector('#detection-status').textContent = state.detection;
       find('distance').textContent = state.distance;
@@ -307,11 +354,31 @@ export function mountCamera(root, platform = window, { onState = () => {} } = {}
     if (root.ownerDocument.hidden) feature.stop('Camera off because this page was hidden. Tap Start when you return.');
   });
   platform.addEventListener('pagehide', () => feature.stop('Camera off because you left the page. Tap Start to restart.'));
+  platform.addEventListener('clearpath:permissionchange', event => {
+    if (event.detail?.kind === 'camera') {
+      permissionState = event.detail.state;
+      renderPermission(feature.state);
+    }
+  });
   feature.update();
+  try {
+    const permissionQuery = platform.navigator.permissions?.query?.({ name: 'camera' });
+    if (permissionQuery) {
+      permissionQuery.then(status => {
+        permissionState = status.state;
+        renderPermission(feature.state);
+        status.addEventListener('change', () => {
+          permissionState = status.state;
+          renderPermission(feature.state);
+        });
+      }).catch(() => {});
+    }
+  } catch { /* Camera permission queries are not supported in every browser. */ }
   return feature;
 }
 
 export function exposeCamera(feature, platform = window) {
   platform.clearPathCamera = Object.freeze({ video: feature.video, start: () => feature.start(), stop: () => feature.stop(),
-    registerDetector: detector => feature.registerDetector(detector) });
+    registerDetector: detector => feature.registerDetector(detector),
+    setRepeatCount: count => feature.setRepeatCount(count) });
 }

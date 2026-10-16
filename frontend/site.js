@@ -1,5 +1,5 @@
-import { mountCamera, exposeCamera } from './camera/camera.js';
-import { createBackendDetector } from './camera/backend-detector.js';
+import { mountCamera, exposeCamera } from './camera.js';
+import { createBackendDetector } from './backend-detector.js';
 
 export function mountSite(doc = document, platform = window, detector = createBackendDetector()) {
   const get = id => doc.getElementById(id);
@@ -17,6 +17,7 @@ export function mountSite(doc = document, platform = window, detector = createBa
   } });
   feature.registerDetector(detector);
   exposeCamera(feature, platform);
+  feature.setRepeatCount(Number(stored('clearpath-alert-repeat-count', '1')) || 1);
 
   function stopCues() {
     for (const oscillator of oscillators) { try { oscillator.stop(); } catch { /* Already stopped. */ } }
@@ -35,18 +36,25 @@ export function mountSite(doc = document, platform = window, detector = createBa
   });
   platform.addEventListener('camera:obstacle', () => {
     const mode = get('alert').value;
-    if (get('vibrate').checked && ['vibration', 'both'].includes(mode)) platform.navigator.vibrate?.([120, 70, 180]);
+    const repeatCount = Math.min(5, Math.max(1, Number(stored('clearpath-alert-repeat-count', '1')) || 1));
+    if (get('vibrate').checked && ['vibration', 'both'].includes(mode)) {
+      const pattern = Array.from({ length: repeatCount }, () => [120, 70, 180]).flat();
+      platform.navigator.vibrate?.(pattern);
+    }
     if (['sound', 'both'].includes(mode) && audio?.state === 'running') {
       try {
-        const oscillator = audio.createOscillator(), gain = audio.createGain();
-        oscillator.connect(gain);
-        gain.connect(audio.destination);
-        gain.gain.value = .12;
-        oscillator.frequency.value = 660;
-        oscillators.add(oscillator);
-        oscillator.onended = () => { oscillators.delete(oscillator); oscillator.disconnect(); gain.disconnect(); };
-        oscillator.start();
-        oscillator.stop(audio.currentTime + .18);
+        for (let index = 0; index < repeatCount; index++) {
+          const oscillator = audio.createOscillator(), gain = audio.createGain();
+          const startsAt = audio.currentTime + index * .38;
+          oscillator.connect(gain);
+          gain.connect(audio.destination);
+          gain.gain.value = .12;
+          oscillator.frequency.value = 660;
+          oscillators.add(oscillator);
+          oscillator.onended = () => { oscillators.delete(oscillator); oscillator.disconnect(); gain.disconnect(); };
+          oscillator.start(startsAt);
+          oscillator.stop(startsAt + .18);
+        }
       } catch { /* Visible alerts and speech remain available. */ }
     }
   });
@@ -130,12 +138,22 @@ export function mountSite(doc = document, platform = window, detector = createBa
   get('save').addEventListener('click', () => {
     store('clearpath-alert', get('alert').value);
     store('clearpath-vibrate', String(get('vibrate').checked));
+    const repeatControl = get('alertRepeatCount');
+    if (repeatControl) store('clearpath-alert-repeat-count', repeatControl.value);
     feature.enableSpeech(get('voice').checked || get('alert').value === 'voice');
     toast('Preferences saved. Speech and camera controls are connected.');
   });
   const alert = stored('clearpath-alert', 'vibration');
   if (['vibration', 'sound', 'voice', 'both'].includes(alert)) get('alert').value = alert;
   get('vibrate').checked = stored('clearpath-vibrate', 'true') === 'true';
+  const repeatControl = get('alertRepeatCount');
+  if (repeatControl) {
+    repeatControl.value = String(Math.min(5, Math.max(1, Number(stored('clearpath-alert-repeat-count', '1')) || 1)));
+    repeatControl.addEventListener('change', () => {
+      store('clearpath-alert-repeat-count', repeatControl.value);
+      feature.setRepeatCount(Number(repeatControl.value));
+    });
+  }
   setMode(stored('clearpath-mode', 'normal'));
   showScreen('home', false);
   return { feature, showScreen };

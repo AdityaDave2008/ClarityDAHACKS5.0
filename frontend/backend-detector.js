@@ -1,4 +1,4 @@
-import { captureSize } from '../logic.js';
+import { captureSize } from './logic.js';
 
 // Adapter for the team's existing COCO-SSD service. Captures only while visible
 // and started; all uploads are same-origin and serialized, never recorded.

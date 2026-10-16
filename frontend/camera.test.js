@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { CameraFeature, mountCamera } from './camera.js';
-import { createPreviewServer } from '../server.js';
+import { createPreviewServer } from './server.js';
 
 function deferred() {
   let resolve, reject;
@@ -306,18 +306,18 @@ test('UI wiring stops on hide and pagehide, never auto resumes; simulation hidde
   } finally { globalThis.CustomEvent = original; }
 });
 
-test('preview serves camera routes and preserves existing assets and file allowlist', async () => {
+test('preview serves integrated camera assets and preserves the file allowlist', async () => {
   const server = createPreviewServer({ apiOrigin: new URL('http://127.0.0.1:3001') });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const origin = `http://127.0.0.1:${server.address().port}`;
   try {
-    for (const path of ['/camera/', '/camera/camera.html', '/camera/camera.js', '/camera/camera.css', '/', '/app.js',
-      '/main.html', '/camera.html', '/homePage.css', '/integration.css', '/site.js', '/camera/backend-detector.js', '/camera/standalone.js']) {
+    for (const path of ['/camera.js', '/backend-detector.js', '/standalone.js', '/', '/app.js',
+      '/main.html', '/camera.html', '/homePage.css', '/integration.css', '/site.js']) {
       const response = await fetch(origin + path);
       assert.equal(response.status, 200, path);
       await response.text();
     }
-    assert.equal((await fetch(origin + '/camera/camera.test.js')).status, 404);
+    assert.equal((await fetch(origin + '/camera/')).status, 404);
     assert.equal((await fetch(origin + '/package.json')).status, 404);
     assert.match(await (await fetch(origin + '/')).text(), /id="camera-panel"/);
     assert.match(await (await fetch(origin + '/camera.html')).text(), /id="demo-tab"/);

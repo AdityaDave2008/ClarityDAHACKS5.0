@@ -2,7 +2,6 @@ import { mountCamera, exposeCamera } from './camera.js';
 import { createBackendDetector } from './backend-detector.js';
 
 const colorVisionModes = ['standard', 'protanopia', 'deuteranopia', 'tritanopia', 'achromatopsia'];
-const colorVisionSelect = document.querySelector('#camera-color-vision');
 const colorVisionDescriptions = {
   standard: 'Standard palette: teal and mint accents.',
   protanopia: 'Protanopia palette: blue and amber accents with a deep blue gradient.',
@@ -14,7 +13,6 @@ const colorVisionDescriptions = {
 function applyColorVision(mode) {
   const selected = colorVisionModes.includes(mode) ? mode : 'standard';
   document.documentElement.dataset.colorVision = selected;
-  if (colorVisionSelect) colorVisionSelect.value = selected;
   const settingsSelect = document.querySelector('#colorVision');
   if (settingsSelect) settingsSelect.value = selected;
   const settingsNote = document.querySelector('#colorVisionNote');
@@ -22,14 +20,12 @@ function applyColorVision(mode) {
 }
 
 applyColorVision(localStorage.getItem('clearpath-color-vision'));
-colorVisionSelect?.addEventListener('change', () => {
-  applyColorVision(colorVisionSelect.value);
-  localStorage.setItem('clearpath-color-vision', colorVisionSelect.value);
-});
 window.addEventListener('storage', (event) => {
   if (event.key === 'clearpath-color-vision') applyColorVision(event.newValue);
+  if (event.key === 'clearpath-alert-repeat-count') window.clearPathCamera?.setRepeatCount(Number(event.newValue));
 });
 
 const feature = mountCamera(document.querySelector('#camera-feature'));
 feature.registerDetector(createBackendDetector());
+feature.setRepeatCount(Number(localStorage.getItem('clearpath-alert-repeat-count')) || 1);
 exposeCamera(feature);

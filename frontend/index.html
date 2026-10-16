@@ -18,9 +18,9 @@
           <span class="logo">CP</span>
           ClearPath
         </div>
-        <div class="status">
-          <span class="dot needs-permission" id="cameraPermissionDot"></span>
-          <span id="walkStatus">Camera permission needed</span>
+        <div class="status" id="ready-to-walk" role="status" aria-label="Camera permission needed">
+          <span class="dot needs-permission" id="ready-permission-light" aria-hidden="true"></span>
+          <span id="ready-to-walk-label">Not ready to walk</span>
         </div>
       </header>
 
@@ -29,11 +29,10 @@
         <p class="eyebrow">Move through the city</p>
         <h1>Eyes up.<br>Feel confident.</h1>
         <p class="intro">
-          ClearPath watches the sidewalk ahead and gives you a heads-up
-          when something may be in your way.
+          Find local access updates and choose alerts that fit your needs.
         </p>
 
-                <section class="forum-section" aria-labelledby="forum-title">
+        <section class="forum-section" aria-labelledby="forum-title">
           <div class="forum-heading">
             <div>
               <p class="eyebrow">Community updates</p>
@@ -86,51 +85,52 @@
           </div>
         </section>
 
-        <div class="grid">
-          <div class="feature">
-            <b>Spot what's ahead</b>
-            <span>Camera-based obstacle awareness</span>
-          </div>
-          <div class="feature">
-            <b>Alerts your way</b>
-            <span>Choose sound, voice, or vibration</span>
-          </div>
-        </div>
       </section>
 
-      <!-- Camera -->
-      <section id="camera" class="screen">
-        <p class="eyebrow">Live awareness</p>
-        <h1>Check your<br>path ahead.</h1>
-        <p class="intro">
-          Hold your phone with the camera facing forward. Keep the app open
-          while scanning.
-        </p>
-
-        <div class="card">
-          <div class="camera-header">
-            <h2>Path scanner</h2>
-            <span class="pill" id="camStatus">NOT STARTED</span>
+      <!-- Camera: accessible scanner integrated into the shared app shell -->
+      <section id="camera" class="screen blindness-screen" aria-label="Camera scanner">
+        <div class="camera-feature" id="camera-feature">
+          <h1>Path scanner</h1>
+          <div class="camera-permission" role="status" aria-live="polite">
+            <span id="camera-permission-light" class="dot needs-permission" aria-hidden="true"></span>
+            <span id="camera-permission-label">Camera permission needed — tap Start to allow</span>
           </div>
-
-          <div class="camera-box" id="preview2">
-            <video id="video2" autoplay playsinline muted hidden></video>
-            <div class="scan"></div>
-            <div class="camera-hint" id="hint2">
-              Start the camera to see your surroundings
+          <p id="permission-help">Hold your phone forward while the app is open. Camera alerts are a prototype and may miss obstacles.</p>
+          <section class="status-panel" aria-label="Camera and detection status">
+            <p id="camera-status">Camera off. Tap Start when ready.</p>
+            <p id="detection-status">Detection stopped.</p>
+          </section>
+          <div class="camera-actions" role="group" aria-label="Camera controls">
+            <button type="button" id="camera-start" aria-describedby="permission-help">Start scanning</button>
+            <button type="button" id="camera-stop" disabled>Stop scanning</button>
+          </div>
+          <video id="camera-video" autoplay muted playsinline aria-label="Live camera preview. Controls work without viewing the preview."></video>
+          <div class="readings">
+            <section aria-label="Distance estimate"><h2>Distance</h2><p id="camera-distance">Not available</p></section>
+            <section aria-label="Obstacle alert"><h2>Alert</h2><p id="camera-obstacle">No alert. Keep watching your path.</p></section>
+          </div>
+          <section class="speech-controls" aria-label="Spoken alerts">
+            <button type="button" id="camera-speech" aria-pressed="false" aria-describedby="announcement-help">Turn on spoken alerts</button>
+            <div class="camera-actions">
+              <button type="button" id="camera-test">Test speech</button>
+              <button type="button" id="camera-repeat">Repeat status</button>
             </div>
-          </div>
-
-          <div class="controls">
-            <button class="primary" id="start2">Start camera</button>
-            <button class="secondary" id="stop">Stop</button>
-          </div>
-
-          <div class="notice">
-            <b>Prototype mode</b>
-            Live camera preview is available. Automatic obstacle recognition
-            is a prototype demo and may not identify every hazard.
-          </div>
+            <p id="speech-status">Spoken alerts off.</p>
+          </section>
+          <details>
+            <summary>More settings</summary>
+            <label for="camera-announcements">Voice announcements</label>
+            <select id="camera-announcements" aria-describedby="announcement-help">
+              <option value="screen-reader">Screen reader</option>
+              <option value="app-voice">App voice</option>
+            </select>
+            <p id="announcement-help">Choose screen reader or app voice.</p>
+            <label for="camera-cooldown">Alert delay in seconds</label>
+            <input id="camera-cooldown" type="number" min="1" max="30" step="1" value="3" inputmode="numeric">
+          </details>
+          <button type="button" id="camera-simulate" hidden>Simulate obstacle — development only</button>
+          <p class="prototype-note sr-only">Alerts may miss hazards and do not measure collision risk.</p>
+          <div id="camera-announcer" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
         </div>
       </section>
 
@@ -175,6 +175,9 @@
               Blindness mode
             </button>
           </div>
+          <p class="mode-description">
+            Blindness mode enlarges text and controls and strengthens contrast on every page.
+          </p>
 
           <h2 class="section-title">Color vision preference</h2>
           <div class="setting-row color-vision-setting">
@@ -206,6 +209,19 @@
               <option value="sound">Sound</option>
               <option value="voice">Spoken cue</option>
               <option value="both">Sound + vibration</option>
+            </select>
+          </div>
+          <div class="setting-row">
+            <div>
+              <b>Repeat each alert</b>
+              <small>Choose how many times an alert plays</small>
+            </div>
+            <select id="alertRepeatCount" aria-label="Number of times to repeat each alert">
+              <option value="1">1 time</option>
+              <option value="2">2 times</option>
+              <option value="3">3 times</option>
+              <option value="4">4 times</option>
+              <option value="5">5 times</option>
             </select>
           </div>
           <div class="setting-row">
@@ -249,91 +265,33 @@
             <button id="save" class="primary">Save preferences</button>
           </div>
           <section class="device-access" aria-labelledby="device-access-title">
-            <h2 class="section-title" id="device-access-title">Device access</h2>
-            <p class="device-access-intro">
-              Choose which device features ClearPath can use. You can change
-              permissions later in your browser settings.
-            </p>
+            <h2 class="section-title" id="device-access-title">Permissions & device tests</h2>
+            <p class="device-access-intro">Allow camera, microphone, or notification access here. Speaker and vibration tests work without separate browser permissions. To revoke access later, use your browser’s site settings.</p>
 
             <div class="device-access-row">
-              <div><b>Camera</b><small>Needed for the live path preview</small></div>
-              <button type="button" class="permission-button" id="requestCamera">Allow camera</button>
+              <div><b>Camera</b><small id="cameraPermissionSetting" role="status">Checking camera access…</small></div>
+              <div class="permission-actions"><button type="button" class="permission-button" id="requestCamera">Allow</button><button type="button" class="permission-button" id="testCamera">Test</button></div>
             </div>
-
             <div class="device-access-row">
-              <div><b>Microphone</b><small>Optional; not used by this prototype yet</small></div>
-              <button type="button" class="permission-button" id="requestMic">Allow microphone</button>
+              <div><b>Microphone</b><small id="microphonePermissionSetting" role="status">Checking microphone access…</small></div>
+              <div class="permission-actions"><button type="button" class="permission-button" id="requestMicrophone">Allow</button><button type="button" class="permission-button" id="testMicrophone">Test</button></div>
             </div>
-
             <div class="device-access-row">
-              <div><b>Motion sensors</b><small>Optional device orientation access</small></div>
-              <button type="button" class="permission-button" id="requestMotion">Allow sensors</button>
+              <div><b>Notifications</b><small id="notificationPermissionSetting" role="status">Checking notification access…</small></div>
+              <div class="permission-actions"><button type="button" class="permission-button" id="requestNotifications">Allow</button><button type="button" class="permission-button" id="testNotifications">Test</button></div>
             </div>
-
-            <div class="device-access-note">
-              <b>Speakers</b>
-              Browsers do not show a separate speaker permission. Use the test
-              button to play a sample sound.
-              <button type="button" class="permission-button" id="testSpeaker">Preview alert sound</button>
+            <div class="device-access-row">
+              <div><b>Speaker</b><small id="speakerPermissionSetting">No separate browser permission</small></div>
+              <div class="permission-actions"><button type="button" class="permission-button" id="testSpeaker">Test sound</button></div>
+            </div>
+            <div class="device-access-row">
+              <div><b>Vibration</b><small id="vibrationPermissionSetting">Checking device support…</small></div>
+              <div class="permission-actions"><button type="button" class="permission-button" id="testVibration">Test vibration</button></div>
             </div>
           </section>
         </div>
       </section>
 
-      <!-- Blindness mode: integrated screen with shared bottom navigation -->
-      <section id="blindness" class="screen blindness-screen" aria-label="Blindness mode">
-        <div class="camera-feature" id="camera-feature">
-          <button class="back-link" type="button" data-back-settings>Back to Settings</button>
-          <h1>Blindness mode</h1>
-          <p id="permission-help">Point your phone ahead. Keep this page open. Alerts may miss hazards.</p>
-          <section class="status-panel" aria-label="Camera and detection status">
-            <p id="camera-status">Camera off. Tap Start when ready.</p>
-            <p id="detection-status">Detection stopped.</p>
-          </section>
-          <div class="camera-actions" role="group" aria-label="Camera controls">
-            <button type="button" id="camera-start" aria-describedby="permission-help">Start scanning</button>
-            <button type="button" id="camera-stop" disabled>Stop scanning</button>
-          </div>
-          <video id="camera-video" autoplay muted playsinline aria-label="Live camera preview. Controls work without viewing the preview."></video>
-          <div class="readings">
-            <section aria-label="Distance estimate"><h2>Distance</h2><p id="camera-distance">Not available</p></section>
-            <section aria-label="Obstacle alert"><h2>Alert</h2><p id="camera-obstacle">No alert. Keep watching your path.</p></section>
-          </div>
-          <section class="speech-controls" aria-label="Spoken alerts">
-            <button type="button" id="camera-speech" aria-pressed="false" aria-describedby="announcement-help">Turn on spoken alerts</button>
-            <div class="camera-actions">
-              <button type="button" id="camera-test">Test Speech</button>
-              <button type="button" id="camera-repeat">Repeat status</button>
-            </div>
-            <p id="speech-status">Spoken alerts off.</p>
-          </section>
-          <section class="color-settings" aria-label="Color vision settings">
-            <label for="camera-color-vision">Color palette</label>
-            <select id="camera-color-vision">
-              <option value="standard">Standard</option>
-              <option value="protanopia">Protanopia</option>
-              <option value="deuteranopia">Deuteranopia</option>
-              <option value="tritanopia">Tritanopia</option>
-              <option value="achromatopsia">Achromatopsia</option>
-            </select>
-          </section>
-          <details>
-            <summary>More settings</summary>
-            <label for="camera-announcements">Voice announcements</label>
-            <select id="camera-announcements" aria-describedby="announcement-help">
-              <option value="screen-reader">Screen reader</option>
-              <option value="app-voice">App voice</option>
-            </select>
-            <p id="announcement-help">Choose screen reader or app voice.</p>
-            <label for="camera-cooldown">Alert delay in seconds</label>
-            <input id="camera-cooldown" type="number" min="1" max="30" step="1" value="3" inputmode="numeric">
-          </details>
-          <button type="button" id="camera-simulate" hidden>Simulate Obstacle — development only</button>
-          <p class="prototype-note sr-only">Alerts may miss hazards and do not measure collision risk.</p>
-          <div id="camera-announcer" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
-          <noscript>JavaScript is required for the camera controls and spoken alerts.</noscript>
-        </div>
-      </section>
 
       <!-- Navigation -->
       <nav class="bottom-nav" aria-label="Main navigation">
@@ -456,25 +414,18 @@
       });
       const screens = [...document.querySelectorAll(".screen")];
       const navButtons = [...document.querySelectorAll(".nav-btn")];
-      let cameraStream = null;
 
       function showScreen(id) {
-        // In Blindness mode, the Camera tab opens the accessible live scanner.
-        const screenId = id === "camera" && document.querySelector(".app").classList.contains("blindness-mode")
-          ? "blindness"
-          : id;
-        const wasBlindnessScreen = document.getElementById("blindness").classList.contains("active");
-        if (wasBlindnessScreen && screenId !== "blindness") {
+        if (document.getElementById("camera").classList.contains("active") && id !== "camera") {
           window.clearPathCamera?.stop();
         }
 
         screens.forEach((screen) => {
-          screen.classList.toggle("active", screen.id === screenId);
+          screen.classList.toggle("active", screen.id === id);
         });
 
         navButtons.forEach((button) => {
-          const activeNav = screenId === "blindness" ? "camera" : screenId;
-          const isActive = button.dataset.screen === activeNav;
+          const isActive = button.dataset.screen === id;
           button.classList.toggle("active", isActive);
 
           if (isActive) {
@@ -492,9 +443,6 @@
           const screen = button.dataset.screen;
           showScreen(screen);
 
-          if (screen === "camera" && !document.querySelector(".app").classList.contains("blindness-mode") && !cameraStream) {
-            startCamera();
-          }
         });
       });
 
@@ -570,10 +518,6 @@ document.querySelectorAll("[data-profile]").forEach((button) => {
         });
       });
 
-      document.querySelector("[data-back-settings]").addEventListener("click", () => {
-        showScreen("settings");
-      });
-
       const colorVisionSelect = document.getElementById("colorVision");
       const colorVisionNote = document.getElementById("colorVisionNote");
       const colorVisionDescriptions = {
@@ -587,8 +531,6 @@ document.querySelectorAll("[data-profile]").forEach((button) => {
       function setColorVision(mode, save = true) {
         const preference = colorVisionDescriptions[mode] ? mode : "standard";
         colorVisionSelect.value = preference;
-        const cameraColorVisionSelect = document.getElementById("camera-color-vision");
-        if (cameraColorVisionSelect) cameraColorVisionSelect.value = preference;
         document.documentElement.dataset.colorVision = preference;
         colorVisionNote.textContent = colorVisionDescriptions[preference];
         if (save) localStorage.setItem("clearpath-color-vision", preference);
@@ -606,93 +548,24 @@ document.querySelectorAll("[data-profile]").forEach((button) => {
         document.getElementById("alert").value = savedAlert;
       }
 
+      const alertRepeatCountSelect = document.getElementById("alertRepeatCount");
+      const savedRepeatCount = Number(localStorage.getItem("clearpath-alert-repeat-count")) || 1;
+      alertRepeatCountSelect.value = String(Math.min(5, Math.max(1, savedRepeatCount)));
+      alertRepeatCountSelect.addEventListener("change", () => {
+        const count = Number(alertRepeatCountSelect.value);
+        localStorage.setItem("clearpath-alert-repeat-count", String(count));
+        window.clearPathCamera?.setRepeatCount(count);
+      });
+
       document.getElementById("save").addEventListener("click", () => {
         localStorage.setItem(
           "clearpath-alert",
           document.getElementById("alert").value
         );
+        localStorage.setItem("clearpath-alert-repeat-count", alertRepeatCountSelect.value);
+        window.clearPathCamera?.setRepeatCount(Number(alertRepeatCountSelect.value));
         showToast("Preferences saved");
       });
-
-      const cameraPermissionDot = document.getElementById("cameraPermissionDot");
-      const walkStatus = document.getElementById("walkStatus");
-
-      function setCameraPermissionState(state) {
-        const granted = state === "granted";
-        cameraPermissionDot.classList.toggle("needs-permission", !granted);
-        walkStatus.textContent = granted
-          ? cameraStream ? "Camera active" : "Ready to walk"
-          : "Camera permission needed";
-      }
-
-      async function refreshCameraPermission() {
-        setCameraPermissionState("prompt");
-        if (!navigator.permissions?.query) return;
-
-        try {
-          const permission = await navigator.permissions.query({ name: "camera" });
-          setCameraPermissionState(permission.state);
-          permission.addEventListener("change", () => {
-            setCameraPermissionState(permission.state);
-          });
-        } catch (error) {
-          // Some browsers do not support querying camera permission.
-        }
-      }
-
-      async function requestMicrophoneAccess() {
-        if (!navigator.mediaDevices?.getUserMedia) {
-          showToast("Microphone access needs HTTPS or localhost");
-          return;
-        }
-
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({
-            audio: true,
-            video: false
-          });
-          stream.getTracks().forEach((track) => track.stop());
-          document.getElementById("requestMic").textContent = "Microphone allowed";
-          showToast("Microphone permission granted");
-        } catch (error) {
-          showToast(
-            error.name === "NotAllowedError"
-              ? "Allow microphone access in browser settings"
-              : "Could not access the microphone"
-          );
-        }
-      }
-
-      async function requestMotionAccess() {
-        const sensors = [
-          window.DeviceMotionEvent,
-          window.DeviceOrientationEvent
-        ].filter(Boolean);
-        let permissionPromptAvailable = false;
-        let denied = false;
-
-        for (const sensor of sensors) {
-          if (typeof sensor.requestPermission === "function") {
-            permissionPromptAvailable = true;
-
-            try {
-              const result = await sensor.requestPermission();
-              if (result !== "granted") denied = true;
-            } catch (error) {
-              denied = true;
-            }
-          }
-        }
-
-        if (denied) {
-          showToast("Allow motion access in browser settings");
-        } else if (permissionPromptAvailable) {
-          document.getElementById("requestMotion").textContent = "Sensors allowed";
-          showToast("Motion sensor permission granted");
-        } else {
-          showToast("This browser has no separate motion permission prompt");
-        }
-      }
 
       let customSoundFile = null;
       const alertSoundSelect = document.getElementById("alertSound");
@@ -812,8 +685,10 @@ document.querySelectorAll("[data-profile]").forEach((button) => {
             playPresetSound(alertSoundSelect.value);
           }
 
+          document.getElementById("speakerPermissionSetting").textContent = "Sound test played";
           showToast("Playing alert sound preview");
         } catch (error) {
+          document.getElementById("speakerPermissionSetting").textContent = "Test failed — check the selected sound";
           showToast(error.message || "Could not play this alert sound");
         }
       }
@@ -860,84 +735,197 @@ document.querySelectorAll("[data-profile]").forEach((button) => {
       document
         .getElementById("testSpeaker")
         .addEventListener("click", testAlertSound);
-      document.getElementById("requestCamera").addEventListener("click", () => {
-        showScreen("camera");
-        startCamera();
+
+      const permissionLabels = {
+        camera: document.getElementById("cameraPermissionSetting"),
+        microphone: document.getElementById("microphonePermissionSetting"),
+        notifications: document.getElementById("notificationPermissionSetting"),
+      };
+
+      function updateCameraPermissionUi(state) {
+        const granted = state === "granted";
+        document.querySelectorAll("#camera-permission-light, #ready-permission-light").forEach(light => {
+          light.classList.toggle("needs-permission", !granted);
+          light.classList.toggle("permission-granted", granted);
+        });
+        const readyLabel = document.getElementById("ready-to-walk-label");
+        const readyStatus = document.getElementById("ready-to-walk");
+        const cameraLabel = document.getElementById("camera-permission-label");
+        const settingsStatus = document.getElementById("cameraPermissionSetting");
+        if (readyLabel) readyLabel.textContent = granted ? "Ready to walk" : "Not ready to walk";
+        if (readyStatus) readyStatus.setAttribute("aria-label", granted
+          ? "Ready to walk. Camera permission granted."
+          : "Not ready to walk. Camera permission is not granted.");
+        if (cameraLabel) cameraLabel.textContent = granted
+          ? "Camera permission allowed"
+          : state === "denied"
+            ? "Camera permission denied — allow it in browser settings, then tap Start"
+            : "Camera permission needed — tap Start to allow";
+        if (settingsStatus) settingsStatus.textContent = permissionText(state);
+      }
+
+      window.addEventListener("clearpath:permissionchange", event => {
+        if (event.detail?.kind === "camera") updateCameraPermissionUi(event.detail.state);
       });
-      document
-        .getElementById("requestMic")
-        .addEventListener("click", requestMicrophoneAccess);
-      document
-        .getElementById("requestMotion")
-        .addEventListener("click", requestMotionAccess);
-      document
-        .getElementById("testSpeaker")
-        .addEventListener("click", testSpeakers);
-      async function startCamera() {
-        if (!navigator.mediaDevices?.getUserMedia) {
-          showToast("Camera needs HTTPS or localhost");
+
+      function permissionText(state) {
+        if (state === "granted") return "Allowed";
+        if (state === "denied") return "Denied — allow access in browser settings";
+        return "Not allowed yet";
+      }
+
+      function reportPermission(kind, state, message) {
+        const target = permissionLabels[kind];
+        if (target) target.textContent = message || permissionText(state);
+        if (kind === "camera") {
+          window.dispatchEvent(new CustomEvent("clearpath:permissionchange", {
+            detail: { kind, state },
+          }));
+        }
+      }
+
+      async function refreshPermission(kind, permissionName = kind) {
+        const target = permissionLabels[kind];
+        if (!target) return;
+        try {
+          if (!navigator.permissions?.query) throw new Error("Permission status unavailable");
+          const status = await navigator.permissions.query({ name: permissionName });
+          reportPermission(kind, status.state);
+          status.addEventListener("change", () => reportPermission(kind, status.state));
+        } catch {
+          reportPermission(kind, "prompt", "Status unavailable — use Allow or Test to check");
+        }
+      }
+
+      async function requestMedia(kind, isTest = false) {
+        const target = permissionLabels[kind];
+        if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+          reportPermission(kind, "prompt", "Open this site over HTTPS or localhost to request access");
+          showToast("Device access requires HTTPS or localhost");
           return;
         }
 
+        if (target) target.textContent = `Waiting for ${kind} permission…`;
+        let stream;
         try {
-          cameraStream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: { ideal: "environment" } },
-            audio: false
-          });
-
-          const video = document.getElementById("video2");
-          video.srcObject = cameraStream;
-          video.hidden = false;
-
-          document.getElementById("preview2").classList.add("live");
-          document.getElementById("hint2").textContent =
-            "Camera preview active";
-          document.getElementById("camStatus").textContent = "CAMERA ON";
-          document.getElementById("start2").textContent = "Camera on";
-
-          setCameraPermissionState("granted");
-          showToast("Camera preview started");
+          const constraints = kind === "camera"
+            ? { audio: false, video: { facingMode: { ideal: "environment" } } }
+            : { audio: true, video: false };
+          stream = await navigator.mediaDevices.getUserMedia(constraints);
+          reportPermission(kind, "granted", isTest ? `${kind === "camera" ? "Camera" : "Microphone"} test passed; access released` : "Allowed");
+          showToast(`${kind === "camera" ? "Camera" : "Microphone"} access allowed`);
         } catch (error) {
-          if (error.name === "NotAllowedError" || error.name === "SecurityError") {
-            setCameraPermissionState("denied");
+          const denied = error.name === "NotAllowedError" || error.name === "SecurityError";
+          reportPermission(kind, denied ? "denied" : "prompt", denied ? "Denied — allow access in browser settings" : "Could not access device — check availability");
+          showToast(denied ? `${kind === "camera" ? "Camera" : "Microphone"} permission was not allowed` : "Could not access that device");
+        } finally {
+          stream?.getTracks().forEach(track => track.stop());
+        }
+      }
+
+      let previewFallbackStream = null;
+      document.getElementById("camera-start").addEventListener("click", async () => {
+        if (window.clearPathCamera) return;
+        const video = document.getElementById("camera-video");
+        const status = document.getElementById("camera-status");
+        const startButton = document.getElementById("camera-start");
+        const stopButton = document.getElementById("camera-stop");
+        if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+          status.textContent = "Camera access requires this page to be served from localhost or HTTPS. Open the site through its local web server, not as a file.";
+          return;
+        }
+        startButton.disabled = true;
+        status.textContent = "Requesting camera permission… choose Allow in the browser prompt.";
+        try {
+          previewFallbackStream = await navigator.mediaDevices.getUserMedia({
+            audio: false,
+            video: { facingMode: { ideal: "environment" } },
+          });
+          window.dispatchEvent(new CustomEvent("clearpath:permissionchange", {
+            detail: { kind: "camera", state: "granted" },
+          }));
+          video.srcObject = previewFallbackStream;
+          video.muted = true;
+          await video.play();
+          status.textContent = "Camera preview is on. Reload the page to restore obstacle detection controls.";
+          stopButton.disabled = false;
+        } catch (error) {
+          startButton.disabled = false;
+          previewFallbackStream?.getTracks().forEach(track => track.stop());
+          previewFallbackStream = null;
+          video.srcObject = null;
+          status.textContent = error.name === "NotAllowedError"
+            ? "Camera permission denied. Allow camera access in browser settings, then reload this page."
+            : "Camera could not start. Check camera permission and close any other app using the camera.";
+          if (error.name === "NotAllowedError") {
+            window.dispatchEvent(new CustomEvent("clearpath:permissionchange", {
+              detail: { kind: "camera", state: "denied" },
+            }));
           }
+        }
+      });
+      document.getElementById("camera-stop").addEventListener("click", () => {
+        if (window.clearPathCamera || !previewFallbackStream) return;
+        previewFallbackStream.getTracks().forEach(track => track.stop());
+        previewFallbackStream = null;
+        document.getElementById("camera-video").srcObject = null;
+        document.getElementById("camera-status").textContent = "Camera off. Tap Start to restart.";
+        document.getElementById("camera-start").disabled = false;
+        document.getElementById("camera-stop").disabled = true;
+      });
 
-          showToast(
-            error.name === "NotAllowedError"
-              ? "Allow camera access in the browser prompt or settings"
-              : "Could not start camera"
-          );
+      document.getElementById("requestCamera").addEventListener("click", () => requestMedia("camera"));
+      document.getElementById("testCamera").addEventListener("click", () => requestMedia("camera", true));
+      document.getElementById("requestMicrophone").addEventListener("click", () => requestMedia("microphone"));
+      document.getElementById("testMicrophone").addEventListener("click", () => requestMedia("microphone", true));
+
+      function notificationStatus() {
+        if (!("Notification" in window)) return "Not supported in this browser";
+        if (Notification.permission === "granted") return "Allowed";
+        if (Notification.permission === "denied") return "Denied — allow access in browser settings";
+        return "Not allowed yet";
+      }
+
+      function updateNotificationStatus() {
+        permissionLabels.notifications.textContent = notificationStatus();
+      }
+
+      async function requestNotifications(sendTest = false) {
+        if (!("Notification" in window)) {
+          showToast("Notifications are not supported in this browser");
+          return;
+        }
+        try {
+          const result = Notification.permission === "granted"
+            ? "granted"
+            : await Notification.requestPermission();
+          updateNotificationStatus();
+          if (result === "granted" && sendTest) {
+            new Notification("ClearPath test", { body: "Notifications are ready." });
+          }
+          showToast(result === "granted" ? sendTest ? "Test notification sent" : "Notifications allowed" : "Notification permission was not allowed");
+        } catch {
+          showToast("Could not request notifications. Check browser and device settings.");
         }
       }
 
-      function stopCamera() {
-        if (cameraStream) {
-          cameraStream.getTracks().forEach((track) => track.stop());
-        }
-        cameraStream = null;
+      document.getElementById("requestNotifications").addEventListener("click", () => requestNotifications());
+      document.getElementById("testNotifications").addEventListener("click", () => requestNotifications(true));
+      document.getElementById("testVibration").addEventListener("click", () => {
+        const supported = typeof navigator.vibrate === "function";
+        const worked = supported && navigator.vibrate([120, 80, 160]);
+        document.getElementById("vibrationPermissionSetting").textContent = supported
+          ? worked ? "Vibration test sent" : "Vibration is blocked by this device or browser"
+          : "Vibration is not supported by this device";
+      });
 
-        const video = document.getElementById("video2");
-        video.srcObject = null;
-        video.hidden = true;
-
-        document.getElementById("preview2").classList.remove("live");
-        document.getElementById("hint2").textContent =
-          "Start the camera to see your surroundings";
-        document.getElementById("camStatus").textContent = "NOT STARTED";
-        document.getElementById("start2").textContent = "Start camera";
-
-        setCameraPermissionState("granted");
-        showToast("Camera stopped");
-      }
-
-document
-        .getElementById("start2")
-        .addEventListener("click", startCamera);
-      document
-        .getElementById("stop")
-        .addEventListener("click", stopCamera);
-      refreshCameraPermission();
+      refreshPermission("camera");
+      refreshPermission("microphone");
+      refreshPermission("notifications");
+      document.getElementById("vibrationPermissionSetting").textContent = typeof navigator.vibrate === "function"
+        ? "Supported — no separate browser permission"
+        : "Not supported by this device or browser";
     </script>
-    <script type="module" src="camera/standalone.js"></script>
+    <script type="module" src="standalone.js"></script>
   </body>
 </html>

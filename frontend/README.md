@@ -77,4 +77,4 @@ Open **http://127.0.0.1:5180/**, choose Camera, then Start camera. Starting send
 
 Existing Settings speech controls are connected to the accessible camera. The AI recognizes selected objects; it does not measure distance or establish that a path is safe.
 
-See the [camera guide](camera/README.md) for this computer's temporary Node commands, integration details, simulation versus real-detection testing, and phone checklists. Run `npm run check` at the root and `npm --prefix frontend test` for frontend validation.
+Camera controller, detector adapter, and their tests live alongside the main app files. Run `npm run check` at the root and `npm --prefix frontend test` for frontend validation.
