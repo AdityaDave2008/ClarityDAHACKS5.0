@@ -38,8 +38,9 @@ test('requests nothing before Start; prefers rear camera, video only; stops ever
   assert.deepEqual(f.calls, [{ audio: false, video: { facingMode: { ideal: 'environment' } } }]);
   assert.equal(f.feature.state.phase, 'active');
   assert.equal(f.feature.state.detection, 'Detection not connected.');
-  assert.equal(f.events[0].name, 'camera:started');
-  assert.equal(f.events[0].detail.video, f.video);
+  const started = f.events.find(event => event.name === 'camera:started');
+  assert.equal(started.detail.video, f.video);
+  assert.ok(f.events.some(event => event.name === 'clearpath:permissionchange' && event.detail.state === 'granted'));
   f.feature.stop();
   assert.ok(f.tracks.every(track => track.stopped));
   assert.equal(f.video.srcObject, null);
@@ -271,12 +272,18 @@ function fakeDOM() {
   const nodes = new Map();
   const documentListeners = {}, windowListeners = {};
   const querySelector = selector => {
-    if (!nodes.has(selector)) nodes.set(selector, { textContent: '', value: '', attrs: {}, listeners: {},
-      setAttribute(key, value) { this.attrs[key] = value; }, addEventListener(name, fn) { this.listeners[name] = fn; },
-      async play() {}, pause() {} });
+    if (!nodes.has(selector)) {
+      const classes = new Set();
+      nodes.set(selector, { textContent: '', value: '', attrs: {}, listeners: {},
+        classList: { toggle(name, enabled) { if (enabled) classes.add(name); else classes.delete(name); },
+          contains(name) { return classes.has(name); } },
+        setAttribute(key, value) { this.attrs[key] = value; }, addEventListener(name, fn) { this.listeners[name] = fn; },
+        async play() {}, pause() {} });
+    }
     return nodes.get(selector);
   };
-  const root = { querySelector, ownerDocument: { hidden: false, addEventListener(name, fn) { documentListeners[name] = fn; } } };
+  const root = { querySelector, ownerDocument: { hidden: false, getElementById(id) { return querySelector(`#${id}`); },
+    addEventListener(name, fn) { documentListeners[name] = fn; } } };
   const platform = { navigator: {}, isSecureContext: true, location: { search: '' },
     addEventListener(name, fn) { windowListeners[name] = fn; }, dispatchEvent() {} };
   return { root, platform, nodes, documentListeners, windowListeners };
@@ -292,6 +299,7 @@ test('UI wiring stops on hide and pagehide, never auto resumes; simulation hidde
     const feature = mountCamera(dom.root, dom.platform);
     assert.equal(dom.nodes.get('#camera-simulate').hidden, true);
     await feature.start();
+    assert.equal(dom.nodes.get('#ready-permission-light').classList.contains('permission-granted'), true);
     dom.root.ownerDocument.hidden = true;
     dom.documentListeners.visibilitychange();
     assert.equal(feature.state.phase, 'off');
@@ -319,7 +327,7 @@ test('preview serves integrated camera assets and preserves the file allowlist',
     }
     assert.equal((await fetch(origin + '/camera/')).status, 404);
     assert.equal((await fetch(origin + '/package.json')).status, 404);
-    assert.match(await (await fetch(origin + '/')).text(), /id="camera-panel"/);
+    assert.match(await (await fetch(origin + '/')).text(), /id="camera-feature"/);
     assert.match(await (await fetch(origin + '/camera.html')).text(), /id="demo-tab"/);
   } finally { await new Promise(resolve => server.close(resolve)); }
 });
