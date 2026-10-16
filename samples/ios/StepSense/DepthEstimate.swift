@@ -31,7 +31,11 @@ struct DepthSnapshot: Sendable {
         for y in y0..<y1 {
             for x in x0..<x1 {
                 let value = meters[y * width + x]
-                if value.isFinite, value >= 0.2, value <= 5 { valid.append(value) }
+                // NaN is the SDK's unfiltered missing-data marker. A finite out-of-range
+                // surface (or infinity) is not a hole and must not be silently discarded.
+                if value.isNaN { continue }
+                guard value.isFinite, value >= 0.2, value <= 5 else { return nil }
+                valid.append(value)
             }
         }
         // Sparse holes must never leave a tiny patch of background masquerading as an object.
@@ -42,5 +46,18 @@ struct DepthSnapshot: Sendable {
         let tolerance = max(0.08, median * 0.06)
         guard Double(valid.last! - valid.first!) <= tolerance else { return nil }
         return median
+    }
+}
+
+
+extension Detection {
+    /// Replaces, never merges, prior native depth. OFF and missing/mismatched frames clear it.
+    func addingDepth(from snapshot: DepthSnapshot?, enabled: Bool, matchingFrame: Bool, now: TimeInterval) -> Detection {
+        var enriched = self
+        enriched.depthRequested = enabled
+        enriched.depthMeters = enabled && matchingFrame ? snapshot?.estimate(in: bbox, now: now) : nil
+        enriched.depthExpiresAt = enriched.depthMeters == nil ? nil
+            : snapshot.map { $0.capturedAt + DepthSnapshot.maximumAge }
+        return enriched
     }
 }

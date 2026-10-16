@@ -8,11 +8,13 @@ struct CapturedFrame: @unchecked Sendable {
     let jpeg: Data
     let size: CGSize
     let capturedAt: TimeInterval
+    let depth: DepthSnapshot?
 }
 
 struct CameraDiagnostics: Sendable {
     let multitaskingSupported: Bool
     let multitaskingEnabled: Bool
+    let depthStatus: String
 }
 
 enum CameraFailure: LocalizedError {
@@ -28,13 +30,20 @@ enum CameraFailure: LocalizedError {
 }
 
 /// Capture runs on dedicated queues. The lock protects the small request/handler state only.
-final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate, @unchecked Sendable {
+final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate, AVCaptureDataOutputSynchronizerDelegate, @unchecked Sendable {
     let session = AVCaptureSession()
     private let sessionQueue = DispatchQueue(label: "stepsense.camera.session", qos: .userInitiated)
     private let frameQueue = DispatchQueue(label: "stepsense.camera.frames", qos: .userInitiated)
     private let context = CIContext(options: [.cacheIntermediates: false])
     private let lock = NSLock()
     private var configured = false
+    private var configuredLiDAR = false
+    private var depthStatus = "Off"
+    // Installed/removed while stopped; frameQueue is drained before reconfiguration.
+    private var synchronizer: AVCaptureDataOutputSynchronizer?
+    private var synchronizedVideo: AVCaptureVideoDataOutput?
+    private var synchronizedDepth: AVCaptureDepthDataOutput?
+    private var captureToken = UUID()
     private var active = false
     private var frameRequested = false
     private var frameHandler: (@Sendable (CapturedFrame) -> Void)?
@@ -150,15 +159,20 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
         try Task.checkCancellation()
     }
 
-    func start(onFrame: @escaping @Sendable (CapturedFrame) -> Void,
+    func start(lidarEnabled: Bool = false, onFrame: @escaping @Sendable (CapturedFrame) -> Void,
                onPreview: @escaping @Sendable (PiPFrame) -> Void,
                onInterruption: @escaping @Sendable (Bool, String) -> Void,
                onFailure: @escaping @Sendable (String) -> Void) async throws -> CameraDiagnostics {
+        let token = UUID()
+        lock.withLock { captureToken = token }
         try await requestAuthorization()
         return try await withCheckedThrowingContinuation { continuation in
             sessionQueue.async { [self] in
                 do {
-                    if !configured { try configure() }
+                    guard lock.withLock({ captureToken == token }) else { throw CancellationError() }
+                    if !configured || configuredLiDAR != lidarEnabled {
+                        try configure(lidarEnabled: lidarEnabled)
+                    }
                     // Video-call Picture in Picture needs camera frames while another app is
                     // foreground. Apple gates that behind this capture-session switch, which is
                     // only settable on supported hardware.
@@ -170,6 +184,7 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
                     }
                     let enabledAccess = session.isMultitaskingCameraAccessEnabled
                     lock.lock()
+                    guard captureToken == token else { lock.unlock(); throw CancellationError() }
                     active = true
                     frameRequested = false
                     interrupted = false
@@ -181,9 +196,9 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
                     session.startRunning()
                     guard session.isRunning else { throw CameraFailure.configuration }
                     continuation.resume(returning: CameraDiagnostics(multitaskingSupported: supported,
-                                                                     multitaskingEnabled: enabledAccess))
+                                                                     multitaskingEnabled: enabledAccess, depthStatus: depthStatus))
                 } catch {
-                    clearHandlers()
+                    clearHandlers(ifToken: token)
                     continuation.resume(throwing: error)
                 }
             }
@@ -196,15 +211,18 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
         lock.unlock()
     }
 
-    func stop() {
+    func stop(onStopped: @escaping @Sendable () -> Void = {}) {
         clearHandlers()
         sessionQueue.async { [self] in
             if session.isRunning { session.stopRunning() }
+            onStopped()
         }
     }
 
-    private func clearHandlers() {
+    private func clearHandlers(ifToken token: UUID? = nil) {
         lock.lock()
+        if let token, captureToken != token { lock.unlock(); return }
+        captureToken = UUID()
         active = false
         frameRequested = false
         interrupted = false
@@ -215,7 +233,44 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
         lock.unlock()
     }
 
-    private func configure() throws {
+    private func configure(lidarEnabled: Bool) throws {
+        if session.isRunning { session.stopRunning() }
+        frameQueue.sync {
+            synchronizer?.setDelegate(nil, queue: nil)
+            synchronizer = nil
+            synchronizedVideo = nil
+            synchronizedDepth = nil
+        }
+        session.beginConfiguration()
+        defer { session.commitConfiguration() }
+        for output in session.outputs { session.removeOutput(output) }
+        for input in session.inputs { session.removeInput(input) }
+        configured = false
+        configuredLiDAR = lidarEnabled
+        depthStatus = lidarEnabled ? "Unavailable · ordinary detection continues" : "Off"
+        if lidarEnabled {
+            do {
+                let (video, depth) = try LiDARCapture.configure(in: session)
+                let sync = AVCaptureDataOutputSynchronizer(dataOutputs: [video, depth])
+                frameQueue.sync {
+                    synchronizedVideo = video
+                    synchronizedDepth = depth
+                    synchronizer = sync
+                    sync.setDelegate(self, queue: frameQueue)
+                }
+                depthStatus = "LiDAR configured · estimates require valid depth"
+                configured = true
+                return
+            } catch {
+                // A missing LiDAR camera/format/connection never removes ordinary detection.
+                for output in session.outputs { session.removeOutput(output) }
+                for input in session.inputs { session.removeInput(input) }
+            }
+        }
+        try configureWideCamera()
+    }
+
+    private func configureWideCamera() throws {
         guard let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back) else {
             throw CameraFailure.unavailable
         }
@@ -225,8 +280,6 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
         output.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA]
         output.setSampleBufferDelegate(self, queue: frameQueue)
 
-        session.beginConfiguration()
-        defer { session.commitConfiguration() }
         session.sessionPreset = session.canSetSessionPreset(.vga640x480) ? .vga640x480 : .medium
         guard session.canAddInput(input) else { throw CameraFailure.configuration }
         session.addInput(input)
@@ -247,8 +300,28 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
     }
 
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
+        process(sampleBuffer, depthData: nil, synchronizedTime: nil)
+    }
+
+    func dataOutputSynchronizer(_ synchronizer: AVCaptureDataOutputSynchronizer,
+                                didOutput collection: AVCaptureSynchronizedDataCollection) {
+        guard synchronizer === self.synchronizer, let video = synchronizedVideo,
+              let rgb = collection.synchronizedData(for: video) as? AVCaptureSynchronizedSampleBufferData,
+              !rgb.sampleBufferWasDropped else { return }
+        var depthData: AVDepthData?
+        if let output = synchronizedDepth,
+           let depth = collection.synchronizedData(for: output) as? AVCaptureSynchronizedDepthData,
+           !depth.depthDataWasDropped {
+            let difference = CMTimeGetSeconds(CMTimeSubtract(depth.timestamp, rgb.timestamp))
+            if difference.isFinite, abs(difference) <= 0.001 { depthData = depth.depthData }
+        }
+        // Even a dropped/invalid depth frame still feeds ordinary detection and PiP.
+        process(rgb.sampleBuffer, depthData: depthData, synchronizedTime: rgb.timestamp)
+    }
+
+    private func process(_ sampleBuffer: CMSampleBuffer, depthData: AVDepthData?, synchronizedTime: CMTime?) {
         lock.lock()
-        guard active else { lock.unlock(); return }
+        guard active, !interrupted else { lock.unlock(); return }
         let preview = previewHandler
         let wanted = frameRequested
         let handler = frameHandler
@@ -264,11 +337,26 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
 
         guard wanted, let handler else { return }
 
-        let capturedAt = ProcessInfo.processInfo.systemUptime
+        let now = ProcessInfo.processInfo.systemUptime
+        var depthCapturedAt: TimeInterval?
+        if let timestamp = synchronizedTime, let clock = session.synchronizationClock {
+            let hostTime = CMSyncConvertTime(timestamp, from: clock, to: CMClockGetHostTimeClock())
+            let hostNow = CMClockGetTime(CMClockGetHostTimeClock())
+            let age = CMTimeGetSeconds(CMTimeSubtract(hostNow, hostTime))
+            // Translate the host-clock age to systemUptime rather than assuming equal epochs.
+            if age.isFinite, age >= 0, age < DepthSnapshot.maximumAge { depthCapturedAt = now - age }
+        }
+        let capturedAt = depthCapturedAt ?? now
 
         guard let buffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
             reportFailure(CameraFailure.encoding.localizedDescription)
             return
+        }
+        let depth: DepthSnapshot?
+        if let depthData, let depthCapturedAt {
+            depth = LiDARCapture.snapshot(depthData, rgb: buffer, capturedAt: depthCapturedAt)
+        } else {
+            depth = nil
         }
         let source = CIImage(cvPixelBuffer: buffer)
         let scale = min(1, 640 / max(source.extent.width, source.extent.height))
@@ -279,7 +367,7 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
             reportFailure(CameraFailure.encoding.localizedDescription)
             return
         }
-        handler(CapturedFrame(jpeg: jpeg, size: CGSize(width: cgImage.width, height: cgImage.height), capturedAt: capturedAt))
+        handler(CapturedFrame(jpeg: jpeg, size: CGSize(width: cgImage.width, height: cgImage.height), capturedAt: capturedAt, depth: depth))
     }
 
     private func reportFailure(_ message: String) {

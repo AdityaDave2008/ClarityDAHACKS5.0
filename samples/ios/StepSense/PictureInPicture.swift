@@ -174,6 +174,19 @@ final class PiPContentView: UIView {
                 ? UIColor.systemYellow.cgColor
                 : UIColor(red: 0.29, green: 0.91, blue: 0.79, alpha: 0.9).cgColor
             overlayLayer.addSublayer(shape)
+            if let depthLabel = detection.depthLabel {
+                let label = CATextLayer()
+                label.string = depthLabel
+                label.fontSize = 9
+                label.contentsScale = window?.screen.scale ?? 2
+                label.foregroundColor = UIColor.black.cgColor
+                label.backgroundColor = shape.strokeColor
+                label.alignmentMode = .center
+                let width = min(rect.width, 130)
+                label.frame = CGRect(x: min(max(box.midX - width / 2, rect.minX), rect.maxX - width),
+                                     y: max(rect.minY, box.minY - 14), width: width, height: 13)
+                overlayLayer.addSublayer(label)
+            }
         }
 
         let banner = CGRect(x: 4, y: bounds.height - 22, width: max(0, bounds.width - 8), height: 18)

@@ -106,3 +106,41 @@ xcodebuild -project samples/ios/StepSense.xcodeproj -scheme StepSense \
 - Signed Debug iPhone build succeeded with team `MB3Z8QW8ML`.
 - Installed and launched `com.dahacks.stepsense.sample` on the connected iPhone 15 Pro at 21:59:33Z and again with final verified sources at 22:03:13Z. Camera permissions were not reset.
 - Live-camera detection accuracy, sound/haptic delivery, airplane-mode use on the physical phone, thermal/battery behavior, and PiP background inference still need on-device acceptance. Build/install/launch alone does not establish those results.
+
+## Optional LiDAR axial depth
+
+**Settings → Optional LiDAR → LiDAR depth estimates** is persisted and **OFF by default**, including when upgrading older saved settings. Stop scanning before changing it, then tap Apply and Start. The toggle, Apply, and Start remain disabled while capture is stopping. Changing alert settings does not restart capture. The model independently rejects capture-mode changes during an active scan.
+
+On supported hardware, the existing AVFoundation session uses `builtInLiDARDepthCamera`, `AVCaptureDepthDataOutput`, and a video-primary `AVCaptureDataOutputSynchronizer`. No ARSession competes for the camera. A compatible 4:3 RGB/depth pair runs at 30 fps with unit zoom, portrait orientation, no mirroring, and stabilization off. Unsupported hardware/formats/orientation fall back to the ordinary wide-camera detector with an explicit capture status. PiP still uses the same video frames and the existing multitasking support check. LiDAR does not guarantee background camera access or background inference.
+
+Labels such as **`depth ≈2.0 m`** mean approximate **axial depth along the camera's forward optical axis**, not Euclidean/radial camera-to-object distance, closest surface distance, collision prediction, or a safe walking corridor. The existing detector and alert policy do not consume depth. `depth unavailable` is shown when enabled but a usable measurement cannot be made. With LiDAR off there is no depth label.
+
+### Alignment and rejection contract
+
+The installed iPhoneOS 27.1 SDK's `AVCaptureDevice.h` documents that LiDAR depth is perspective-corrected to its paired RGB image with the same field of view and aspect ratio. `AVDepthData.h` documents that the map is warped to the RGB lens distortion. Both outputs are rotated to portrait; the JPEG is uniformly resized without a crop. Normalized boxes therefore address the matching normalized depth pixels. The implementation requires camera calibration, positive finite focal lengths and principal point, matching actual portrait aspect ratios, absolute accuracy, high quality, and **unfiltered** data. It does not independently rectify one image or use intrinsics to mislabel axial depth as radial range.
+
+Only the depth belonging to the requested RGB frame is copied, respecting row stride. Dropped/missing depth and timestamp differences over 1 ms are rejected. Capture time is converted from the session synchronization clock to host-clock age and then system uptime. The representative value is the median in the central half of the box, with at least 3×3 pixels, at least 90% valid coverage (only NaN holes may be omitted), a 0.2–5 m working range, and total depth spread no greater than max(8 cm, 6% of median). Mixed surfaces and outliers are rejected, not silently trimmed. Boxes must be finite and fully inside the image. This is a conservative heuristic, not object segmentation: homogeneous background within a loose box can still be mistaken for object depth. Reflective/transparent surfaces, small objects, lighting, motion, and occlusion remain limitations.
+
+Depth must be less than **0.75 seconds old**, including capture queue and inference time. Depth labels expire independently of the existing 2.5-second detection-box expiry. Stop, interruption, toggle changes, preference revisions, mismatched inference frame identity, and missing depth clear prior values. No latest-depth cache is reused. All images and depth remain transient in memory, with no recording or cloud processing.
+
+### Verification and physical acceptance
+
+`node --test samples/ios/tests/*.test.mjs` compiles and executes the production Swift estimator and native detection enrichment on macOS. Tests cover valid depth, NaNs/infinities/range, sparse coverage, mixed surfaces/outliers, invalid/tiny/edge boxes, portrait quadrant mapping, exact age cutoff, default-off migration, persisted on/off, mismatched frame rejection, and toggle-off clearing. Additional source-wiring guards cover synchronized capture, calibration, Stop-first UI/model checks and conditional cancellation cleanup. These tests do **not** simulate a real LiDAR sensor or prove physical alignment.
+
+Before treating physical depth as accepted, use the connected LiDAR iPhone to:
+1. Confirm the toggle is OFF on first upgrade and ordinary scanning/PiP behavior remains unchanged.
+2. Stop, enable, Apply, Start. Check capture status and compare a broad, matte detected object at measured 0.5, 1, 2 and 3 m against axial reference distances. Repeat near all image edges in portrait. Off-axis radial tape measurements are not the same quantity.
+3. Put different-depth surfaces inside one detection box, obscure the sensor, test reflective surfaces, and move rapidly. Unreliable/mixed/stale estimates must become unavailable. Pause/interruption must clear them.
+4. Stop, disable, Apply, restart, and relaunch the app. Confirm no old depth labels and persisted preference. Verify non-LiDAR fallback on actual non-LiDAR hardware when available.
+5. Exercise PiP entry, backgrounding, hiding/moving the window, return, and Stop in both modes. Observe real camera pixels and fresh labels, not only callback counters.
+
+Signed build/install and automated tests are not reference-distance acceptance. No camera images need to be recorded for these checks.
+
+### LiDAR implementation verification, October 16, 2026
+
+- **42/42** native sample tests and **27/27** backend tests passed.
+- Real production WKWebView/WASM smoke passed with LiDAR preference both off and on: cat confidence **0.9304017425**, confirming → triggered → cooldown, stale/error recovery, cancellation, single-flight, timeout, blocked remote fetch. This is detector regression coverage, not physical LiDAR accuracy.
+- Signed Debug build for the connected iPhone 15 Pro succeeded using the installed iPhoneOS 27.1 SDK. `codesign --verify --deep --strict` passed. No new Swift compiler warnings remain (Xcode reports only the unrelated absent-AppIntents metadata notice).
+- Final app installed on the connected iPhone at approximately **23:53:16Z**. An earlier feature build launched successfully at **23:51:48Z**. Launch of the final tightened-outlier build was denied because the phone was locked (`FBSOpenApplicationErrorDomain`, `Locked`). No unlock, permission reset, or credential action was attempted.
+- Physical depth/reference-distance accuracy, real on/off persistence UI, non-LiDAR hardware fallback, and LiDAR-enabled PiP/background behavior remain **unverified**. The physical acceptance checklist above is still required.
+- Pre-feature baseline is `aa2c7d4291db99098dcf5ae065ad8a274ec009b8`. A verified signed pre-LiDAR app is preserved outside the feature build directory at `$JCODE_SCRATCH_DIR/stepsense-pre-lidar-rollback/StepSense.app`, with restore instructions and binary checksum in `ROLLBACK.md`. No rollback was performed because no device regression was observed. A locked-device launch failure alone is not evidence of a regression.

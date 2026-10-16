@@ -17,6 +17,8 @@
         B10000000000000000000010 /* OfflineDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000010; };
         B10000000000000000000011 /* OfflineDetector in Resources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000011; };
 		B10000000000000000000012 = {isa = PBXBuildFile; fileRef = F10000000000000000000012; };
+		B10000000000000000000013 = {isa = PBXBuildFile; fileRef = F10000000000000000000013; };
+		B10000000000000000000014 = {isa = PBXBuildFile; fileRef = F10000000000000000000014; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -32,6 +34,8 @@
         F10000000000000000000010 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineDetector.swift; sourceTree = "<group>"; };
         F10000000000000000000011 = {isa = PBXFileReference; lastKnownFileType = folder; path = OfflineDetector; sourceTree = "<group>"; };
 		F10000000000000000000012 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiPDiagnostics.swift; sourceTree = "<group>"; };
+		F10000000000000000000013 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DepthEstimate.swift; sourceTree = "<group>"; };
+		F10000000000000000000014 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiDARCapture.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -64,6 +68,8 @@
 				F10000000000000000000006 /* ScannerView.swift */,
 				F10000000000000000000009 /* PictureInPicture.swift */,
                 F10000000000000000000012,
+                F10000000000000000000014,
+                F10000000000000000000013,
 				F10000000000000000000007 /* Info.plist */,
                 F10000000000000000000010,
                 F10000000000000000000011,
@@ -156,6 +162,8 @@
 				B10000000000000000000006 /* ScannerView.swift in Sources */,
 				B10000000000000000000009 /* PictureInPicture.swift in Sources */,
                 B10000000000000000000012,
+                B10000000000000000000014,
+                B10000000000000000000013,
                 B10000000000000000000010,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

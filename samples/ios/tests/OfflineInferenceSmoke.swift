@@ -23,7 +23,9 @@ struct OfflineInferenceSmoke {
                 let jpeg = try Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[2]))
                 var results: [FrameAnalysis] = []
                 for sequence in 1...3 {
-                    let result = try await detector.analyze(jpeg: jpeg, sequence: sequence, preferences: ScanPreferences(confidenceThreshold: 0.4), capturedAt: ProcessInfo.processInfo.systemUptime)
+                    var framePreferences = ScanPreferences(confidenceThreshold: 0.4)
+                    framePreferences.isLidarEnabled = sequence == 3
+                    let result = try await detector.analyze(jpeg: jpeg, sequence: sequence, preferences: framePreferences, capturedAt: ProcessInfo.processInfo.systemUptime)
                     results.append(result)
                     print("FRAME \(sequence) size=\(result.frame.width)x\(result.frame.height) ms=\(result.processingMs) alert=\(result.alert.reason)")
                     for item in result.detections { print("DETECTION \(item.label) confidence=\(item.confidence) box=\(item.bbox) zone=\(item.inZone)") }

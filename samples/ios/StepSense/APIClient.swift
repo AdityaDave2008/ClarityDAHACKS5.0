@@ -59,9 +59,12 @@ struct Detection: Decodable, Equatable {
     // Native-only enrichment. The detector does not supply or use depth for alerts.
     var depthMeters: Double? = nil
     var depthRequested: Bool? = nil
-    var depthLabel: String? {
+    var depthExpiresAt: TimeInterval? = nil
+    var depthLabel: String? { depthLabel(at: ProcessInfo.processInfo.systemUptime) }
+    func depthLabel(at now: TimeInterval) -> String? {
         guard depthRequested == true else { return nil }
-        guard let depthMeters, depthMeters.isFinite, depthMeters > 0 else { return "depth unavailable" }
+        guard let depthMeters, depthMeters.isFinite, depthMeters > 0,
+              let depthExpiresAt, now.isFinite, depthExpiresAt.isFinite, now < depthExpiresAt else { return "depth unavailable" }
         return String(format: "depth ≈%.1f m", depthMeters)
     }
 }

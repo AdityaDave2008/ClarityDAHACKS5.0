@@ -7,6 +7,7 @@ struct DepthEstimateTests {
         func snapshot(_ values: [Float], width: Int = 20, height: Int = 20) -> DepthSnapshot {
             DepthSnapshot(width: width, height: height, meters: values, capturedAt: 10)
         }
+        precondition(ScanPreferences(confidenceThreshold: 0.4).confidenceThreshold == 0.4)
         let good = snapshot(Array(repeating: 2, count: 400))
         precondition(good.estimate(in: full, now: 10.1) == 2, "valid absolute depth")
         precondition(good.estimate(in: full, now: 10.749) == 2, "fresh before boundary")
@@ -34,6 +35,8 @@ struct DepthEstimateTests {
         var outlier = Array(repeating: Float(2), count: 400)
         outlier[10 * 20 + 10] = 4
         precondition(snapshot(outlier).estimate(in: full, now: 10) == nil, "outlier surface")
+        outlier[10 * 20 + 10] = 6
+        precondition(snapshot(outlier).estimate(in: full, now: 10) == nil, "out-of-range background cannot be silently trimmed")
         // Non-square portrait map with distinct top/bottom and left/right values catches flips.
         let portrait = (0..<800).map { i -> Float in i / 20 < 20 ? (i % 20 < 10 ? 1 : 2) : (i % 20 < 10 ? 3 : 4) }
         for (x, y, value) in [(0.0, 0.0, 1.0), (0.5, 0.0, 2.0), (0.0, 0.5, 3.0), (0.5, 0.5, 4.0)] {
@@ -48,6 +51,15 @@ struct DepthEstimateTests {
         preferences.isLidarEnabled = false
         let disabled = try JSONDecoder().decode(ScanPreferences.self, from: JSONEncoder().encode(preferences))
         precondition(!disabled.isLidarEnabled)
+        var detection = Detection(label: "cat", confidence: 0.9, bbox: full, anchor: NormalizedPoint(x: 0.5, y: 1), inZone: true)
+        detection = detection.addingDepth(from: good, enabled: true, matchingFrame: true, now: 10)
+        precondition(detection.depthMeters == 2 && detection.depthLabel(at: 10.1) == "depth ≈2.0 m")
+        precondition(detection.depthLabel(at: 10.75) == "depth unavailable")
+        precondition(detection.addingDepth(from: good, enabled: false, matchingFrame: true, now: 10).depthLabel(at: 10) == nil)
+        precondition(detection.addingDepth(from: good, enabled: false, matchingFrame: true, now: 10).depthMeters == nil)
+        precondition(detection.addingDepth(from: good, enabled: true, matchingFrame: false, now: 10).depthMeters == nil)
+        precondition(detection.addingDepth(from: nil, enabled: true, matchingFrame: true, now: 10).depthMeters == nil)
+        precondition(detection.addingDepth(from: good, enabled: true, matchingFrame: true, now: 11).depthMeters == nil)
         print("Depth estimation, rejection, portrait mapping and preference migration passed")
     }
 }

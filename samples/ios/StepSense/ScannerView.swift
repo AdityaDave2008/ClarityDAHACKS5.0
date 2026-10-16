@@ -83,6 +83,7 @@ struct ScannerView: View {
                     .buttonStyle(.borderedProminent)
                     .tint(.senseTeal)
                     .foregroundStyle(.black)
+                    .disabled(model.cameraStopping)
 
                     Button { model.testAlert() } label: {
                         Image(systemName: "speaker.wave.2")
@@ -122,7 +123,7 @@ struct ScannerView: View {
                 .foregroundStyle(Color.senseMuted)
                 .padding(.vertical, 4)
 
-                Text("Prototype for selected objects. The image zone does not measure distance or establish that a path is clear. Camera frames are processed on this iPhone and are not uploaded.")
+                Text("Prototype for selected objects. The image zone does not establish that a path is clear. Optional LiDAR labels estimate axial depth, not safety. Camera frames are processed on this iPhone and are not uploaded.")
                     .font(.caption)
                     .foregroundStyle(Color.senseMuted)
                     .fixedSize(horizontal: false, vertical: true)
@@ -272,7 +273,7 @@ private struct DetectionOverlay: View {
                     .stroke(color, lineWidth: 2)
                     .frame(width: box.width, height: box.height)
                     .position(x: box.midX, y: box.midY)
-                Text("\(detection.label)  \(Int(detection.confidence * 100))%")
+                Text("\(detection.label)  \(Int(detection.confidence * 100))%" + (detection.depthLabel.map { " · " + $0 } ?? ""))
                     .font(.system(size: 10, weight: .semibold, design: .monospaced))
                     .foregroundStyle(.black)
                     .padding(.horizontal, 6)
@@ -339,6 +340,14 @@ private struct SettingsView: View {
                     Text("All options are editable. With every channel off, warnings stay visual. Haptics require supported hardware; test your selected channels before scanning.")
                 }
 
+                Section {
+                    Toggle("LiDAR depth estimates", isOn: $preferences.isLidarEnabled)
+                        .disabled(model.isBusy || model.cameraRunning || model.cameraStopping || saving)
+                    LabeledContent("Capture status", value: model.depthStatus)
+                } header: { Text("Optional LiDAR") } footer: {
+                    Text("Off by default. Stop scanning to change LiDAR, then tap Apply. On supported rear cameras, labels show approximate axial depth in meters along the camera's forward axis, not radial distance to an object. Missing, mixed, unreliable, or stale depth is unavailable. Detection continues without LiDAR. Depth does not establish a clear or safe path.")
+                }
+
                 Section("Detection preferences") {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Confidence threshold · \(Int(preferences.confidenceThreshold * 100))%")
@@ -377,7 +386,7 @@ private struct SettingsView: View {
                             saving = false
                         }
                     }
-                    .disabled(saving || model.phase == .connecting)
+                    .disabled(saving || model.phase == .connecting || model.cameraStopping)
                 }
             }
             .disabled(saving)

@@ -44,3 +44,18 @@ test('settings require Stop and estimates expire independently from detector box
   assert.match(ui, /Stop scanning to change/);
   assert.match(read('APIClient.swift'), /depth unavailable/);
 });
+
+test('superseded start cannot clear a newer run and format selection searches valid pairs', () => {
+  const camera = read('CameraCapture.swift');
+  assert.ok(camera.includes('clearHandlers(ifToken: token)'), 'failure cleanup must be conditional on the same capture token');
+  assert.ok(camera.includes('if let token, captureToken != token'), 'token comparison and clearing share the lock');
+  assert.ok(read('LiDARCapture.swift').includes('candidates.compactMap'), 'search compatible RGB/depth pairs rather than giving up on first RGB format');
+});
+
+test('stop transition blocks capture mode edits and restart until camera release completes', () => {
+  const model = read('ScanModel.swift');
+  assert.ok(model.includes('cameraStopping = true'), 'model must track asynchronous camera release');
+  assert.ok(model.includes('isBusy || cameraRunning || cameraStopping'), 'model mode-change guard includes stopping');
+  assert.ok(read('ScannerView.swift').includes('model.cameraStopping'), 'UI disables capture controls during stop');
+  assert.ok(read('CameraCapture.swift').includes('onStopped()'), 'stop completion follows stopRunning on session queue');
+});

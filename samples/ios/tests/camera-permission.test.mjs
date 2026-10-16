@@ -23,7 +23,7 @@ test('cancelled or superseded startup cannot load the detector after permission 
 
 test('capture retains its permission guard independently of startup caller', () => {
   assert.match(camera, /func requestAuthorization\(\) async throws/);
-  const captureStart = camera.slice(camera.indexOf('    func start(onFrame:'), camera.indexOf('    func requestFrame()'));
+  const captureStart = camera.slice(camera.indexOf('    func start(lidarEnabled:'), camera.indexOf('    func requestFrame()'));
   assert.match(captureStart, /try await requestAuthorization\(\)/);
 });
 

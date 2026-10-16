@@ -10,6 +10,7 @@ final class ScanModel: ObservableObject {
     let pip = PictureInPictureController()
     private let alerts = AlertPlayer()
     @Published private(set) var cameraRunning = false
+    @Published private(set) var cameraStopping = false
     /// True while capture is interrupted but expected to resume on its own.
     @Published private(set) var cameraPaused = false
     @Published var phase: Phase = .idle
@@ -27,6 +28,7 @@ final class ScanModel: ObservableObject {
     @Published private(set) var alertReason = "idle"
     @Published private(set) var alertCount = 0
     @Published private(set) var checkedFrames = 0
+    @Published private(set) var depthStatus = "Not started"
 
     private var generation = UUID()
     private var sequence = 0
@@ -35,6 +37,7 @@ final class ScanModel: ObservableObject {
     private var startTask: Task<Void, Never>?
     private var frameTask: Task<Void, Never>?
     private var overlayExpirationTask: Task<Void, Never>?
+    private var depthExpirationTask: Task<Void, Never>?
     private var watchdogTask: Task<Void, Never>?
     private var displayedSequence: Int?
     private let maxResultAge: TimeInterval = 2.5
@@ -53,7 +56,7 @@ final class ScanModel: ObservableObject {
 
     func start() {
         PiPDiagnostics.log("scan.start", "phase=\(phase)")
-        guard !isBusy else { return }
+        guard !isBusy, !cameraStopping else { return }
         generation = UUID()
         let current = generation
         phase = .connecting
@@ -74,7 +77,7 @@ final class ScanModel: ObservableObject {
                 try Task.checkCancellation()
                 guard generation == current else { return }
                 detail = "Starting the rear camera…"
-                let diagnostics = try await camera.start(onFrame: { [weak self] frame in
+                let diagnostics = try await camera.start(lidarEnabled: preferences.isLidarEnabled, onFrame: { [weak self] frame in
                     Task { @MainActor in self?.analyze(frame, generation: current) }
                 }, onPreview: { [weak self] preview in
                     Task { @MainActor in
@@ -93,6 +96,7 @@ final class ScanModel: ObservableObject {
                     }
                 })
                 guard generation == current, !Task.isCancelled else { return }
+                depthStatus = diagnostics.depthStatus
                 multitaskingSupported = diagnostics.multitaskingSupported
                 multitaskingEnabled = diagnostics.multitaskingEnabled
                 cameraRunning = true
@@ -171,6 +175,7 @@ final class ScanModel: ObservableObject {
         guard cameraRunning else { return }
         cameraPaused = paused
         if paused {
+            preferencesRevision = UUID() // In-flight pre-interruption depth cannot reappear.
             clearDisplayedResult()
             alertReason = "unavailable"
             detail = message
@@ -210,7 +215,11 @@ final class ScanModel: ObservableObject {
     }
 
     func applyPreferences(_ updated: ScanPreferences) async throws {
+        if updated.isLidarEnabled != preferences.isLidarEnabled, isBusy || cameraRunning || cameraStopping {
+            throw OfflineDetectorError.unavailable("Stop scanning to change LiDAR, then apply settings.")
+        }
         preferences = updated
+        if !isBusy { depthStatus = updated.isLidarEnabled ? "Enabled · starts with next scan" : "Off" }
         preferencesRevision = UUID()
         clearDisplayedResult()
         refreshPiPOverlay()
@@ -221,7 +230,7 @@ final class ScanModel: ObservableObject {
     }
 
     private func analyze(_ frame: CapturedFrame, generation current: UUID) {
-        guard phase == .scanning, generation == current, frameTask == nil else { return }
+        guard phase == .scanning, !cameraPaused, generation == current, frameTask == nil else { return }
         sequence += 1
         let frameSequence = sequence
         let revision = preferencesRevision
@@ -250,7 +259,13 @@ final class ScanModel: ObservableObject {
                     alertReason = "stale"
                     detail = "Result arrived late. Alert skipped; checking a fresh frame."
                 } else {
-                    detections = result.detections
+                    let matchingFrame = result.frame.sequence == frameSequence
+                        && result.frame.width == Int(frame.size.width) && result.frame.height == Int(frame.size.height)
+                    detections = result.detections.map { detection in
+                        detection.addingDepth(from: frame.depth, enabled: self.preferences.isLidarEnabled,
+                                              matchingFrame: matchingFrame, now: ProcessInfo.processInfo.systemUptime)
+                    }
+                    expireDepth(sequence: frameSequence, capturedAt: frame.capturedAt, generation: current)
                     expireDisplayedResult(sequence: frameSequence, capturedAt: frame.capturedAt, generation: current)
                     alertReason = result.alert.reason
                     switch result.alert.reason {
@@ -324,7 +339,26 @@ final class ScanModel: ObservableObject {
         }
     }
 
+    private func expireDepth(sequence: Int, capturedAt: TimeInterval, generation current: UUID) {
+        depthExpirationTask?.cancel()
+        guard detections.contains(where: { $0.depthMeters != nil }) else { return }
+        let remaining = max(0, DepthSnapshot.maximumAge - (ProcessInfo.processInfo.systemUptime - capturedAt))
+        depthExpirationTask = Task { [weak self] in
+            do { try await Task.sleep(nanoseconds: UInt64(remaining * 1_000_000_000)) } catch { return }
+            guard let self, generation == current, displayedSequence == sequence, !Task.isCancelled else { return }
+            detections = detections.map { detection in
+                var expired = detection
+                expired.depthMeters = nil
+                expired.depthExpiresAt = nil
+                return expired
+            }
+            refreshPiPOverlay()
+        }
+    }
+
     private func clearDisplayedResult() {
+        depthExpirationTask?.cancel()
+        depthExpirationTask = nil
         overlayExpirationTask?.cancel()
         overlayExpirationTask = nil
         displayedSequence = nil
@@ -340,7 +374,14 @@ final class ScanModel: ObservableObject {
         startTask = nil
         frameTask = nil
         watchdogTask = nil
-        camera.stop()
+        cameraStopping = true
+        let stoppedGeneration = generation
+        camera.stop { [weak self] in
+            Task { @MainActor in
+                guard let self, self.generation == stoppedGeneration else { return }
+                self.cameraStopping = false
+            }
+        }
         cameraRunning = false
         cameraPaused = false
         alerts.stop()

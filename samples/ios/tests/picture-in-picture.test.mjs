@@ -43,7 +43,7 @@ test('dismissal disarms automatic entry and cancels pending manual starts', () =
   assert.match(dismissed, /setEnabled\(false\)/);
   assert.doesNotMatch(dismissed, /\.start\(|startPictureInPicture\(/);
   const stop = model.slice(model.indexOf('private func stop(nextPhase:'));
-  assert.match(stop, /camera\.stop\(\)/);
+  assert.match(stop, /camera\.stop \{/);
   assert.match(stop, /pip\.setEnabled\(false\)/);
 });
 

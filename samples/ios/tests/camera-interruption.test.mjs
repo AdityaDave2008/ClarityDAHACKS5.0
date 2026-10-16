@@ -31,9 +31,9 @@ test('a runtime error attempts recovery before surfacing a failure', () => {
 });
 
 test('interruption state is cleared when capture starts and stops', () => {
-  const start = camera.slice(camera.indexOf('func start(onFrame:'), camera.indexOf('func requestFrame()'));
+  const start = camera.slice(camera.indexOf('func start(lidarEnabled:'), camera.indexOf('func requestFrame()'));
   assert.match(start, /interrupted = false/);
-  const clear = camera.slice(camera.indexOf('private func clearHandlers()'));
+  const clear = camera.slice(camera.indexOf('private func clearHandlers('));
   assert.match(clear, /interruptionHandler = nil/);
 });
 
