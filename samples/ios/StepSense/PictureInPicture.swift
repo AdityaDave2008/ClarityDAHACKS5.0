@@ -178,6 +178,12 @@ final class PictureInPictureController: NSObject, ObservableObject, AVPictureInP
     @Published private(set) var isPossible = false
     /// Last Picture in Picture failure, shown in the app rather than silently dropped.
     @Published private(set) var failureMessage: String?
+    /// Why the floating window cannot be opened right now, or nil when it can.
+    var unavailableReason: String? {
+        if !isSupported { return "This device does not support Picture in Picture." }
+        if controller == nil { return "The floating window is still being prepared." }
+        return nil
+    }
 
     private let callViewController = PiPCallViewController()
     private var controller: AVPictureInPictureController?
@@ -185,7 +191,8 @@ final class PictureInPictureController: NSObject, ObservableObject, AVPictureInP
     private var state = PiPOverlayState()
     private var possibleObservation: NSKeyValueObservation?
     private var startAttempt: Task<Void, Never>?
-    /// Set by the scan model: Picture in Picture is only offered while a scan owns the camera.
+    /// Set by the scan model. The controller is still built ahead of time so the system can
+    /// report readiness before a scan begins.
     private var enabled = false
 
     /// Connects the on-screen anchor that the floating window animates from.
@@ -195,16 +202,19 @@ final class PictureInPictureController: NSObject, ObservableObject, AVPictureInP
         rebuildController()
     }
 
-    /// Turns the feature on or off without tearing down the camera.
+    /// Turns automatic entry on or off. The controller itself stays built.
     func setEnabled(_ newValue: Bool) {
-        guard enabled != newValue else { return }
         enabled = newValue
+        controller?.canStartPictureInPictureAutomaticallyFromInline = newValue
         if !newValue { stop() }
-        rebuildController()
     }
 
+    /// Builds the controller as soon as an anchor exists.
+    ///
+    /// `isPictureInPicturePossible` only becomes true after the system inspects a real content
+    /// source, so deferring this until a scan starts left the control permanently unavailable.
     private func rebuildController() {
-        guard isSupported, enabled, let sourceView else {
+        guard isSupported, let sourceView else {
             possibleObservation = nil
             controller = nil
             isPossible = false
@@ -217,7 +227,7 @@ final class PictureInPictureController: NSObject, ObservableObject, AVPictureInP
         let created = AVPictureInPictureController(contentSource: source)
         created.delegate = self
         // Matches the behavior people expect from video-call apps: swiping away keeps the window.
-        created.canStartPictureInPictureAutomaticallyFromInline = true
+        created.canStartPictureInPictureAutomaticallyFromInline = enabled
         controller = created
         possibleObservation = created.observe(\.isPictureInPicturePossible, options: [.initial, .new]) { [weak self] controller, _ in
             let possible = controller.isPictureInPicturePossible
@@ -233,7 +243,7 @@ final class PictureInPictureController: NSObject, ObservableObject, AVPictureInP
             return
         }
         guard let controller else {
-            failureMessage = "Start the camera before opening the floating window."
+            failureMessage = "The floating window is still being prepared. Try again in a moment."
             return
         }
         guard !controller.isPictureInPictureActive else { return }
@@ -300,7 +310,10 @@ final class PictureInPictureController: NSObject, ObservableObject, AVPictureInP
 
 // MARK: - SwiftUI anchor
 
-/// Invisible anchor view that Picture in Picture animates from and returns to.
+/// Anchor view that Picture in Picture animates from and returns to.
+///
+/// The system inspects this view, so it must be a real, laid-out view in the hierarchy rather
+/// than a zero-sized placeholder.
 struct PiPSourceAnchor: UIViewRepresentable {
     let controller: PictureInPictureController
 
@@ -312,6 +325,8 @@ struct PiPSourceAnchor: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: UIView, context: Context) {
-        controller.attach(sourceView: uiView)
+        let controller = self.controller
+        // Attach after layout so the anchor has a real frame when the system inspects it.
+        DispatchQueue.main.async { controller.attach(sourceView: uiView) }
     }
 }

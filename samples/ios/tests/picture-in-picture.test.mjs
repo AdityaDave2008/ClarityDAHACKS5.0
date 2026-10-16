@@ -14,7 +14,6 @@ test('the floating window is offered whenever the camera runs, not only once det
   // the control for everyone whose backend was unreachable.
   assert.match(model, /pip\.setEnabled\(cameraRunning\)/);
   assert.doesNotMatch(model, /pip\.setEnabled\(phase == \.scanning\)/);
-  assert.match(view, /\.disabled\(!model\.pip\.isSupported \|\| !model\.cameraRunning/);
   assert.doesNotMatch(view, /\.disabled\([^)]*model\.phase != \.scanning/);
 });
 
@@ -25,6 +24,20 @@ test('the toggle honors both the saved preference and a running camera', () => {
 test('backgrounding keeps a preview-only session alive in the window', () => {
   const pause = model.slice(model.indexOf('func pauseForBackground()'), model.indexOf('func returnedToForeground()'));
   assert.match(pause, /if cameraRunning, pip\.isActive, multitaskingEnabled == true/);
+});
+
+test('the controller is built from the anchor alone, not only once scanning starts', () => {
+  // isPictureInPicturePossible stays false until the system inspects a real content source,
+  // so building the controller lazily left the control permanently unavailable.
+  const rebuild = pip.slice(pip.indexOf('private func rebuildController()'), pip.indexOf('func start()'));
+  assert.match(rebuild, /guard isSupported, let sourceView else/);
+  assert.doesNotMatch(rebuild, /guard isSupported, enabled, let sourceView else/);
+});
+
+test('the open button is not gated on a readiness flag the user cannot influence', () => {
+  const disabled = view.match(/\.disabled\(model\.pip\.unavailableReason != nil \|\| model\.pip\.isActive\)/);
+  assert.ok(disabled, 'Only hard blockers may disable the open button');
+  assert.doesNotMatch(view, /\.disabled\([^)]*!model\.pip\.isPossible/);
 });
 
 test('starting waits for readiness instead of silently doing nothing', () => {
@@ -44,5 +57,6 @@ test('video-call Picture in Picture requirements stay declared', () => {
   assert.match(plist, /<string>voip<\/string>/);
   assert.match(pip, /activeVideoCallSourceView/);
   assert.match(pip, /AVPictureInPictureVideoCallViewController/);
-  assert.match(pip, /canStartPictureInPictureAutomaticallyFromInline = true/);
+  assert.match(pip, /canStartPictureInPictureAutomaticallyFromInline = enabled/);
+  assert.match(pip, /controller\?\.canStartPictureInPictureAutomaticallyFromInline = newValue/);
 });

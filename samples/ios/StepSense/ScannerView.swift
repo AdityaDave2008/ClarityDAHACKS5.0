@@ -13,7 +13,7 @@ struct ScannerView: View {
     private var title: String {
         switch model.phase {
         case .idle: return "Ready when you are"
-        case .connecting: return "Connecting…"
+        case .connecting: return "Loading offline detector…"
         case .previewing: return "Camera preview only"
         case .paused: return "Scanning paused"
         case .failed: return "Unable to start"
@@ -152,7 +152,7 @@ struct ScannerView: View {
                     .background(Color.senseSurface, in: Circle())
             }
             .foregroundStyle(Color.senseTeal)
-            .accessibilityLabel("Backend and alert settings")
+            .accessibilityLabel("Offline detector and alert settings")
         }
     }
 
@@ -174,6 +174,9 @@ struct ScannerView: View {
                 .font(.subheadline)
                 .tint(.senseTeal)
                 .disabled(!model.pip.isSupported)
+            LabeledContent("System reports ready", value: model.pip.isPossible ? "Yes" : "Not yet")
+                .font(.caption)
+                .foregroundStyle(Color.senseMuted)
             Button {
                 model.startPictureInPicture()
             } label: {
@@ -184,7 +187,9 @@ struct ScannerView: View {
             }
             .buttonStyle(.bordered)
             .tint(.senseTeal)
-            .disabled(!model.pip.isSupported || !model.cameraRunning || !model.pip.isPossible || model.pip.isActive)
+            // Only hard blockers disable this. Readiness is handled by start(), which waits and
+            // then explains itself, so a stale isPossible cannot silently hide the feature.
+            .disabled(model.pip.unavailableReason != nil || model.pip.isActive)
             if let failure = model.pip.failureMessage {
                 Text(failure).font(.caption).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true)
             }
@@ -196,14 +201,13 @@ struct ScannerView: View {
     }
 
     private var pipDetail: String {
-        if !model.pip.isSupported { return "This device does not support Picture in Picture." }
+        if let reason = model.pip.unavailableReason { return reason }
         if model.pip.isActive {
             return model.multitaskingEnabled == true
-                ? "Live camera and detections continue in the floating window."
+                ? "Live camera continues in the floating window. Offline analysis may pause in the background; old boxes expire."
                 : "Floating window is open. This device does not grant camera access outside the app, so the window pauses when StepSense is backgrounded."
         }
-        if !model.cameraRunning { return "Tap Start, then swipe home or open this window to keep StepSense visible." }
-        if !model.pip.isPossible { return "Preparing the floating window…" }
+        if !model.cameraRunning { return "Opens an empty window until you tap Start. Start the camera first for a live feed." }
         if model.phase == .previewing { return "Camera preview only. Swipe home, or open the window now." }
         return "Swipe home while scanning, or open the window now."
     }
@@ -312,26 +316,10 @@ private struct SettingsView: View {
         NavigationStack {
             Form {
                 Section {
-                    TextField("http://192.168.1.20:3001", text: $model.backendAddress)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .keyboardType(.URL)
-                        .font(.callout.monospaced())
-                        .disabled(model.isBusy)
-                        .accessibilityLabel("Backend server URL")
-                    Button {
-                        Task { await model.checkConnection() }
-                    } label: {
-                        HStack {
-                            Text("Check connection")
-                            Spacer()
-                            if model.checkingConnection { ProgressView() }
-                        }
-                    }
-                    .disabled(model.isBusy || model.checkingConnection)
+                    Text("COCO-SSD · lite_mobilenet_v2")
                     Text(model.modelStatus).font(.caption).foregroundStyle(.secondary)
-                } header: { Text("Backend") } footer: {
-                    Text("On a physical iPhone, use your laptop's LAN IP or a deployed HTTPS origin. 127.0.0.1 reaches the iPhone itself. Stop scanning before editing the URL.")
+                } header: { Text("Offline detector") } footer: {
+                    Text("Pretrained model and runtime are bundled on this iPhone. No server, Wi-Fi, or mobile data is needed. Start scanning to load the model.")
                 }
 
                 Section {
