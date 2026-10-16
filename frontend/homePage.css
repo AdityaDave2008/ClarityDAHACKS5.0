@@ -765,3 +765,342 @@ select {
     padding: 15px;
   }
 }
+
+/* Integrated blindness mode: shares the app palette and bottom navigation. */
+.blindness-screen .camera-feature,
+.blindness-screen .camera-feature * {
+  box-sizing: border-box;
+}
+
+.blindness-screen .camera-feature {
+  width: 100%;
+  min-height: auto;
+  margin: 0;
+  padding: 0 0 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  color: var(--ink);
+  font-size: clamp(18px, 5vw, 21px);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.blindness-screen .camera-feature h1 {
+  margin: 0;
+  font-size: clamp(38px, 10vw, 52px);
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+}
+
+.blindness-screen .camera-feature h2 {
+  margin: 0;
+  font-size: clamp(22px, 6vw, 26px);
+  line-height: 1.2;
+}
+
+.blindness-screen .camera-feature p {
+  margin: 0;
+}
+
+.blindness-screen .camera-feature button,
+.blindness-screen .camera-feature select,
+.blindness-screen .camera-feature input,
+.blindness-screen .camera-feature summary {
+  min-height: 56px;
+  border: 2px solid var(--line);
+  border-radius: 14px;
+  color: var(--ink);
+  font: inherit;
+  font-size: 18px;
+}
+
+.blindness-screen .camera-feature button {
+  padding: 10px 14px;
+  background: var(--mint);
+  color: var(--bg);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.blindness-screen .camera-feature button:disabled {
+  background: var(--card-bottom);
+  color: var(--muted);
+  cursor: default;
+}
+
+.blindness-screen .camera-feature :focus-visible {
+  outline: 4px solid var(--mint);
+  outline-offset: 4px;
+}
+
+.blindness-screen .back-link {
+  align-self: flex-start;
+  min-height: 48px !important;
+  padding: 6px 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: var(--ink) !important;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.blindness-screen .camera-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.blindness-screen .camera-actions > * {
+  flex: 1 1 140px;
+  min-width: 0;
+}
+
+.blindness-screen .status-panel,
+.blindness-screen .readings > section,
+.blindness-screen .color-settings {
+  padding: 14px 16px;
+  border: 2px solid var(--line);
+  border-radius: 16px;
+  background: linear-gradient(145deg, var(--card-top), var(--card-bottom));
+}
+
+.blindness-screen .status-panel p + p {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.blindness-screen .readings {
+  display: grid;
+  gap: 10px;
+}
+
+.blindness-screen .readings > section:first-child {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 6px 12px;
+}
+
+.blindness-screen #camera-video {
+  display: block;
+  position: static;
+  width: 100%;
+  height: clamp(120px, 24dvh, 190px);
+  border: 2px solid var(--line);
+  border-radius: 16px;
+  background: #000;
+  object-fit: contain;
+}
+
+.blindness-screen .speech-controls {
+  display: grid;
+  gap: 10px;
+}
+
+.blindness-screen .color-settings {
+  display: grid;
+  gap: 8px;
+}
+
+.blindness-screen .color-settings label,
+.blindness-screen .camera-feature details label {
+  font-weight: 750;
+}
+
+.blindness-screen .camera-feature select,
+.blindness-screen .camera-feature input {
+  display: block;
+  width: 100%;
+  margin: 8px 0;
+  padding: 8px 12px;
+  background: var(--card-bottom);
+}
+
+.blindness-screen .camera-feature details {
+  padding-top: 8px;
+  border-top: 2px solid var(--line);
+}
+
+.blindness-screen .camera-feature summary {
+  padding: 8px 0;
+  border: 0;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.blindness-screen #permission-help,
+.blindness-screen #speech-status,
+.blindness-screen #announcement-help {
+  color: var(--muted);
+}
+
+.blindness-screen .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.blindness-screen .camera-feature [hidden] {
+  display: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .blindness-screen { scroll-behavior: auto; }
+}
+
+/* App-wide accessibility toggle: Home, Camera, Settings, and navigation. */
+body.blindness-mode {
+  background: var(--bg);
+}
+
+.app.blindness-mode {
+  --line: #ffffffa8;
+  --muted: #eef3f1;
+  font-size: 19px;
+}
+
+.app.blindness-mode header {
+  gap: 12px;
+  padding-bottom: 24px;
+}
+
+.app.blindness-mode .brand {
+  font-size: 20px;
+}
+
+.app.blindness-mode .logo {
+  width: 48px;
+  height: 48px;
+  font-size: 24px;
+}
+
+.app.blindness-mode .status {
+  max-width: 48%;
+  font-size: 16px;
+  line-height: 1.35;
+}
+
+.app.blindness-mode h1 {
+  font-size: clamp(44px, 12vw, 60px);
+  line-height: 1.08;
+  letter-spacing: -0.035em;
+}
+
+.app.blindness-mode h2,
+.app.blindness-mode .forum-heading h2,
+.app.blindness-mode .camera-header h2,
+.app.blindness-mode .section-title {
+  font-size: clamp(24px, 6vw, 30px);
+  line-height: 1.2;
+}
+
+.app.blindness-mode .eyebrow {
+  font-size: 16px;
+  letter-spacing: 0.08em;
+}
+
+.app.blindness-mode .intro,
+.app.blindness-mode .forum-intro,
+.app.blindness-mode .forum-post p,
+.app.blindness-mode .notice,
+.app.blindness-mode .setting-row b,
+.app.blindness-mode .device-access-row b {
+  font-size: 19px;
+  line-height: 1.5;
+}
+
+.app.blindness-mode button,
+.app.blindness-mode select,
+.app.blindness-mode input:not([type="checkbox"]),
+.app.blindness-mode .nav-btn {
+  min-height: 60px;
+  font-size: 18px;
+}
+
+.app.blindness-mode .toggle {
+  width: 30px;
+  height: 30px;
+}
+
+.app.blindness-mode .card,
+.app.blindness-mode .feature,
+.app.blindness-mode .choice,
+.app.blindness-mode .forum-post {
+  border-width: 2px;
+}
+
+.app.blindness-mode .choice {
+  font-size: 18px;
+}
+
+.app.blindness-mode .setting-row {
+  gap: 16px;
+  padding: 20px 0;
+}
+
+.app.blindness-mode .bottom-nav {
+  border-top-width: 2px;
+}
+
+.app.blindness-mode .nav-btn {
+  min-height: 64px;
+  gap: 4px;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.app.blindness-mode .nav-btn .icon {
+  font-size: 24px;
+}
+
+.app.blindness-mode :focus-visible {
+  outline: 4px solid var(--mint);
+  outline-offset: 4px;
+}
+
+/* Keep the main actions and labels prominent by removing secondary copy. */
+.app.blindness-mode #home > .intro,
+.app.blindness-mode #home > .grid,
+.app.blindness-mode #home .forum-intro,
+.app.blindness-mode #home .forum-live,
+.app.blindness-mode #camera > .intro,
+.app.blindness-mode #camera .notice,
+.app.blindness-mode #settings > .intro,
+.app.blindness-mode #settings .choice small,
+.app.blindness-mode #settings .setting-row small,
+.app.blindness-mode #settings .color-vision-note,
+.app.blindness-mode #settings .device-access-intro,
+.app.blindness-mode #settings .device-access-row small,
+.app.blindness-mode .color-settings p {
+  display: none;
+}
+
+.app.blindness-mode .forum-heading .eyebrow {
+  margin-bottom: 8px;
+}
+
+.app.blindness-mode .forum-form input {
+  min-height: 60px;
+  font-size: 18px;
+}
+
+.app.blindness-mode .blindness-screen .camera-feature {
+  gap: 16px;
+  font-size: 21px;
+}
+
+.app.blindness-mode .blindness-screen .camera-feature button,
+.app.blindness-mode .blindness-screen .camera-feature select,
+.app.blindness-mode .blindness-screen .camera-feature summary {
+  min-height: 64px;
+  font-size: 20px;
+}

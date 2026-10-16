@@ -271,7 +271,7 @@ export function mountCamera(root, platform = window, { onState = () => {} } = {}
       find('status').textContent = state.camera;
       root.querySelector('#detection-status').textContent = state.detection;
       find('distance').textContent = state.distance;
-      find('obstacle').textContent = state.obstacle || 'No current alert. This does not mean the path is safe.';
+      find('obstacle').textContent = state.obstacle || 'No alert. Keep watching your path.';
       find('start').disabled = state.pending || state.phase !== 'off';
       find('stop').disabled = state.phase === 'off';
       find('stop').textContent = state.phase === 'requesting' ? 'Cancel camera request' : 'Stop camera';
