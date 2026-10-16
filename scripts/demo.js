@@ -29,8 +29,8 @@ for (const project of projects) {
   child.on('error', () => { console.error(`Could not launch ${project}. Run npm --prefix backend ci first.`); stop(1); });
   child.on('exit', (code, signal) => { if (!shuttingDown) { console.error(`${project} stopped${signal ? ` (${signal})` : ''}.`); stop(code || 1); } });
 }
-console.log('Starting the browser sample at http://localhost:5180');
-console.log('The walkthrough works immediately. Live detection needs the backend model to finish loading.');
+console.log('Starting the combined ClearPath website at http://localhost:5180');
+console.log('Open Camera, then Start. AI detection needs the backend model to finish loading. The original walkthrough is at /camera.html.');
 if (lan) {
   if (reuseBackend) console.log('An existing API is being reused. Native phones can reach it only if it was started with HOST=0.0.0.0.');
   for (const entries of Object.values(networkInterfaces())) for (const address of entries || []) {
