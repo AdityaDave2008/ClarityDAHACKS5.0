@@ -12,6 +12,10 @@
     <key>CFBundleShortVersionString</key><string>$(MARKETING_VERSION)</string>
     <key>CFBundleVersion</key><string>$(CURRENT_PROJECT_VERSION)</string>
     <key>LSRequiresIPhoneOS</key><true/>
+    <key>UIBackgroundModes</key>
+    <array>
+        <string>voip</string>
+    </array>
     <key>NSCameraUsageDescription</key>
     <string>StepSense uses the rear camera during a scan and sends small frames to the detection backend you select.</string>
     <key>NSLocalNetworkUsageDescription</key>

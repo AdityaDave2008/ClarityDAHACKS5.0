@@ -1,3 +1,4 @@
+import AVFoundation
 import SwiftUI
 
 @main
@@ -5,13 +6,24 @@ struct StepSenseApp: App {
     @StateObject private var model = ScanModel()
     @Environment(\.scenePhase) private var scenePhase
 
+    init() {
+        // Video-call Picture in Picture requires an audio session that permits background
+        // playback. The same session is reused for beeps and spoken alerts.
+        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
+        try? AVAudioSession.sharedInstance().setActive(true)
+    }
+
     var body: some Scene {
         WindowGroup {
             ScannerView(model: model)
                 .preferredColorScheme(.dark)
                 .tint(.senseTeal)
                 .onChange(of: scenePhase) { phase in
-                    if phase == .background { model.pauseForBackground() }
+                    switch phase {
+                    case .background: model.pauseForBackground()
+                    case .active: model.returnedToForeground()
+                    default: break
+                    }
                 }
         }
     }

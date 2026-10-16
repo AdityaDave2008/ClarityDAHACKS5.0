@@ -11,6 +11,7 @@
         B10000000000000000000004 /* AlertPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000004; };
         B10000000000000000000005 /* ScanModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000005; };
         B10000000000000000000006 /* ScannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000006; };
+        B10000000000000000000009 /* PictureInPicture.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000009; };
 /* End PBXBuildFile section */
 /* Begin PBXFileReference section */
         F10000000000000000000001 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StepSenseApp.swift; sourceTree = "<group>"; };
@@ -21,13 +22,14 @@
         F10000000000000000000006 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScannerView.swift; sourceTree = "<group>"; };
         F10000000000000000000007 = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
         F10000000000000000000008 = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = StepSense.app; sourceTree = BUILT_PRODUCTS_DIR; };
+        F10000000000000000000009 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PictureInPicture.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 /* Begin PBXFrameworksBuildPhase section */
         A10000000000000000000001 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXFrameworksBuildPhase section */
 /* Begin PBXGroup section */
         A10000000000000000000002 = {isa = PBXGroup; children = (A10000000000000000000003, A10000000000000000000004); sourceTree = "<group>"; };
-        A10000000000000000000003 = {isa = PBXGroup; children = (F10000000000000000000001, F10000000000000000000002, F10000000000000000000003, F10000000000000000000004, F10000000000000000000005, F10000000000000000000006, F10000000000000000000007); path = StepSense; sourceTree = "<group>"; };
+        A10000000000000000000003 = {isa = PBXGroup; children = (F10000000000000000000001, F10000000000000000000002, F10000000000000000000003, F10000000000000000000004, F10000000000000000000005, F10000000000000000000006, F10000000000000000000009, F10000000000000000000007); path = StepSense; sourceTree = "<group>"; };
         A10000000000000000000004 = {isa = PBXGroup; children = (F10000000000000000000008); name = Products; sourceTree = "<group>"; };
 /* End PBXGroup section */
 /* Begin PBXNativeTarget section */
@@ -63,7 +65,7 @@
         A10000000000000000000007 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXResourcesBuildPhase section */
 /* Begin PBXSourcesBuildPhase section */
-        A10000000000000000000006 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (B10000000000000000000001, B10000000000000000000002, B10000000000000000000003, B10000000000000000000004, B10000000000000000000005, B10000000000000000000006); runOnlyForDeploymentPostprocessing = 0; };
+        A10000000000000000000006 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (B10000000000000000000001, B10000000000000000000002, B10000000000000000000003, B10000000000000000000004, B10000000000000000000005, B10000000000000000000006, B10000000000000000000009); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXSourcesBuildPhase section */
 /* Begin XCBuildConfiguration section */
         C10000000000000000000001 = {isa = XCBuildConfiguration; buildSettings = {

@@ -2,7 +2,15 @@
 
 A dependency-free SwiftUI application using the repository's real Node backend. It shows a rear-camera preview, the backend's image zone and object boxes, editable alert settings, and Start/Stop controls. Sound, speech, and haptics are delivered on the phone only when the backend returns `alert.triggered: true`.
 
-**This is a foreground scanner.** Switching to another app or locking the phone pauses scanning, cancels requests, releases the camera, and ends the API session. Returning requires an explicit Start. Scanning while Instagram is foreground is not established by this sample.
+**This scanner can keep running in a floating window.** It adopts Apple's video-call Picture in Picture, the same mechanism FaceTime-style and teleprompter apps use: `AVPictureInPictureController` with an `activeVideoCallSourceView` content source, an `AVPictureInPictureVideoCallViewController`, and the `voip` background mode.
+
+Three separate conditions must all hold for live scanning to continue over another app:
+
+1. The `voip` background mode in `Info.plist`, which this sample declares.
+2. An active video-call Picture in Picture window.
+3. `AVCaptureSession.isMultitaskingCameraAccessEnabled`, which the app turns on when the hardware reports support.
+
+Where the third condition is unavailable, the floating window still presents, but it shows a clearly marked paused state rather than implying a live camera feed, and the app releases the camera as before. Settings reports all three values after the camera starts. The App Store reviews the `voip` background mode against an app's actual calling functionality; this hackathon sample is not an App Store submission.
 
 ## Run one sample at a time
 
@@ -47,7 +55,7 @@ Requirements: a Mac with Xcode and the iOS SDK, plus an iPhone running iOS 16 or
 5. Connect and select your iPhone. Complete Xcode's device pairing, trust, and Developer Mode prompts if required.
 6. Run the **StepSense** scheme. Approve camera and local-network access when asked.
 
-The app is portrait-only to keep preview, frame orientation, and normalized overlays consistent. No VoIP background mode, PiP entitlement, or fake video call is configured.
+The app is portrait-only to keep preview, frame orientation, and normalized overlays consistent. It declares the `voip` background mode for video-call Picture in Picture. No fake video call is placed and no calling service is contacted.
 
 #### iPhone 18 running iOS 27
 
@@ -74,7 +82,11 @@ The sample's `Info.plist` includes camera/local-network purpose strings and **de
 3. Place a supported object, such as a backpack, suitcase, or chair, so its bottom-center falls in the outlined image zone.
 4. Two nearby matching detections can produce an alert. A confirmed object can trigger again after the selected cooldown; it does not alert on every frame.
 5. Tap **Stop scanning**. The camera stops and late results cannot play another alert.
-6. Start again, switch to another app, and return. Confirm the paused state and explicit restart.
+6. Leave **Use floating window** on, then swipe home while scanning. The scanner should shrink into a floating window showing live camera, the zone, and detection boxes.
+7. Open another app, such as Instagram or Maps, and confirm the window stays on top and alerts continue.
+8. Tap the window to return to the app, then **Stop scanning**. The camera stops and late results cannot play another alert.
+
+If the window shows "Paused · open StepSense", this device did not grant camera access outside the app. Check **Background camera access** in Settings.
 
 Yellow boxes identify supported objects whose bottom-center is in the zone; teal boxes identify other retained detections. An empty result does not establish a clear path. Potholes, curbs, stairs, cones, and generic construction barriers are outside the selected model's categories. The zone is an image heuristic, not depth or collision prediction.
 
@@ -86,7 +98,8 @@ Yellow boxes identify supported objects whose bottom-center is in the zone; teal
 | `StepSense/CameraCapture.swift` | Rear camera, portrait buffers/preview, fresh JPEG encoding, and camera diagnostics |
 | `StepSense/ScanModel.swift` | Serialized frame loop, increasing sequence, session lifetime, preferences, and stale-result protection |
 | `StepSense/AlertPlayer.swift` | Generated beep, speech synthesis, and native warning haptic |
-| `StepSense/ScannerView.swift` | Teal-on-black UI, normalized aspect-fit overlay, and settings |
+| `StepSense/ScannerView.swift` | Teal-on-black UI, normalized aspect-fit overlay, Picture in Picture controls, and settings |
+| `StepSense/PictureInPicture.swift` | Video-call Picture in Picture controller, floating-window rendering, and overlay drawing |
 
 The camera output is sampled only after the previous request completes. Fresh images are resized to a longest edge of at most 640 pixels and JPEG-encoded at quality 0.65. Uploads are serialized and capped at approximately three per second; actual rate depends on network and inference latency. Busy responses wait one second before sampling a new frame. A preference change sends the exact top-level PATCH fields without resetting sequence numbers.
 
@@ -94,7 +107,15 @@ The backend confirms matching detections within 2.5 seconds, measured at backend
 
 Sound and speech use a temporary audio session with ducking. Audio-player and speech delegates track each current alert independently; other audio recovers after both outputs complete. Queued speech counts as pending so a short beep cannot deactivate the session before speech starts. Stop invalidates those completions, stops both outputs, and deactivates immediately.
 
-Settings show the runtime value of `AVCaptureSession.isMultitaskingCameraAccessSupported` after camera startup. The sample deliberately does not enable multitasking camera access. A true value does not establish eligibility for a non-call background scanner. Apple's [support conditions](https://developer.apple.com/documentation/avfoundation/avcapturesession/ismultitaskingcameraaccesssupported) and [video-call PiP documentation](https://developer.apple.com/documentation/avkit/adopting-picture-in-picture-for-video-calls) describe specific supported cases.
+### Picture in Picture
+
+Every camera frame is sent to the floating window through `AVSampleBufferDisplayLayer`, while uploads stay serialized at roughly three frames per second. The window draws the image zone, detection boxes, and a status banner with Core Animation layers, so what you see floating is the same analysis shown in the app.
+
+`canStartPictureInPictureAutomaticallyFromInline` is enabled, so swiping home during a scan opens the window without an extra tap. The in-app card also offers an explicit button and reports why the window is unavailable instead of failing silently. Picture in Picture start failures are surfaced in that card.
+
+The audio session is configured for playback at launch and stays active while the app runs, because deactivating it would cut background audio alerts while the floating window is scanning. Ducking still yields to other audio.
+
+Settings show `AVCaptureSession.isMultitaskingCameraAccessSupported`, whether background camera access was actually enabled, and the Picture in Picture state after camera startup. Apple's [support conditions](https://developer.apple.com/documentation/avfoundation/avcapturesession/ismultitaskingcameraaccesssupported) and [video-call PiP documentation](https://developer.apple.com/documentation/avkit/adopting-picture-in-picture-for-video-calls) describe the supported cases.
 
 ## Build verification
 
@@ -113,4 +134,6 @@ xcodebuild \
 
 Simulator compilation does not validate camera hardware, lens orientation, sound routing, speech voices, haptics, device permissions, app switching, or the phone-to-backend network. A physical iPhone is required for those checks. There are no prerecorded camera frames or fake detector responses in this application.
 
-Verified on October 16, 2026: the command above completed successfully with the installed iOS Simulator 26.2 SDK. `Info.plist` and `project.pbxproj` also passed `plutil -lint`. Simulator services were unavailable in the execution sandbox, so the application was compiled but not launched here; no physical iPhone test was performed.
+The iOS Simulator does not provide a rear camera, so Picture in Picture behavior, background camera access, and the floating window must be checked on a physical iPhone.
+
+Verified on October 16, 2026: the command above completed successfully, including the Picture in Picture sources. `Info.plist` and `project.pbxproj` also passed `plutil -lint`. Simulator services were unavailable in the execution sandbox, so the application was compiled but not launched here; no physical iPhone test was performed.

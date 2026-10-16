@@ -12,6 +12,7 @@ struct CapturedFrame: @unchecked Sendable {
 
 struct CameraDiagnostics: Sendable {
     let multitaskingSupported: Bool
+    let multitaskingEnabled: Bool
 }
 
 enum CameraFailure: LocalizedError {
@@ -37,6 +38,7 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
     private var active = false
     private var frameRequested = false
     private var frameHandler: (@Sendable (CapturedFrame) -> Void)?
+    private var previewHandler: (@Sendable (PiPFrame) -> Void)?
     private var failureHandler: (@Sendable (String) -> Void)?
     private var observers: [NSObjectProtocol] = []
 
@@ -54,6 +56,7 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
     }
 
     func start(onFrame: @escaping @Sendable (CapturedFrame) -> Void,
+               onPreview: @escaping @Sendable (PiPFrame) -> Void,
                onFailure: @escaping @Sendable (String) -> Void) async throws -> CameraDiagnostics {
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .authorized: break
@@ -66,17 +69,27 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
             sessionQueue.async { [self] in
                 do {
                     if !configured { try configure() }
-                    // Diagnostic only: no VoIP background mode, PiP, or background-camera enablement.
+                    // Video-call Picture in Picture needs camera frames while another app is
+                    // foreground. Apple gates that behind this capture-session switch, which is
+                    // only settable on supported hardware.
                     let supported = session.isMultitaskingCameraAccessSupported
+                    if supported, !session.isMultitaskingCameraAccessEnabled {
+                        session.beginConfiguration()
+                        session.isMultitaskingCameraAccessEnabled = true
+                        session.commitConfiguration()
+                    }
+                    let enabledAccess = session.isMultitaskingCameraAccessEnabled
                     lock.lock()
                     active = true
                     frameRequested = false
                     frameHandler = onFrame
+                    previewHandler = onPreview
                     failureHandler = onFailure
                     lock.unlock()
                     session.startRunning()
                     guard session.isRunning else { throw CameraFailure.configuration }
-                    continuation.resume(returning: CameraDiagnostics(multitaskingSupported: supported))
+                    continuation.resume(returning: CameraDiagnostics(multitaskingSupported: supported,
+                                                                     multitaskingEnabled: enabledAccess))
                 } catch {
                     clearHandlers()
                     continuation.resume(throwing: error)
@@ -103,6 +116,7 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
         active = false
         frameRequested = false
         frameHandler = nil
+        previewHandler = nil
         failureHandler = nil
         lock.unlock()
     }
@@ -140,9 +154,17 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
 
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
         lock.lock()
-        guard active, frameRequested, let handler = frameHandler else { lock.unlock(); return }
-        frameRequested = false
+        guard active else { lock.unlock(); return }
+        let preview = previewHandler
+        let wanted = frameRequested
+        let handler = frameHandler
+        if wanted { frameRequested = false }
         lock.unlock()
+
+        // Every frame feeds the Picture in Picture window; only requested frames are uploaded.
+        preview?(PiPFrame(sampleBuffer: sampleBuffer))
+
+        guard wanted, let handler else { return }
 
         let capturedAt = ProcessInfo.processInfo.systemUptime
 

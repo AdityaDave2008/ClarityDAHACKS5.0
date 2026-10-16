@@ -61,7 +61,8 @@ final class AlertPlayer: NSObject, AVAudioPlayerDelegate, AVSpeechSynthesizerDel
 
     private func deactivateWhenFinished() {
         guard activePlayer == nil, activeUtterance == nil else { return }
-        try? AVAudioSession.sharedInstance().setActive(false, options: [.notifyOthersOnDeactivation])
+        // The audio session stays active: deactivating it would end background audio while a
+        // video-call Picture in Picture window is scanning. Ducking already yields to other audio.
     }
 
     nonisolated func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {

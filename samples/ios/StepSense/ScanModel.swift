@@ -7,6 +7,7 @@ final class ScanModel: ObservableObject {
     enum Phase: Equatable { case idle, connecting, scanning, paused, failed }
 
     let camera = CameraCapture()
+    let pip = PictureInPictureController()
     private let alerts = AlertPlayer()
     @Published var phase: Phase = .idle
     @Published var detail = "Point the rear camera forward and slightly down."
@@ -19,6 +20,16 @@ final class ScanModel: ObservableObject {
     @Published private(set) var imageSize = CGSize(width: 480, height: 640)
     @Published private(set) var modelStatus = "Not connected"
     @Published private(set) var multitaskingSupported: Bool?
+    /// True once the capture session actually grants camera access while backgrounded.
+    @Published private(set) var multitaskingEnabled: Bool?
+    /// User switch for keeping the scanner in a floating window.
+    @Published var pictureInPictureRequested: Bool {
+        didSet {
+            UserDefaults.standard.set(pictureInPictureRequested, forKey: "stepsense.pip")
+            pip.setEnabled(pictureInPictureRequested && phase == .scanning)
+            if !pictureInPictureRequested { pip.stop() }
+        }
+    }
     @Published private(set) var processingMs: Int?
     @Published private(set) var roundTripMs: Int?
     @Published private(set) var alertReason = "idle"
@@ -38,6 +49,7 @@ final class ScanModel: ObservableObject {
 
     init() {
         backendAddress = UserDefaults.standard.string(forKey: "stepsense.backend") ?? "http://127.0.0.1:3001"
+        pictureInPictureRequested = UserDefaults.standard.object(forKey: "stepsense.pip") as? Bool ?? true
         if let data = UserDefaults.standard.data(forKey: "stepsense.preferences"),
            let saved = try? JSONDecoder().decode(ScanPreferences.self, from: data) {
             preferences = saved
@@ -100,6 +112,11 @@ final class ScanModel: ObservableObject {
                 detail = "Starting the rear camera…"
                 let diagnostics = try await camera.start(onFrame: { [weak self] frame in
                     Task { @MainActor in self?.analyze(frame, generation: current) }
+                }, onPreview: { [weak self] preview in
+                    Task { @MainActor in
+                        guard let self, self.generation == current else { return }
+                        self.pip.enqueue(preview)
+                    }
                 }, onFailure: { [weak self] message in
                     Task { @MainActor in
                         guard let self, self.generation == current else { return }
@@ -108,8 +125,11 @@ final class ScanModel: ObservableObject {
                 })
                 guard generation == current, !Task.isCancelled else { camera.stop(); return }
                 multitaskingSupported = diagnostics.multitaskingSupported
+                multitaskingEnabled = diagnostics.multitaskingEnabled
                 phase = .scanning
                 detail = "Scanning the marked image zone."
+                pip.setEnabled(pictureInPictureRequested)
+                refreshPiPOverlay()
                 camera.requestFrame()
             } catch {
                 guard generation == current else { return }
@@ -122,9 +142,49 @@ final class ScanModel: ObservableObject {
         stop(nextPhase: .idle, message: "Stopped. Camera released.")
     }
 
+    /// Called when the app leaves the foreground.
+    ///
+    /// With an active video-call Picture in Picture window and multitasking camera access,
+    /// scanning continues and the floating window keeps showing live detections. Otherwise the
+    /// previous behavior applies: release the camera and require an explicit restart.
     func pauseForBackground() {
         guard isBusy else { alerts.stop(); return }
+        if phase == .scanning, pip.isActive, multitaskingEnabled == true {
+            detail = "Scanning in the floating window."
+            refreshPiPOverlay()
+            return
+        }
+        if phase == .scanning, pip.isActive {
+            // The window stays up, but without camera access it must not imply a live feed.
+            pip.update { $0.live = false }
+        }
         stop(nextPhase: .paused, message: "Paused when the app left the foreground. Tap Start to resume.")
+    }
+
+    func returnedToForeground() {
+        if phase == .scanning { refreshPiPOverlay() }
+    }
+
+    func startPictureInPicture() {
+        pictureInPictureRequested = true
+        pip.setEnabled(phase == .scanning)
+        pip.start()
+    }
+
+    private func refreshPiPOverlay() {
+        let alerting = hasCandidate
+        let message = detail
+        let currentZone = zone
+        let currentDetections = detections
+        let size = imageSize
+        pip.update { state in
+            state.zone = currentZone
+            state.detections = currentDetections
+            state.imageSize = size
+            state.alerting = alerting
+            state.live = true
+            state.title = alerting ? "Object in zone" : message
+        }
     }
 
     func testAlert() {
@@ -186,6 +246,7 @@ final class ScanModel: ObservableObject {
                         alerts.deliver(enabled, message: result.alert.message ?? "Object in camera zone. Check your surroundings.")
                     }
                 }
+                refreshPiPOverlay()
             } catch {
                 guard generation == current, phase == .scanning, !Task.isCancelled else { return }
                 clearDisplayedResult()
@@ -242,6 +303,7 @@ final class ScanModel: ObservableObject {
         frameTask = nil
         camera.stop()
         alerts.stop()
+        pip.setEnabled(false)
         let previousClient = client
         let previousID = sessionID
         client = nil

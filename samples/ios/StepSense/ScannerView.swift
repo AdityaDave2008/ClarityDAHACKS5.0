@@ -35,12 +35,14 @@ struct ScannerView: View {
                     Circle().fill(model.phase == .scanning ? Color.senseTeal : Color.senseMuted).frame(width: 6, height: 6)
                     Text(model.phase == .scanning ? "LIVE SCAN" : "CAMERA SCANNER")
                     Spacer()
-                    Label("Foreground only", systemImage: "iphone")
+                    Label("Floating window", systemImage: "pip")
                 }
                 .font(.system(size: 10, weight: .semibold, design: .monospaced))
                 .foregroundStyle(Color.senseMuted)
 
                 cameraCard
+
+                pictureInPictureCard
 
                 VStack(alignment: .leading, spacing: 9) {
                     HStack(alignment: .top, spacing: 11) {
@@ -153,6 +155,57 @@ struct ScannerView: View {
         }
     }
 
+    private var pictureInPictureCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 11) {
+                Image(systemName: model.pip.isActive ? "pip.fill" : "pip")
+                    .font(.title3)
+                    .foregroundStyle(model.pip.isActive ? Color.senseTeal : Color.senseMuted)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Keep scanning while you use other apps").font(.subheadline.weight(.semibold))
+                    Text(pipDetail)
+                        .font(.caption)
+                        .foregroundStyle(Color.senseMuted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            Toggle("Use floating window", isOn: $model.pictureInPictureRequested)
+                .font(.subheadline)
+                .tint(.senseTeal)
+                .disabled(!model.pip.isSupported)
+            Button {
+                model.startPictureInPicture()
+            } label: {
+                Label("Open floating window now", systemImage: "pip.enter")
+                    .font(.system(size: 15, weight: .semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+            }
+            .buttonStyle(.bordered)
+            .tint(.senseTeal)
+            .disabled(!model.pip.isSupported || model.phase != .scanning || !model.pip.isPossible || model.pip.isActive)
+            if let failure = model.pip.failureMessage {
+                Text(failure).font(.caption).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(17)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.senseSurface, in: RoundedRectangle(cornerRadius: 18))
+        .overlay(PiPSourceAnchor(controller: model.pip).allowsHitTesting(false))
+    }
+
+    private var pipDetail: String {
+        if !model.pip.isSupported { return "This device does not support Picture in Picture." }
+        if model.pip.isActive {
+            return model.multitaskingEnabled == true
+                ? "Live camera and detections continue in the floating window."
+                : "Floating window is open. This device does not grant camera access outside the app, so the window pauses when StepSense is backgrounded."
+        }
+        if model.phase != .scanning { return "Start scanning, then swipe home or open this window to keep StepSense visible." }
+        if !model.pip.isPossible { return "Preparing the floating window…" }
+        return "Swipe home while scanning, or open the window now."
+    }
+
     private var cameraCard: some View {
         ZStack {
             CameraPreview(session: model.camera.session)
@@ -167,7 +220,7 @@ struct ScannerView: View {
                         .font(.system(size: 52, weight: .ultraLight))
                     Text(model.phase == .connecting ? "Getting ready…" : "See what’s ahead")
                         .font(.title3.weight(.medium))
-                    Text("Rear camera · keep this app open")
+                    Text("Rear camera · floating window supported")
                         .font(.caption)
                         .foregroundStyle(Color.senseMuted)
                     if model.phase == .connecting { ProgressView().tint(.senseTeal) }
@@ -312,9 +365,9 @@ private struct SettingsView: View {
 
                 Section("Camera diagnostics") {
                     LabeledContent("Multitasking API support", value: model.multitaskingSupported.map { $0 ? "Yes" : "No" } ?? "Not queried")
-                    Text("Queried from AVCaptureSession after starting the camera. This diagnostic does not authorize background scanning. This sample releases the camera when it leaves the foreground.")
-                        .font(.caption).foregroundStyle(.secondary)
-                    Text("No VoIP mode or video-call Picture in Picture is used.")
+                    LabeledContent("Background camera access", value: model.multitaskingEnabled.map { $0 ? "Enabled" : "Not enabled" } ?? "Not queried")
+                    LabeledContent("Picture in Picture", value: model.pip.isSupported ? (model.pip.isActive ? "Active" : "Available") : "Unsupported")
+                    Text("Queried from AVCaptureSession after starting the camera. The app requests video-call Picture in Picture with the voip background mode. Where background camera access is unavailable, the floating window shows a paused state instead of a live feed.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 if let errorMessage {

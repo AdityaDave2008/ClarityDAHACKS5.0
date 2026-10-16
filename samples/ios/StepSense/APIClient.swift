@@ -32,19 +32,19 @@ struct ScanSession: Decodable {
     let expiresAt: String
 }
 
-struct NormalizedPoint: Decodable {
+struct NormalizedPoint: Decodable, Equatable {
     let x: Double
     let y: Double
 }
 
-struct NormalizedBox: Decodable {
+struct NormalizedBox: Decodable, Equatable {
     let x: Double
     let y: Double
     let width: Double
     let height: Double
 }
 
-struct Detection: Decodable {
+struct Detection: Decodable, Equatable {
     let label: String
     let confidence: Double
     let bbox: NormalizedBox
