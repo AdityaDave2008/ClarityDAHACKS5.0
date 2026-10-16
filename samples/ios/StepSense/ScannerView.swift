@@ -184,7 +184,7 @@ struct ScannerView: View {
             }
             .buttonStyle(.bordered)
             .tint(.senseTeal)
-            .disabled(!model.pip.isSupported || model.phase != .scanning || !model.pip.isPossible || model.pip.isActive)
+            .disabled(!model.pip.isSupported || !model.cameraRunning || !model.pip.isPossible || model.pip.isActive)
             if let failure = model.pip.failureMessage {
                 Text(failure).font(.caption).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true)
             }
@@ -202,15 +202,16 @@ struct ScannerView: View {
                 ? "Live camera and detections continue in the floating window."
                 : "Floating window is open. This device does not grant camera access outside the app, so the window pauses when StepSense is backgrounded."
         }
-        if model.phase != .scanning { return "Start scanning, then swipe home or open this window to keep StepSense visible." }
+        if !model.cameraRunning { return "Tap Start, then swipe home or open this window to keep StepSense visible." }
         if !model.pip.isPossible { return "Preparing the floating window…" }
+        if model.phase == .previewing { return "Camera preview only. Swipe home, or open the window now." }
         return "Swipe home while scanning, or open the window now."
     }
 
     private var cameraCard: some View {
         ZStack {
             CameraPreview(session: model.camera.session)
-            if model.phase == .scanning {
+            if model.cameraRunning {
                 DetectionOverlay(zone: model.zone, detections: model.detections, imageSize: model.imageSize)
                     .allowsHitTesting(false)
                     .accessibilityHidden(true)

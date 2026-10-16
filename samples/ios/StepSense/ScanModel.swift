@@ -27,7 +27,7 @@ final class ScanModel: ObservableObject {
     @Published var pictureInPictureRequested: Bool {
         didSet {
             UserDefaults.standard.set(pictureInPictureRequested, forKey: "stepsense.pip")
-            pip.setEnabled(pictureInPictureRequested && phase == .scanning)
+            pip.setEnabled(pictureInPictureRequested && cameraRunning)
             if !pictureInPictureRequested { pip.stop() }
         }
     }
@@ -119,6 +119,10 @@ final class ScanModel: ObservableObject {
                 multitaskingEnabled = diagnostics.multitaskingEnabled
                 cameraRunning = true
                 detail = "Camera preview only. Connecting to detection…"
+                // The floating window only needs the camera, so offer it before the backend
+                // answers. Detection boxes appear in the window once a session exists.
+                pip.setEnabled(pictureInPictureRequested)
+                refreshPiPOverlay()
                 let api = try BackendClient(address: backendAddress)
                 let metadata = try await api.metadata()
                 try Task.checkCancellation()
@@ -146,6 +150,7 @@ final class ScanModel: ObservableObject {
                     alertReason = "unavailable"
                     modelStatus = "Detection unavailable"
                     detail = "Preview only. No detection or obstacle alerts. \(readable(error)) Stop and Start to retry."
+                    refreshPiPOverlay()
                 } else {
                     stop(nextPhase: .failed, message: readable(error))
                 }
@@ -164,12 +169,13 @@ final class ScanModel: ObservableObject {
     /// previous behavior applies: release the camera and require an explicit restart.
     func pauseForBackground() {
         guard isBusy else { alerts.stop(); return }
-        if phase == .scanning, pip.isActive, multitaskingEnabled == true {
-            detail = "Scanning in the floating window."
+        // Preview-only sessions keep the window too: the camera is what the window shows.
+        if cameraRunning, pip.isActive, multitaskingEnabled == true {
+            detail = phase == .scanning ? "Scanning in the floating window." : "Camera preview in the floating window."
             refreshPiPOverlay()
             return
         }
-        if phase == .scanning, pip.isActive {
+        if pip.isActive {
             // The window stays up, but without camera access it must not imply a live feed.
             pip.update { $0.live = false }
         }
@@ -177,12 +183,12 @@ final class ScanModel: ObservableObject {
     }
 
     func returnedToForeground() {
-        if phase == .scanning { refreshPiPOverlay() }
+        if cameraRunning { refreshPiPOverlay() }
     }
 
     func startPictureInPicture() {
         pictureInPictureRequested = true
-        pip.setEnabled(phase == .scanning)
+        pip.setEnabled(cameraRunning)
         pip.start()
     }
 

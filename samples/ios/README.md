@@ -119,7 +119,7 @@ Sound and speech use a temporary audio session with ducking. Audio-player and sp
 
 Every camera frame is sent to the floating window through `AVSampleBufferDisplayLayer`, while uploads stay serialized at roughly three frames per second. The window draws the image zone, detection boxes, and a status banner with Core Animation layers, so what you see floating is the same analysis shown in the app.
 
-`canStartPictureInPictureAutomaticallyFromInline` is enabled, so swiping home during a scan opens the window without an extra tap. The in-app card also offers an explicit button and reports why the window is unavailable instead of failing silently. Picture in Picture start failures are surfaced in that card.
+The floating window becomes available as soon as the camera is running, including a preview-only session whose backend is unreachable, because the window's contents come from the camera rather than the detector. `canStartPictureInPictureAutomaticallyFromInline` is enabled, so swiping home opens the window without an extra tap. The in-app card also offers an explicit button and reports why the window is unavailable instead of failing silently. Picture in Picture start failures are surfaced in that card.
 
 The audio session is configured for playback at launch and stays active while the app runs, because deactivating it would cut background audio alerts while the floating window is scanning. Ducking still yields to other audio.
 

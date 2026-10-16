@@ -184,6 +184,7 @@ final class PictureInPictureController: NSObject, ObservableObject, AVPictureInP
     private weak var sourceView: UIView?
     private var state = PiPOverlayState()
     private var possibleObservation: NSKeyValueObservation?
+    private var startAttempt: Task<Void, Never>?
     /// Set by the scan model: Picture in Picture is only offered while a scan owns the camera.
     private var enabled = false
 
@@ -224,14 +225,42 @@ final class PictureInPictureController: NSObject, ObservableObject, AVPictureInP
         }
     }
 
+    /// Starts the floating window, waiting briefly for a freshly built controller to become ready.
     func start() {
         failureMessage = nil
-        guard let controller else { return }
+        guard isSupported else {
+            failureMessage = "This device does not support Picture in Picture."
+            return
+        }
+        guard let controller else {
+            failureMessage = "Start the camera before opening the floating window."
+            return
+        }
         guard !controller.isPictureInPictureActive else { return }
-        controller.startPictureInPicture()
+        if controller.isPictureInPicturePossible {
+            controller.startPictureInPicture()
+            return
+        }
+        // A controller built moments ago reports possible only after its source view lays out.
+        startAttempt?.cancel()
+        startAttempt = Task { [weak self] in
+            for _ in 0..<20 {
+                try? await Task.sleep(nanoseconds: 100_000_000)
+                guard let self, !Task.isCancelled, let controller = self.controller else { return }
+                if controller.isPictureInPictureActive { return }
+                if controller.isPictureInPicturePossible {
+                    controller.startPictureInPicture()
+                    return
+                }
+            }
+            guard let self, !Task.isCancelled else { return }
+            self.failureMessage = "The floating window is not ready yet. Keep this screen visible and try again."
+        }
     }
 
     func stop() {
+        startAttempt?.cancel()
+        startAttempt = nil
         guard let controller, controller.isPictureInPictureActive else { return }
         controller.stopPictureInPicture()
     }
