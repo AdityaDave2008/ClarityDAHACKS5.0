@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8">
@@ -21,6 +21,8 @@
           ClearPath
         </div>
         <div class="status">
+          <span class="dot needs-permission" id="cameraPermissionDot"></span>
+          <span id="walkStatus">Camera permission needed</span>
           <span class="dot" aria-hidden="true"></span>
           <span id="app-status">Camera off</span>
         </div>
@@ -31,6 +33,62 @@
         <p class="eyebrow">Move through the city</p>
         <h1>Eyes up.<br>Feel confident.</h1>
         <p class="intro">
+          ClearPath watches the sidewalk ahead and gives you a heads-up
+          when something may be in your way.
+        </p>
+
+                <section class="forum-section" aria-labelledby="forum-title">
+          <div class="forum-heading">
+            <div>
+              <p class="eyebrow">Community updates</p>
+              <h2 id="forum-title">City forum</h2>
+            </div>
+            <span class="forum-live"><span class="dot"></span>Local feed</span>
+          </div>
+
+          <p class="forum-intro">
+            Share sidewalk news and access updates with people nearby.
+          </p>
+
+          <form id="forumForm" class="forum-form">
+            <label class="visually-hidden" for="forumInput">
+              Share a sidewalk or access update
+            </label>
+            <input
+              id="forumInput"
+              name="post"
+              type="text"
+              maxlength="180"
+              placeholder="Share a street update..."
+              required
+            >
+            <button class="primary forum-submit" type="submit">Post</button>
+          </form>
+
+          <div id="forumFeed" class="forum-feed" aria-live="polite">
+            <article class="forum-post">
+              <div class="post-meta">
+                <span class="post-tag">ACCESS UPDATE</span>
+                <time>Community board</time>
+              </div>
+              <p>
+                Report blocked sidewalks, construction barriers, or temporary
+                closures. Add the nearest cross street to help others plan.
+              </p>
+            </article>
+
+            <article class="forum-post">
+              <div class="post-meta">
+                <span class="post-tag">CITY NEWS</span>
+                <time>Community board</time>
+              </div>
+              <p>
+                Share neighborhood walking news and accessibility updates that
+                could help people nearby.
+              </p>
+            </article>
+          </div>
+        </section>
           ClearPath uses your camera and our AI backend to give a heads-up
           about selected objects ahead. It cannot detect every hazard.
         </p>
@@ -73,6 +131,38 @@
       </section>
 
       <!-- Camera -->
+      <section id="camera" class="screen">
+        <p class="eyebrow">Live awareness</p>
+        <h1>Check your<br>path ahead.</h1>
+        <p class="intro">
+          Hold your phone with the camera facing forward. Keep the app open
+          while scanning.
+        </p>
+
+        <div class="card">
+          <div class="camera-header">
+            <h2>Path scanner</h2>
+            <span class="pill" id="camStatus">NOT STARTED</span>
+          </div>
+
+          <div class="camera-box" id="preview2">
+            <video id="video2" autoplay playsinline muted hidden></video>
+            <div class="scan"></div>
+            <div class="camera-hint" id="hint2">
+              Start the camera to see your surroundings
+            </div>
+          </div>
+
+          <div class="controls">
+            <button class="primary" id="start2">Start camera</button>
+            <button class="secondary" id="stop">Stop</button>
+          </div>
+
+          <div class="notice">
+            <b>Prototype mode</b>
+            Live camera preview is available. Automatic obstacle recognition
+            is a prototype demo and may not identify every hazard.
+          </div>
       <section id="camera" class="screen" hidden>
         <div class="camera-feature" id="camera-panel">
     <h1>Camera</h1>
@@ -118,6 +208,7 @@
       </section>
 
       <!-- Settings -->
+      <section id="settings" class="screen">
       <section id="settings" class="screen" hidden>
         <p class="eyebrow">Make it yours</p>
         <h1>Your way<br>to move.</h1>
@@ -159,10 +250,29 @@
             </button>
           </div>
 
+          <h2 class="section-title">Color vision preference</h2>
+          <div class="setting-row color-vision-setting">
+            <div>
+              <b>Color vision type</b>
+              <small>Change the app’s accent and background gradient</small>
+            </div>
+            <select id="colorVision" aria-label="Choose a color vision preference">
+              <option value="standard">Standard</option>
+              <option value="protanopia">Protanopia</option>
+              <option value="deuteranopia">Deuteranopia</option>
+              <option value="tritanopia">Tritanopia</option>
+              <option value="achromatopsia">Achromatopsia</option>
+            </select>
+          </div>
+          <p class="color-vision-note" id="colorVisionNote" aria-live="polite">
+            Standard palette: teal and mint accents.
+          </p>
+
           <h2 class="section-title">Alert preferences</h2>
 
           <div class="setting-row">
             <div>
+              <b>Alert style</b>
               <label for="alert">Alert style</label>
               <small>How ClearPath gets your attention</small>
             </div>
@@ -173,6 +283,30 @@
               <option value="both">Sound + vibration</option>
             </select>
           </div>
+          <div class="setting-row">
+            <div>
+              <b>Alert sound</b>
+              <small>Choose the tone used for sound alerts</small>
+            </div>
+            <select id="alertSound" aria-label="Alert sound">
+              <option value="ping">Classic ping</option>
+              <option value="double">Double beep</option>
+              <option value="rising">Rising chime</option>
+              <option value="pulse">Low pulse</option>
+              <option value="soft">Soft chime</option>
+              <option value="custom">My custom sound</option>
+            </select>
+          </div>
+
+          <div class="custom-sound-row" id="customSoundRow" hidden>
+            <label for="customSound">Add your own sound</label>
+            <input id="customSound" type="file" accept="audio/*">
+            <small id="customSoundName">Choose an audio file to use as your alert.</small>
+          </div>
+
+          <div class="setting-row">
+            <div>
+              <b>Vibration alerts</b>
 
           <div class="setting-row">
             <div>
@@ -184,6 +318,8 @@
 
           <div class="setting-row">
             <div>
+              <b>Spoken alerts</b>
+              <small>Hear a short heads-up</small>
               <label for="voice">Spoken alerts</label>
               <small>Hear Object ahead; enabling this selects App voice</small>
             </div>
@@ -193,11 +329,41 @@
           <div class="controls">
             <button id="save" class="primary">Save preferences</button>
           </div>
+          <section class="device-access" aria-labelledby="device-access-title">
+            <h2 class="section-title" id="device-access-title">Device access</h2>
+            <p class="device-access-intro">
+              Choose which device features ClearPath can use. You can change
+              permissions later in your browser settings.
+            </p>
+
+            <div class="device-access-row">
+              <div><b>Camera</b><small>Needed for the live path preview</small></div>
+              <button type="button" class="permission-button" id="requestCamera">Allow camera</button>
+            </div>
+
+            <div class="device-access-row">
+              <div><b>Microphone</b><small>Optional; not used by this prototype yet</small></div>
+              <button type="button" class="permission-button" id="requestMic">Allow microphone</button>
+            </div>
+
+            <div class="device-access-row">
+              <div><b>Motion sensors</b><small>Optional device orientation access</small></div>
+              <button type="button" class="permission-button" id="requestMotion">Allow sensors</button>
+            </div>
+
+            <div class="device-access-note">
+              <b>Speakers</b>
+              Browsers do not show a separate speaker permission. Use the test
+              button to play a sample sound.
+              <button type="button" class="permission-button" id="testSpeaker">Preview alert sound</button>
+            </div>
+          </section>
         </div>
       </section>
 
       <!-- Navigation -->
       <nav class="bottom-nav" aria-label="Main navigation">
+        <button class="nav-btn active" data-screen="home">
         <button class="nav-btn active" data-screen="home" aria-current="page">
           <span class="icon">H</span>
           Home
@@ -215,6 +381,573 @@
       <div id="toast" class="toast" role="status" aria-live="polite"></div>
     </main>
 
+    <script>
+      const forumForm = document.getElementById("forumForm");
+      const forumInput = document.getElementById("forumInput");
+      const forumFeed = document.getElementById("forumFeed");
+      const forumSubmit = forumForm.querySelector("button[type='submit']");
+      let editingPostId = null;
+      let forumPosts = JSON.parse(localStorage.getItem("clearpath-forum") || "[]")
+        .map((post) => typeof post === "string"
+          ? { id: crypto.randomUUID(), message: post }
+          : post);
+
+      function saveForumPosts() {
+        localStorage.setItem("clearpath-forum", JSON.stringify(forumPosts));
+      }
+
+      function renderForumPosts() {
+        forumFeed.querySelectorAll(".user-forum-post").forEach((post) => post.remove());
+        forumPosts.forEach((item) => {
+          const post = document.createElement("article");
+          post.className = "forum-post user-forum-post";
+          post.dataset.postId = item.id;
+
+          const meta = document.createElement("div");
+          meta.className = "post-meta";
+
+          const tag = document.createElement("span");
+          tag.className = "post-tag";
+          tag.textContent = "COMMUNITY POST";
+
+          const time = document.createElement("time");
+          time.textContent = item.updated ? "Edited" : "Community post";
+
+          const content = document.createElement("p");
+          content.textContent = item.message;
+          meta.append(tag, time);
+          post.append(meta, content);
+
+          const actions = document.createElement("div");
+          actions.className = "forum-post-actions";
+          const editButton = document.createElement("button");
+          editButton.type = "button";
+          editButton.className = "forum-action";
+          editButton.textContent = "Edit";
+          editButton.setAttribute("aria-label", "Edit your forum post");
+          editButton.addEventListener("click", () => {
+            editingPostId = item.id;
+            forumInput.value = item.message;
+            forumInput.focus();
+            forumSubmit.textContent = "Save edit";
+          });
+          const deleteButton = document.createElement("button");
+          deleteButton.type = "button";
+          deleteButton.className = "forum-action forum-delete";
+          deleteButton.textContent = "Delete";
+          deleteButton.setAttribute("aria-label", "Delete your forum post");
+          deleteButton.addEventListener("click", () => {
+            forumPosts = forumPosts.filter((saved) => saved.id !== item.id);
+            if (editingPostId === item.id) resetForumEditor();
+            saveForumPosts();
+            renderForumPosts();
+            showToast("Community post deleted");
+          });
+          actions.append(editButton, deleteButton);
+          post.append(actions);
+
+          forumFeed.append(post);
+        });
+      }
+
+      function resetForumEditor() {
+        editingPostId = null;
+        forumForm.reset();
+        forumSubmit.textContent = "Post";
+      }
+
+      saveForumPosts();
+      renderForumPosts();
+
+      forumForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+
+        const message = forumInput.value.trim();
+        if (!message) return;
+
+        if (editingPostId) {
+          forumPosts = forumPosts.map((item) => item.id === editingPostId
+            ? { ...item, message, updated: true }
+            : item);
+          saveForumPosts();
+          renderForumPosts();
+          resetForumEditor();
+          showToast("Community post updated");
+        } else {
+          forumPosts.unshift({ id: crypto.randomUUID(), message });
+          saveForumPosts();
+          renderForumPosts();
+          resetForumEditor();
+          showToast("Community update posted");
+        }
+      });
+      const screens = [...document.querySelectorAll(".screen")];
+      const navButtons = [...document.querySelectorAll(".nav-btn")];
+      let cameraStream = null;
+
+      function showScreen(id) {
+        screens.forEach((screen) => {
+          screen.classList.toggle("active", screen.id === id);
+        });
+
+        navButtons.forEach((button) => {
+          const isActive = button.dataset.screen === id;
+          button.classList.toggle("active", isActive);
+
+          if (isActive) {
+            button.setAttribute("aria-current", "page");
+          } else {
+            button.removeAttribute("aria-current");
+          }
+        });
+
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+
+      navButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+          const screen = button.dataset.screen;
+          showScreen(screen);
+
+          if (screen === "camera" && !cameraStream) {
+            startCamera();
+          }
+        });
+      });
+
+      window.addEventListener("hashchange", () => {
+        const target = document.getElementById(window.location.hash.slice(1));
+        if (target?.classList.contains("screen")) showScreen(target.id);
+      });
+      const initialScreen = document.getElementById(window.location.hash.slice(1));
+      if (initialScreen?.classList.contains("screen")) showScreen(initialScreen.id);
+
+      function showToast(message) {
+        const toast = document.getElementById("toast");
+        toast.textContent = message;
+        toast.classList.add("show");
+
+        clearTimeout(showToast.timer);
+        showToast.timer = setTimeout(() => {
+          toast.classList.remove("show");
+        }, 2300);
+      }
+
+document.querySelectorAll("[data-profile]").forEach((button) => {
+        button.addEventListener("click", () => {
+          document.querySelectorAll("[data-profile]").forEach((profile) => {
+            profile.classList.toggle("selected", profile === button);
+          });
+
+          showToast("Profile selected");
+        });
+      });
+
+      const modeButtons = [...document.querySelectorAll("[data-mode]")];
+
+      function setMode(mode, save = true) {
+        modeButtons.forEach((button) => {
+          const isActive = button.dataset.mode === mode;
+          button.classList.toggle("active", isActive);
+          button.setAttribute("aria-pressed", String(isActive));
+        });
+
+        if (save) {
+          localStorage.setItem("clearpath-mode", mode);
+        }
+
+        const alertSelect = document.getElementById("alert");
+
+        if (mode === "blindness") {
+          document.getElementById("voice").checked = true;
+
+          if (alertSelect.value === "vibration") {
+            alertSelect.value = "voice";
+          }
+        }
+
+        if (save) {
+          showToast(
+            mode === "blindness"
+              ? "Blindness mode on"
+              : "Normal mode on"
+          );
+        }
+      }
+
+      modeButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+          setMode(button.dataset.mode);
+          if (button.dataset.mode === "normal") {
+            window.location.href = "index.html#settings";
+          }
+        });
+      });
+
+      const colorVisionSelect = document.getElementById("colorVision");
+      const colorVisionNote = document.getElementById("colorVisionNote");
+      const colorVisionDescriptions = {
+        standard: "Standard palette: teal and mint accents.",
+        protanopia: "Protanopia palette: blue and amber accents with a deep blue gradient.",
+        deuteranopia: "Deuteranopia palette: cyan and gold accents with a deep teal gradient.",
+        tritanopia: "Tritanopia palette: coral and rose accents with a warm plum gradient.",
+        achromatopsia: "Achromatopsia palette: high-contrast grayscale accents and gradient.",
+      };
+
+      function setColorVision(mode, save = true) {
+        const preference = colorVisionDescriptions[mode] ? mode : "standard";
+        colorVisionSelect.value = preference;
+        document.documentElement.dataset.colorVision = preference;
+        colorVisionNote.textContent = colorVisionDescriptions[preference];
+        if (save) localStorage.setItem("clearpath-color-vision", preference);
+      }
+
+      colorVisionSelect.addEventListener("change", () => setColorVision(colorVisionSelect.value));
+      setColorVision(localStorage.getItem("clearpath-color-vision") || "standard", false);
+
+      const savedMode = localStorage.getItem("clearpath-mode") || "normal";
+      setMode(savedMode, false);
+
+      const savedAlert = localStorage.getItem("clearpath-alert");
+
+      if (savedAlert) {
+        document.getElementById("alert").value = savedAlert;
+      }
+
+      document.getElementById("save").addEventListener("click", () => {
+        localStorage.setItem(
+          "clearpath-alert",
+          document.getElementById("alert").value
+        );
+        showToast("Preferences saved");
+      });
+
+      const cameraPermissionDot = document.getElementById("cameraPermissionDot");
+      const walkStatus = document.getElementById("walkStatus");
+
+      function setCameraPermissionState(state) {
+        const granted = state === "granted";
+        cameraPermissionDot.classList.toggle("needs-permission", !granted);
+        walkStatus.textContent = granted
+          ? cameraStream ? "Camera active" : "Ready to walk"
+          : "Camera permission needed";
+      }
+
+      async function refreshCameraPermission() {
+        setCameraPermissionState("prompt");
+        if (!navigator.permissions?.query) return;
+
+        try {
+          const permission = await navigator.permissions.query({ name: "camera" });
+          setCameraPermissionState(permission.state);
+          permission.addEventListener("change", () => {
+            setCameraPermissionState(permission.state);
+          });
+        } catch (error) {
+          // Some browsers do not support querying camera permission.
+        }
+      }
+
+      async function requestMicrophoneAccess() {
+        if (!navigator.mediaDevices?.getUserMedia) {
+          showToast("Microphone access needs HTTPS or localhost");
+          return;
+        }
+
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            audio: true,
+            video: false
+          });
+          stream.getTracks().forEach((track) => track.stop());
+          document.getElementById("requestMic").textContent = "Microphone allowed";
+          showToast("Microphone permission granted");
+        } catch (error) {
+          showToast(
+            error.name === "NotAllowedError"
+              ? "Allow microphone access in browser settings"
+              : "Could not access the microphone"
+          );
+        }
+      }
+
+      async function requestMotionAccess() {
+        const sensors = [
+          window.DeviceMotionEvent,
+          window.DeviceOrientationEvent
+        ].filter(Boolean);
+        let permissionPromptAvailable = false;
+        let denied = false;
+
+        for (const sensor of sensors) {
+          if (typeof sensor.requestPermission === "function") {
+            permissionPromptAvailable = true;
+
+            try {
+              const result = await sensor.requestPermission();
+              if (result !== "granted") denied = true;
+            } catch (error) {
+              denied = true;
+            }
+          }
+        }
+
+        if (denied) {
+          showToast("Allow motion access in browser settings");
+        } else if (permissionPromptAvailable) {
+          document.getElementById("requestMotion").textContent = "Sensors allowed";
+          showToast("Motion sensor permission granted");
+        } else {
+          showToast("This browser has no separate motion permission prompt");
+        }
+      }
+
+      let customSoundFile = null;
+      const alertSoundSelect = document.getElementById("alertSound");
+      const customSoundInput = document.getElementById("customSound");
+      const customSoundRow = document.getElementById("customSoundRow");
+      const customSoundName = document.getElementById("customSoundName");
+
+      function updateCustomSoundVisibility() {
+        customSoundRow.hidden = alertSoundSelect.value !== "custom";
+      }
+
+      function openSoundDatabase() {
+        return new Promise((resolve, reject) => {
+          if (!("indexedDB" in window)) {
+            reject(new Error("Local audio storage is unavailable."));
+            return;
+          }
+
+          const request = indexedDB.open("clearpath-audio", 1);
+          request.onupgradeneeded = () => {
+            request.result.createObjectStore("sounds");
+          };
+          request.onsuccess = () => resolve(request.result);
+          request.onerror = () => reject(request.error);
+        });
+      }
+
+      async function saveCustomSound(file) {
+        const database = await openSoundDatabase();
+
+        return new Promise((resolve, reject) => {
+          const transaction = database.transaction("sounds", "readwrite");
+          transaction.objectStore("sounds").put(file, "custom-alert");
+          transaction.oncomplete = () => resolve();
+          transaction.onerror = () => reject(transaction.error);
+        });
+      }
+
+      async function getCustomSound() {
+        if (customSoundFile) return customSoundFile;
+
+        const database = await openSoundDatabase();
+
+        return new Promise((resolve, reject) => {
+          const request = database
+            .transaction("sounds", "readonly")
+            .objectStore("sounds")
+            .get("custom-alert");
+          request.onsuccess = () => resolve(request.result || null);
+          request.onerror = () => reject(request.error);
+        });
+      }
+
+      function playPresetSound(preset) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) throw new Error("Web Audio is unavailable.");
+
+        const audioContext = new AudioContext();
+        const tones = {
+          ping: [{ frequency: 880, start: 0, duration: 0.18, type: "sine" }],
+          double: [
+            { frequency: 660, start: 0, duration: 0.13, type: "square" },
+            { frequency: 660, start: 0.23, duration: 0.13, type: "square" }
+          ],
+          rising: [
+            { frequency: 520, start: 0, duration: 0.16, type: "sine" },
+            { frequency: 740, start: 0.14, duration: 0.18, type: "sine" },
+            { frequency: 1040, start: 0.3, duration: 0.24, type: "sine" }
+          ],
+          pulse: [
+            { frequency: 440, start: 0, duration: 0.2, type: "triangle" },
+            { frequency: 360, start: 0.27, duration: 0.2, type: "triangle" }
+          ],
+          soft: [
+            { frequency: 587, start: 0, duration: 0.22, type: "sine" },
+            { frequency: 784, start: 0.17, duration: 0.3, type: "sine" }
+          ]
+        };
+
+        const schedule = tones[preset] || tones.ping;
+        const now = audioContext.currentTime;
+
+        schedule.forEach(({ frequency, start, duration, type }) => {
+          const oscillator = audioContext.createOscillator();
+          const gain = audioContext.createGain();
+          const begins = now + start;
+
+          oscillator.type = type;
+          oscillator.frequency.value = frequency;
+          gain.gain.setValueAtTime(0.001, begins);
+          gain.gain.linearRampToValueAtTime(0.12, begins + 0.015);
+          gain.gain.exponentialRampToValueAtTime(0.001, begins + duration);
+          oscillator.connect(gain);
+          gain.connect(audioContext.destination);
+          oscillator.start(begins);
+          oscillator.stop(begins + duration + 0.02);
+        });
+
+        window.setTimeout(() => audioContext.close(), 1200);
+      }
+
+      async function testAlertSound() {
+        try {
+          if (alertSoundSelect.value === "custom") {
+            const file = await getCustomSound();
+
+            if (!file) {
+              showToast("Choose an audio file first");
+              return;
+            }
+
+            const audio = new Audio(URL.createObjectURL(file));
+            audio.addEventListener("ended", () => URL.revokeObjectURL(audio.src), { once: true });
+            audio.addEventListener("error", () => URL.revokeObjectURL(audio.src), { once: true });
+            await audio.play();
+          } else {
+            playPresetSound(alertSoundSelect.value);
+          }
+
+          showToast("Playing alert sound preview");
+        } catch (error) {
+          showToast(error.message || "Could not play this alert sound");
+        }
+      }
+
+      const savedSound = localStorage.getItem("clearpath-alert-sound") || "ping";
+      alertSoundSelect.value = savedSound;
+      updateCustomSoundVisibility();
+
+      alertSoundSelect.addEventListener("change", () => {
+        localStorage.setItem("clearpath-alert-sound", alertSoundSelect.value);
+        updateCustomSoundVisibility();
+      });
+
+      customSoundInput.addEventListener("change", async () => {
+        const file = customSoundInput.files?.[0];
+        if (!file) return;
+
+        if (!file.type.startsWith("audio/")) {
+          showToast("Choose an audio file");
+          customSoundInput.value = "";
+          return;
+        }
+
+        if (file.size > 10 * 1024 * 1024) {
+          showToast("Choose an audio file smaller than 10 MB");
+          customSoundInput.value = "";
+          return;
+        }
+
+        customSoundFile = file;
+        alertSoundSelect.value = "custom";
+        localStorage.setItem("clearpath-alert-sound", "custom");
+        updateCustomSoundVisibility();
+        customSoundName.textContent = file.name;
+
+        try {
+          await saveCustomSound(file);
+          showToast("Custom sound saved on this device");
+        } catch (error) {
+          showToast("Custom sound ready for this session");
+        }
+      });
+
+      document
+        .getElementById("testSpeaker")
+        .addEventListener("click", testAlertSound);
+      document.getElementById("requestCamera").addEventListener("click", () => {
+        showScreen("camera");
+        startCamera();
+      });
+      document
+        .getElementById("requestMic")
+        .addEventListener("click", requestMicrophoneAccess);
+      document
+        .getElementById("requestMotion")
+        .addEventListener("click", requestMotionAccess);
+      document
+        .getElementById("testSpeaker")
+        .addEventListener("click", testSpeakers);
+      async function startCamera() {
+        if (!navigator.mediaDevices?.getUserMedia) {
+          showToast("Camera needs HTTPS or localhost");
+          return;
+        }
+
+        try {
+          cameraStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { ideal: "environment" } },
+            audio: false
+          });
+
+          const video = document.getElementById("video2");
+          video.srcObject = cameraStream;
+          video.hidden = false;
+
+          document.getElementById("preview2").classList.add("live");
+          document.getElementById("hint2").textContent =
+            "Camera preview active";
+          document.getElementById("camStatus").textContent = "CAMERA ON";
+          document.getElementById("start2").textContent = "Camera on";
+
+          setCameraPermissionState("granted");
+          showToast("Camera preview started");
+        } catch (error) {
+          if (error.name === "NotAllowedError" || error.name === "SecurityError") {
+            setCameraPermissionState("denied");
+          }
+
+          showToast(
+            error.name === "NotAllowedError"
+              ? "Allow camera access in the browser prompt or settings"
+              : "Could not start camera"
+          );
+        }
+      }
+
+      function stopCamera() {
+        if (cameraStream) {
+          cameraStream.getTracks().forEach((track) => track.stop());
+        }
+        cameraStream = null;
+
+        const video = document.getElementById("video2");
+        video.srcObject = null;
+        video.hidden = true;
+
+        document.getElementById("preview2").classList.remove("live");
+        document.getElementById("hint2").textContent =
+          "Start the camera to see your surroundings";
+        document.getElementById("camStatus").textContent = "NOT STARTED";
+        document.getElementById("start2").textContent = "Start camera";
+
+        setCameraPermissionState("granted");
+        showToast("Camera stopped");
+      }
+
+document
+        .getElementById("start2")
+        .addEventListener("click", startCamera);
+      document
+        .getElementById("stop")
+        .addEventListener("click", stopCamera);
+      refreshCameraPermission();
+    </script>
+  </body>
+</html>
     <script type="module" src="/site.js"></script>
   </body>
 </html>

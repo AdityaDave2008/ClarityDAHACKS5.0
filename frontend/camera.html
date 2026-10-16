@@ -1,3 +1,4 @@
+﻿<!doctype html>
 <!doctype html>
 <html lang="en">
 <head>
@@ -49,6 +50,23 @@
             <label class="switch-row"><span><strong>Sound</strong><small>A short two-tone cue</small></span><input id="sound-mode" type="checkbox" checked role="switch"><span class="switch" aria-hidden="true"></span></label>
             <label class="switch-row"><span><strong>Spoken alert</strong><small id="speech-note">A brief voice notification</small></span><input id="speech-mode" type="checkbox" role="switch"><span class="switch" aria-hidden="true"></span></label>
             <label class="switch-row"><span><strong>Vibration</strong><small id="vibration-note">Checking device support…</small></span><input id="vibration-mode" type="checkbox" role="switch"><span class="switch" aria-hidden="true"></span></label>
+            <div class="alert-sound-settings">
+  <label for="alert-sound-select">Alert sound</label>
+  <select id="alert-sound-select">
+    <option value="ping">Classic ping</option>
+    <option value="double">Double beep</option>
+    <option value="rising">Rising chime</option>
+    <option value="pulse">Low pulse</option>
+    <option value="soft">Soft chime</option>
+    <option value="custom">My custom sound</option>
+  </select>
+  <div id="custom-alert-sound-row" hidden>
+    <label for="custom-alert-sound">Add your own sound</label>
+    <input id="custom-alert-sound" type="file" accept="audio/*">
+    <small id="custom-alert-sound-name">Choose an audio file up to 10 MB.</small>
+  </div>
+  <button id="preview-alert-sound" type="button" class="secondary-button">Preview sound</button>
+</div></fieldset><p class="settings-hint" id="settings-hint">You can combine alert types.</p>
             </fieldset><p class="settings-hint" id="settings-hint">You can combine alert types.</p>
           </section>
           <section class="activity-card"><div class="activity-header"><div class="section-label"><span>02</span> AT A GLANCE</div><span class="activity-live" id="activity-live">STANDBY</span></div><div class="metrics"><div><strong id="frame-count">0</strong><span id="frame-metric-label">Demo observations</span></div><div><strong id="latency">—</strong><span>Capture → result</span></div></div><ol id="activity-log" class="activity-log"><li><span></span><div>Waiting for your first scan<small>Start with the walkthrough or live camera.</small></div></li></ol></section>

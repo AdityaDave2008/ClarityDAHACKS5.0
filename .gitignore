@@ -28,6 +28,7 @@ test-results/
 
 # Backend model/runtime scratch files
 .cache/
+.data/
 
 # Native sample build output and machine-specific settings
 .gradle/
