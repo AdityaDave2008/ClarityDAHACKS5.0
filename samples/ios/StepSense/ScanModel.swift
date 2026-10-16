@@ -12,14 +12,11 @@ final class ScanModel: ObservableObject {
     @Published private(set) var cameraRunning = false
     @Published var phase: Phase = .idle
     @Published var detail = "Point the rear camera forward and slightly down."
-    @Published var backendAddress: String {
-        didSet { UserDefaults.standard.set(backendAddress, forKey: "stepsense.backend") }
-    }
     @Published private(set) var preferences: ScanPreferences
     @Published private(set) var zone: [NormalizedPoint] = []
     @Published private(set) var detections: [Detection] = []
     @Published private(set) var imageSize = CGSize(width: 480, height: 640)
-    @Published private(set) var modelStatus = "Not connected"
+    @Published private(set) var modelStatus = "Bundled COCO-SSD · offline"
     @Published private(set) var multitaskingSupported: Bool?
     /// True once the capture session actually grants camera access while backgrounded.
     @Published private(set) var multitaskingEnabled: Bool?
@@ -36,12 +33,11 @@ final class ScanModel: ObservableObject {
     @Published private(set) var alertReason = "idle"
     @Published private(set) var alertCount = 0
     @Published private(set) var checkedFrames = 0
-    @Published private(set) var checkingConnection = false
 
     private var generation = UUID()
     private var sequence = 0
-    private var client: BackendClient?
-    private var sessionID: String?
+    private let detector = OfflineDetector()
+    private var preferencesRevision = UUID()
     private var startTask: Task<Void, Never>?
     private var frameTask: Task<Void, Never>?
     private var overlayExpirationTask: Task<Void, Never>?
@@ -49,7 +45,6 @@ final class ScanModel: ObservableObject {
     private let maxResultAge: TimeInterval = 2.5
 
     init() {
-        backendAddress = UserDefaults.standard.string(forKey: "stepsense.backend") ?? "http://127.0.0.1:3001"
         pictureInPictureRequested = UserDefaults.standard.object(forKey: "stepsense.pip") as? Bool ?? true
         if let data = UserDefaults.standard.data(forKey: "stepsense.preferences"),
            let saved = try? JSONDecoder().decode(ScanPreferences.self, from: data) {
@@ -61,23 +56,6 @@ final class ScanModel: ObservableObject {
 
     var isBusy: Bool { phase == .connecting || phase == .scanning || phase == .previewing }
     var hasCandidate: Bool { detections.contains(where: \.inZone) }
-
-    func checkConnection() async {
-        guard !checkingConnection else { return }
-        checkingConnection = true
-        defer { checkingConnection = false }
-        do {
-            let candidate = try BackendClient(address: backendAddress)
-            let metadata = try await candidate.metadata()
-            zone = metadata.zone
-            modelStatus = "\(metadata.name.uppercased()) · \(metadata.state)"
-            try await candidate.checkReady()
-            if !isBusy { detail = "Backend ready. Start scanning to enable the camera." }
-        } catch {
-            modelStatus = "Connection unavailable"
-            if !isBusy { detail = readable(error) }
-        }
-    }
 
     func start() {
         guard !isBusy else { return }
@@ -118,28 +96,17 @@ final class ScanModel: ObservableObject {
                 multitaskingSupported = diagnostics.multitaskingSupported
                 multitaskingEnabled = diagnostics.multitaskingEnabled
                 cameraRunning = true
-                detail = "Camera preview only. Connecting to detection…"
-                // The floating window only needs the camera, so offer it before the backend
-                // answers. Detection boxes appear in the window once a session exists.
+                detail = "Camera preview only. Loading the bundled offline detector…"
+                // The floating window can show the camera before the local model is ready.
                 pip.setEnabled(pictureInPictureRequested)
                 refreshPiPOverlay()
-                let api = try BackendClient(address: backendAddress)
-                let metadata = try await api.metadata()
+                zone = try await detector.start()
                 try Task.checkCancellation()
                 guard generation == current else { return }
-                zone = metadata.zone
-                modelStatus = "\(metadata.name.uppercased()) · \(metadata.state)"
-                try await api.checkReady()
-                let created = try await api.createSession(preferences: preferences)
-                guard generation == current, !Task.isCancelled else {
-                    await api.deleteSession(created.sessionId)
-                    return
-                }
-                client = api
-                sessionID = created.sessionId
+                modelStatus = "COCO-SSD lite_mobilenet_v2 · offline \(detector.backend.uppercased())"
                 sequence = 0
                 phase = .scanning
-                detail = "Scanning the marked image zone."
+                detail = "Scanning the marked image zone offline."
                 pip.setEnabled(pictureInPictureRequested)
                 refreshPiPOverlay()
                 camera.requestFrame()
@@ -171,7 +138,7 @@ final class ScanModel: ObservableObject {
         guard isBusy else { alerts.stop(); return }
         // Preview-only sessions keep the window too: the camera is what the window shows.
         if cameraRunning, pip.isActive, multitaskingEnabled == true {
-            detail = phase == .scanning ? "Scanning in the floating window." : "Camera preview in the floating window."
+            detail = phase == .scanning ? "Floating camera active. Offline analysis may pause in background." : "Camera preview in the floating window."
             refreshPiPOverlay()
             return
         }
@@ -214,16 +181,10 @@ final class ScanModel: ObservableObject {
     }
 
     func applyPreferences(_ updated: ScanPreferences) async throws {
-        if let client, let sessionID, phase == .scanning {
-            let current = generation
-            let updatedSession = try await client.updatePreferences(updated, sessionID: sessionID)
-            guard generation == current, self.sessionID == sessionID else {
-                throw BackendError(status: 0, code: "SESSION_CHANGED", message: "The scanning session changed. Apply your settings again.")
-            }
-            preferences = updatedSession.preferences
-        } else {
-            preferences = updated
-        }
+        preferences = updated
+        preferencesRevision = UUID()
+        clearDisplayedResult()
+        refreshPiPOverlay()
         if let encoded = try? JSONEncoder().encode(preferences) {
             UserDefaults.standard.set(encoded, forKey: "stepsense.preferences")
         }
@@ -231,17 +192,22 @@ final class ScanModel: ObservableObject {
     }
 
     private func analyze(_ frame: CapturedFrame, generation current: UUID) {
-        guard phase == .scanning, generation == current, frameTask == nil,
-              let client, let sessionID else { return }
+        guard phase == .scanning, generation == current, frameTask == nil else { return }
         sequence += 1
         let frameSequence = sequence
+        let revision = preferencesRevision
         imageSize = frame.size
         frameTask = Task { [weak self] in
             guard let self else { return }
             var retryDelay: Double = 0
             do {
-                let result = try await client.analyze(jpeg: frame.jpeg, sessionID: sessionID, sequence: frameSequence)
+                let result = try await detector.analyze(jpeg: frame.jpeg, sequence: frameSequence, preferences: preferences, capturedAt: frame.capturedAt)
                 guard generation == current, phase == .scanning, !Task.isCancelled else { return }
+                guard preferencesRevision == revision else {
+                    frameTask = nil
+                    camera.requestFrame()
+                    return
+                }
                 imageSize = CGSize(width: result.frame.width, height: result.frame.height)
                 processingMs = result.processingMs
                 let age = ProcessInfo.processInfo.systemUptime - frame.capturedAt
@@ -272,20 +238,19 @@ final class ScanModel: ObservableObject {
                 guard generation == current, phase == .scanning, !Task.isCancelled else { return }
                 clearDisplayedResult()
                 alertReason = "unavailable"
-                if let backend = error as? BackendError, backend.status == 404 {
-                    stop(nextPhase: .failed, message: "This session ended. Tap Start to create a fresh session.")
+                detail = "Analysis unavailable. \(readable(error))"
+                refreshPiPOverlay()
+                if detector.webView == nil {
+                    phase = .previewing
+                    modelStatus = "Detection unavailable"
+                    detail = "Preview only. No detection or obstacle alerts. Stop and Start to retry."
+                    frameTask = nil
+                    refreshPiPOverlay()
                     return
-                }
-                if let backend = error as? BackendError, backend.code == "SESSION_CHANGED" {
-                    detail = "Settings updated. Checking a fresh frame…"
-                } else if let backend = error as? BackendError, backend.status == 429 {
-                    detail = "Detector busy. Retrying with a fresh frame…"
-                } else {
-                    detail = "Analysis unavailable. \(readable(error))"
                 }
                 retryDelay = 1
             }
-            // Capture only after the last response, with a maximum rate of about three frames/sec.
+            // Capture only after the last local inference, with a maximum rate of about three frames/sec.
             let delay = max(retryDelay, max(0, 1.0 / 3 - (ProcessInfo.processInfo.systemUptime - frame.capturedAt)))
             do { try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000)) } catch { return }
             guard generation == current, phase == .scanning, !Task.isCancelled else { return }
@@ -306,6 +271,7 @@ final class ScanModel: ObservableObject {
             displayedSequence = nil
             alertReason = "unavailable"
             detail = "Waiting for a fresh analysis result. Previous boxes cleared."
+            refreshPiPOverlay()
         }
     }
 
@@ -326,29 +292,14 @@ final class ScanModel: ObservableObject {
         cameraRunning = false
         alerts.stop()
         pip.setEnabled(false)
-        let previousClient = client
-        let previousID = sessionID
-        client = nil
-        sessionID = nil
+        detector.stop()
         clearDisplayedResult()
         alertReason = "idle"
         phase = nextPhase
         detail = message
-        if let previousClient, let previousID {
-            Task { await previousClient.deleteSession(previousID) }
-        }
     }
 
     private func readable(_ error: Error) -> String {
-        if let urlError = error as? URLError {
-            switch urlError.code {
-            case .cannotConnectToHost, .cannotFindHost:
-                return "Cannot reach the backend. On iPhone, enter your laptop's LAN address and allow local network access."
-            case .notConnectedToInternet: return "Network connection unavailable."
-            case .timedOut: return "The backend request timed out. Check the server and network."
-            default: return urlError.localizedDescription
-            }
-        }
         return error.localizedDescription
     }
 }

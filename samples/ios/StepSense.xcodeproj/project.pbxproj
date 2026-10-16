@@ -14,6 +14,8 @@
 		B10000000000000000000005 /* ScanModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000005 /* ScanModel.swift */; };
 		B10000000000000000000006 /* ScannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000006 /* ScannerView.swift */; };
 		B10000000000000000000009 /* PictureInPicture.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000009 /* PictureInPicture.swift */; };
+        B10000000000000000000010 /* OfflineDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000010; };
+        B10000000000000000000011 /* OfflineDetector in Resources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000011; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -26,6 +28,8 @@
 		F10000000000000000000007 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		F10000000000000000000008 /* StepSense.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = StepSense.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F10000000000000000000009 /* PictureInPicture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PictureInPicture.swift; sourceTree = "<group>"; };
+        F10000000000000000000010 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineDetector.swift; sourceTree = "<group>"; };
+        F10000000000000000000011 = {isa = PBXFileReference; lastKnownFileType = folder; path = OfflineDetector; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -58,6 +62,8 @@
 				F10000000000000000000006 /* ScannerView.swift */,
 				F10000000000000000000009 /* PictureInPicture.swift */,
 				F10000000000000000000007 /* Info.plist */,
+                F10000000000000000000010,
+                F10000000000000000000011,
 			);
 			path = StepSense;
 			sourceTree = "<group>";
@@ -128,6 +134,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+                B10000000000000000000011,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -145,6 +152,7 @@
 				B10000000000000000000005 /* ScanModel.swift in Sources */,
 				B10000000000000000000006 /* ScannerView.swift in Sources */,
 				B10000000000000000000009 /* PictureInPicture.swift in Sources */,
+                B10000000000000000000010,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -48,3 +48,35 @@ test('offline page has a restrictive content policy and no remote script URLs', 
   assert.doesNotMatch(html, /src=["']https?:/);
   assert.match(html, /connect-src 'self' stepsense:/);
 });
+
+test('pinned model/runtime byte sizes and SHA-256 hashes match the checked-in artifacts', async () => {
+  const { createHash } = await import('node:crypto');
+  const manifest = JSON.parse(read('ASSETS.json'));
+  assert.equal(manifest.model, 'COCO-SSD lite_mobilenet_v2');
+  assert.equal(manifest.adapterVersion, '2.2.3');
+  assert.equal(manifest.tensorflowjsVersion, '4.22.0');
+  for (const [name, expected] of Object.entries(manifest.files)) {
+    const data = readFileSync(new URL(name, root));
+    assert.equal(data.length, expected.bytes, name);
+    assert.equal(createHash('sha256').update(data).digest('hex'), expected.sha256, name);
+  }
+});
+
+test('camera orchestration never constructs or calls the legacy network client', () => {
+  const source = readFileSync(new URL('../StepSense/ScanModel.swift', import.meta.url), 'utf8');
+  assert.doesNotMatch(source, /BackendClient\(|URLSession|\.createSession\(|\.metadata\(|\.checkReady\(/);
+  assert.match(source, /try await detector\.analyze/);
+  assert.match(source, /detector\.stop\(\)/);
+});
+
+test('analysis failure immediately clears the floating-window overlay too', () => {
+  const source = readFileSync(new URL('../StepSense/ScanModel.swift', import.meta.url), 'utf8');
+  const handler = source.slice(source.indexOf('                clearDisplayedResult()\n                alertReason = "unavailable"'), source.indexOf('                retryDelay = 1'));
+  assert.match(handler, /detail = "Analysis unavailable[^\n]*\n                refreshPiPOverlay\(\)/);
+});
+
+test('scanner privacy and latency text describe on-device inference', () => {
+  const source = readFileSync(new URL('../StepSense/ScannerView.swift', import.meta.url), 'utf8');
+  assert.doesNotMatch(source, /ms server|frames are sent to your configured backend/);
+  assert.match(source, /processed on this iPhone and are not uploaded/);
+});

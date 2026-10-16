@@ -115,14 +115,14 @@ struct ScannerView: View {
                     if let processing = model.processingMs, let roundTrip = model.roundTripMs {
                         VStack(alignment: .trailing, spacing: 4) {
                             Text("LAST RESPONSE").font(.system(size: 9, weight: .semibold, design: .monospaced))
-                            Text("\(roundTrip) ms total · \(processing) ms server").font(.caption.monospacedDigit())
+                            Text("\(roundTrip) ms total · \(processing) ms inference").font(.caption.monospacedDigit())
                         }
                     }
                 }
                 .foregroundStyle(Color.senseMuted)
                 .padding(.vertical, 4)
 
-                Text("Prototype for selected objects. The image zone does not measure distance or establish that a path is clear. Camera frames are sent to your configured backend during a scan.")
+                Text("Prototype for selected objects. The image zone does not measure distance or establish that a path is clear. Camera frames are processed on this iPhone and are not uploaded.")
                     .font(.caption)
                     .foregroundStyle(Color.senseMuted)
                     .fixedSize(horizontal: false, vertical: true)
