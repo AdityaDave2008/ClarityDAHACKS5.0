@@ -57,3 +57,24 @@ Test live mode separately in iPhone Safari, the iPhone home-screen app, Android 
 ## Team integration
 
 One shared frontend serves both contributors. Coordinate ownership before editing shared files: design owns the user flow, visual system, reusable controls, and accessibility review; integration owns frame capture, API requests, and loading/error states. Guided mode's simulated results must remain distinguishable from real live detections.
+
+## Combined website
+
+The `webpage` design is combined with the accessible camera and existing AI backend. Run from the repository root with Node.js 24+:
+
+```powershell
+npm ci --prefix backend
+npm --prefix backend start
+```
+
+In a second terminal:
+
+```powershell
+npm --prefix frontend start
+```
+
+Open **http://127.0.0.1:5180/**, choose Camera, then Start camera. Starting sends frames to the team's backend; no microphone or video recording is used. Wait for the backend model to be ready. Phones require a trusted HTTPS preview and its API proxy. The original AI demo is retained at `/camera.html`.
+
+Existing Settings speech controls are connected to the accessible camera. The AI recognizes selected objects; it does not measure distance or establish that a path is safe.
+
+See the [camera guide](camera/README.md) for this computer's temporary Node commands, integration details, simulation versus real-detection testing, and phone checklists. Run `npm run check` at the root and `npm --prefix frontend test` for frontend validation.

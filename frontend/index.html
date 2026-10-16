@@ -9,6 +9,8 @@
     <meta name="theme-color" content="#101c25">
     <title>ClearPath | Walk with confidence</title>
     <link rel="stylesheet" href="homePage.css">
+    <link rel="stylesheet" href="/camera/camera.css">
+    <link rel="stylesheet" href="/integration.css">
   </head>
 
   <body>
@@ -21,6 +23,8 @@
         <div class="status">
           <span class="dot needs-permission" id="cameraPermissionDot"></span>
           <span id="walkStatus">Camera permission needed</span>
+          <span class="dot" aria-hidden="true"></span>
+          <span id="app-status">Camera off</span>
         </div>
       </header>
 
@@ -85,6 +89,34 @@
             </article>
           </div>
         </section>
+          ClearPath uses your camera and our AI backend to give a heads-up
+          about selected objects ahead. It cannot detect every hazard.
+        </p>
+
+        <div class="card">
+          <div class="camera-header">
+            <h2>Ready when you are</h2>
+            <span class="pill">FOREGROUND ONLY</span>
+          </div>
+
+          <div class="camera-box" id="preview">
+                        <div class="scan"></div>
+            <div class="camera-hint" id="hint">
+              Open Camera, then tap Start to begin
+            </div>
+          </div>
+
+          <div class="controls">
+            <button class="primary" id="start">Open camera</button>
+            <button class="secondary" id="test">Test Speech</button>
+          </div>
+
+          <div class="notice">
+            <b>Keep your phone facing the path</b>
+            Start sends camera frames to our AI backend for analysis. Keep
+            ClearPath visible; it does not measure distance or establish a safe path.
+          </div>
+        </div>
 
         <div class="grid">
           <div class="feature">
@@ -131,11 +163,53 @@
             Live camera preview is available. Automatic obstacle recognition
             is a prototype demo and may not identify every hazard.
           </div>
+      <section id="camera" class="screen" hidden>
+        <div class="camera-feature" id="camera-panel">
+    <h1>Camera</h1>
+    <p id="permission-help">Start sends camera frames to our AI backend. No microphone or recording. Keep this page visible.</p>
+    <section class="status-panel" aria-label="Camera and detection status">
+      <p id="camera-status">Camera off. Tap Start when ready.</p>
+      <p id="detection-status">Detection stopped.</p>
+    </section>
+    <div class="camera-actions" role="group" aria-label="Camera controls">
+      <button type="button" id="camera-start" aria-describedby="permission-help">Start camera</button>
+      <button type="button" id="camera-stop" disabled>Stop camera</button>
+    </div>
+    <video id="camera-video" autoplay muted playsinline aria-label="Live camera preview. Controls work without viewing the preview."></video>
+    <div class="readings">
+      <section aria-label="Approximate distance"><h2>Approximate distance</h2><p id="camera-distance">Not available</p></section>
+      <section aria-label="Obstacle alert"><h2 class="sr-only">Latest alert</h2><p id="camera-obstacle">No current alert. This does not mean the path is safe.</p></section>
+    </div>
+    <section class="speech-controls" aria-label="Spoken alerts">
+      <button type="button" id="camera-speech" aria-pressed="false" aria-describedby="announcement-help">Enable Spoken Alerts</button>
+      <div class="camera-actions">
+        <button type="button" id="camera-test">Test Speech</button>
+        <button type="button" id="camera-repeat">Repeat Status</button>
+      </div>
+      <p id="speech-status">Spoken alerts off.</p>
+    </section>
+    <details>
+      <summary>Announcement options</summary>
+      <label for="camera-announcements">Automatic announcements</label>
+      <select id="camera-announcements" aria-describedby="announcement-help">
+        <option value="screen-reader">Screen reader</option>
+        <option value="app-voice">App voice</option>
+      </select>
+      <p id="announcement-help">Choose one automatic voice. Enabling spoken alerts selects App voice and silences live announcements. Test Speech and Repeat Status always speak on request.</p>
+      <label for="camera-cooldown">Minimum seconds between obstacle alerts</label>
+      <input id="camera-cooldown" type="number" min="1" max="30" step="1" value="3" inputmode="numeric">
+    </details>
+    <button type="button" id="camera-simulate" hidden>Simulate Obstacle — development only</button>
+    <p class="prototype-note sr-only">AI recognizes selected objects; it does not measure distance or detect every hazard.</p>
+    <div id="camera-announcer" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+    <noscript>JavaScript is required for the camera controls and spoken alerts.</noscript>
+
         </div>
       </section>
 
       <!-- Settings -->
       <section id="settings" class="screen">
+      <section id="settings" class="screen" hidden>
         <p class="eyebrow">Make it yours</p>
         <h1>Your way<br>to move.</h1>
         <p class="intro">
@@ -199,6 +273,7 @@
           <div class="setting-row">
             <div>
               <b>Alert style</b>
+              <label for="alert">Alert style</label>
               <small>How ClearPath gets your attention</small>
             </div>
             <select id="alert">
@@ -232,6 +307,10 @@
           <div class="setting-row">
             <div>
               <b>Vibration alerts</b>
+
+          <div class="setting-row">
+            <div>
+              <label for="vibrate">Vibration alerts</label>
               <small>Feel a pulse when a hazard is near</small>
             </div>
             <input id="vibrate" class="toggle" type="checkbox" checked>
@@ -241,6 +320,8 @@
             <div>
               <b>Spoken alerts</b>
               <small>Hear a short heads-up</small>
+              <label for="voice">Spoken alerts</label>
+              <small>Hear Object ahead; enabling this selects App voice</small>
             </div>
             <input id="voice" class="toggle" type="checkbox">
           </div>
@@ -283,6 +364,7 @@
       <!-- Navigation -->
       <nav class="bottom-nav" aria-label="Main navigation">
         <button class="nav-btn active" data-screen="home">
+        <button class="nav-btn active" data-screen="home" aria-current="page">
           <span class="icon">H</span>
           Home
         </button>
@@ -864,5 +946,8 @@ document
         .addEventListener("click", stopCamera);
       refreshCameraPermission();
     </script>
+  </body>
+</html>
+    <script type="module" src="/site.js"></script>
   </body>
 </html>
