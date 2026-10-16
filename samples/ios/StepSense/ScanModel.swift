@@ -10,6 +10,8 @@ final class ScanModel: ObservableObject {
     let pip = PictureInPictureController()
     private let alerts = AlertPlayer()
     @Published private(set) var cameraRunning = false
+    /// True while capture is interrupted but expected to resume on its own.
+    @Published private(set) var cameraPaused = false
     @Published var phase: Phase = .idle
     @Published var detail = "Point the rear camera forward and slightly down."
     @Published private(set) var preferences: ScanPreferences
@@ -41,6 +43,7 @@ final class ScanModel: ObservableObject {
     private var startTask: Task<Void, Never>?
     private var frameTask: Task<Void, Never>?
     private var overlayExpirationTask: Task<Void, Never>?
+    private var watchdogTask: Task<Void, Never>?
     private var displayedSequence: Int?
     private let maxResultAge: TimeInterval = 2.5
 
@@ -85,6 +88,11 @@ final class ScanModel: ObservableObject {
                     Task { @MainActor in
                         guard let self, self.generation == current else { return }
                         self.pip.enqueue(preview)
+                    }
+                }, onInterruption: { [weak self] paused, message in
+                    Task { @MainActor in
+                        guard let self, self.generation == current else { return }
+                        self.handleCameraInterruption(paused: paused, message: message, generation: current)
                     }
                 }, onFailure: { [weak self] message in
                     Task { @MainActor in
@@ -157,6 +165,29 @@ final class ScanModel: ObservableObject {
         pictureInPictureRequested = true
         pip.setEnabled(cameraRunning)
         pip.start()
+    }
+
+    /// Camera pauses are routine while the floating window moves, resizes, or hides.
+    ///
+    /// These are recoverable, so scanning keeps its session and simply resumes the frame loop
+    /// once capture comes back, instead of ending the scan and demanding a manual restart.
+    private func handleCameraInterruption(paused: Bool, message: String, generation current: UUID) {
+        guard cameraRunning else { return }
+        cameraPaused = paused
+        if paused {
+            clearDisplayedResult()
+            alertReason = "unavailable"
+            detail = message
+            pip.update { $0.live = false }
+            return
+        }
+        detail = phase == .scanning ? "Scanning the marked image zone offline." : "Camera preview resumed."
+        pip.update { $0.live = true }
+        refreshPiPOverlay()
+        // The previous request may have completed while capture was paused, which would leave
+        // the loop with no pending frame to continue from.
+        if phase == .scanning, frameTask == nil { camera.requestFrame() }
+        if phase == .scanning { startFrameWatchdog(generation: current) }
     }
 
     private func refreshPiPOverlay() {
@@ -256,6 +287,23 @@ final class ScanModel: ObservableObject {
             guard generation == current, phase == .scanning, !Task.isCancelled else { return }
             frameTask = nil
             camera.requestFrame()
+            startFrameWatchdog(generation: current)
+        }
+    }
+
+    /// Restarts the frame loop if a requested frame never arrives.
+    ///
+    /// A capture interruption can swallow the pending request, which would otherwise leave
+    /// scanning silently idle until the user stopped and started again.
+    private func startFrameWatchdog(generation current: UUID) {
+        watchdogTask?.cancel()
+        let waitingFor = sequence
+        watchdogTask = Task { [weak self] in
+            do { try await Task.sleep(nanoseconds: 3_000_000_000) } catch { return }
+            guard let self, generation == current, phase == .scanning, !Task.isCancelled,
+                  frameTask == nil, sequence == waitingFor, !cameraPaused else { return }
+            camera.requestFrame()
+            startFrameWatchdog(generation: current)
         }
     }
 
@@ -286,10 +334,13 @@ final class ScanModel: ObservableObject {
         generation = UUID()
         startTask?.cancel()
         frameTask?.cancel()
+        watchdogTask?.cancel()
         startTask = nil
         frameTask = nil
+        watchdogTask = nil
         camera.stop()
         cameraRunning = false
+        cameraPaused = false
         alerts.stop()
         pip.setEnabled(false)
         detector.stop()

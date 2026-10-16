@@ -78,7 +78,11 @@ final class PiPContentView: UIView {
     }
 
     func enqueue(_ sampleBuffer: CMSampleBuffer) {
-        if displayLayer.status == .failed { displayLayer.flush() }
+        // The layer can fail or be flushed while the window moves between positions and sizes.
+        // Recover in place so the feed resumes instead of freezing on the last frame.
+        if displayLayer.status == .failed {
+            displayLayer.flush()
+        }
         guard displayLayer.isReadyForMoreMediaData else { return }
         displayLayer.enqueue(sampleBuffer)
     }

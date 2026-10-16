@@ -41,18 +41,96 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
     private var previewHandler: (@Sendable (PiPFrame) -> Void)?
     private var failureHandler: (@Sendable (String) -> Void)?
     private var observers: [NSObjectProtocol] = []
+    private var interrupted = false
+    /// Reports recoverable pauses and resumptions separately from fatal failures.
+    private var interruptionHandler: (@Sendable (Bool, String) -> Void)?
 
     override init() {
         super.init()
-        for name in [AVCaptureSession.wasInterruptedNotification, AVCaptureSession.runtimeErrorNotification] {
-            observers.append(NotificationCenter.default.addObserver(forName: name, object: session, queue: nil) { [weak self] _ in
-                self?.reportFailure("Camera interrupted. Stop and try again when the camera is available.")
-            })
-        }
+        // Moving, resizing, or hiding the floating window interrupts capture. Those pauses are
+        // routine and recoverable, so they must not be reported as a failed scan.
+        observers.append(NotificationCenter.default.addObserver(
+            forName: AVCaptureSession.wasInterruptedNotification, object: session, queue: nil
+        ) { [weak self] note in
+            self?.handleInterruption(note)
+        })
+        observers.append(NotificationCenter.default.addObserver(
+            forName: AVCaptureSession.interruptionEndedNotification, object: session, queue: nil
+        ) { [weak self] _ in
+            self?.handleInterruptionEnded()
+        })
+        // A runtime error is different: capture has actually stopped and must be restarted.
+        observers.append(NotificationCenter.default.addObserver(
+            forName: AVCaptureSession.runtimeErrorNotification, object: session, queue: nil
+        ) { [weak self] _ in
+            self?.restartAfterRuntimeError()
+        })
     }
 
     deinit {
         for observer in observers { NotificationCenter.default.removeObserver(observer) }
+    }
+
+    private func handleInterruption(_ note: Notification) {
+        let raw = note.userInfo?[AVCaptureSessionInterruptionReasonKey] as? Int
+        let reason = raw.flatMap(AVCaptureSession.InterruptionReason.init(rawValue:))
+        let message: String
+        switch reason {
+        case .videoDeviceNotAvailableWithMultipleForegroundApps:
+            message = "Camera paused while another app is using it. It resumes automatically."
+        case .videoDeviceNotAvailableInBackground:
+            message = "Camera paused in the background. It resumes when the window is visible."
+        case .videoDeviceInUseByAnotherClient:
+            message = "Another app is using the camera. Scanning resumes when it is free."
+        default:
+            message = "Camera paused. It resumes automatically."
+        }
+        lock.lock()
+        let shouldReport = active
+        if active { interrupted = true }
+        let handler = interruptionHandler
+        lock.unlock()
+        guard shouldReport else { return }
+        handler?(true, message)
+    }
+
+    private func handleInterruptionEnded() {
+        lock.lock()
+        let shouldReport = active && interrupted
+        interrupted = false
+        let handler = interruptionHandler
+        lock.unlock()
+        guard shouldReport else { return }
+        // The system restarts capture itself after an interruption ends; make sure it is running.
+        sessionQueue.async { [self] in
+            lock.lock()
+            let stillActive = active
+            lock.unlock()
+            guard stillActive, !session.isRunning else { return }
+            session.startRunning()
+        }
+        handler?(false, "Camera resumed.")
+    }
+
+    /// Runtime errors stop capture outright, so retry a few times before giving up.
+    private func restartAfterRuntimeError() {
+        lock.lock()
+        let stillActive = active
+        lock.unlock()
+        guard stillActive else { return }
+        sessionQueue.asyncAfter(deadline: .now() + 0.4) { [self] in
+            lock.lock()
+            let active = self.active
+            let handler = interruptionHandler
+            lock.unlock()
+            guard active else { return }
+            if !session.isRunning { session.startRunning() }
+            if session.isRunning {
+                handler?(false, "Camera resumed.")
+            } else {
+                reportFailure("The camera stopped and could not restart. Stop and start scanning again.")
+            }
+        }
     }
 
     /// May be requested before connecting to the backend. Does not start capture.
@@ -69,6 +147,7 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
 
     func start(onFrame: @escaping @Sendable (CapturedFrame) -> Void,
                onPreview: @escaping @Sendable (PiPFrame) -> Void,
+               onInterruption: @escaping @Sendable (Bool, String) -> Void,
                onFailure: @escaping @Sendable (String) -> Void) async throws -> CameraDiagnostics {
         try await requestAuthorization()
         return try await withCheckedThrowingContinuation { continuation in
@@ -88,8 +167,10 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
                     lock.lock()
                     active = true
                     frameRequested = false
+                    interrupted = false
                     frameHandler = onFrame
                     previewHandler = onPreview
+                    interruptionHandler = onInterruption
                     failureHandler = onFailure
                     lock.unlock()
                     session.startRunning()
@@ -121,8 +202,10 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
         lock.lock()
         active = false
         frameRequested = false
+        interrupted = false
         frameHandler = nil
         previewHandler = nil
+        interruptionHandler = nil
         failureHandler = nil
         lock.unlock()
     }
