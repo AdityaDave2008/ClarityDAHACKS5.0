@@ -433,6 +433,13 @@
         });
       });
 
+      window.addEventListener("hashchange", () => {
+        const target = document.getElementById(window.location.hash.slice(1));
+        if (target?.classList.contains("screen")) showScreen(target.id);
+      });
+      const initialScreen = document.getElementById(window.location.hash.slice(1));
+      if (initialScreen?.classList.contains("screen")) showScreen(initialScreen.id);
+
       function showToast(message) {
         const toast = document.getElementById("toast");
         toast.textContent = message;
@@ -489,6 +496,9 @@ document.querySelectorAll("[data-profile]").forEach((button) => {
       modeButtons.forEach((button) => {
         button.addEventListener("click", () => {
           setMode(button.dataset.mode);
+          if (button.dataset.mode === "normal") {
+            window.location.href = "index.html#settings";
+          }
         });
       });
 
