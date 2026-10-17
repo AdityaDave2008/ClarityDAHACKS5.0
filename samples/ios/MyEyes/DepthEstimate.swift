@@ -87,19 +87,50 @@ struct DepthSnapshot: Sendable {
             }
         }
         // Sparse holes must never leave a tiny patch of background masquerading as an object.
-        guard valid.count >= 9, Double(valid.count) / Double(count) >= 0.9 else { return reject("insufficient valid coverage") }
+        guard valid.count >= 9, Double(valid.count) / Double(count) >= 0.9 else {
+            if let surface = centralSurface(in: box, xRange: x0..<x1, yRange: y0..<y1) { return surface }
+            return reject("insufficient valid coverage")
+        }
         valid.sort()
         let median = Double(valid[valid.count / 2])
-        // Reject, rather than silently trim, an outlier surface or mixed-depth ROI.
+        // A person or sloped object need not form a camera-parallel plane. If the
+        // broad ROI varies, measure only a coherent patch at the exact box center.
+        // This is central surface depth, not segmentation or closest-object distance.
         let tolerance = max(0.08, median * 0.06)
-        guard Double(valid.last! - valid.first!) <= tolerance else { return reject("mixed-depth spread") }
+        guard Double(valid.last! - valid.first!) <= tolerance else {
+            if let surface = centralSurface(in: box, xRange: x0..<x1, yRange: y0..<y1) { return surface }
+            return reject("mixed-depth spread")
+        }
+        return median
+    }
+
+    private func centralSurface(in box: NormalizedBox, xRange: Range<Int>, yRange: Range<Int>) -> Double? {
+        let cx = Int((box.x + box.width / 2) * Double(width))
+        let cy = Int((box.y + box.height / 2) * Double(height))
+        guard xRange.contains(cx), yRange.contains(cy) else { return nil }
+        let center = meters[cy * width + cx]
+        guard center.isFinite, (0.2...5).contains(center) else { return nil }
+        let xs = max(xRange.lowerBound, cx - 2)..<min(xRange.upperBound, cx + 3)
+        let ys = max(yRange.lowerBound, cy - 2)..<min(yRange.upperBound, cy + 3)
+        guard xs.count >= 3, ys.count >= 3 else { return nil }
+        var samples: [Float] = []
+        for y in ys { for x in xs {
+            let value = meters[y * width + x]
+            if value.isNaN { continue }
+            guard value.isFinite, (0.2...5).contains(value) else { return nil }
+            samples.append(value)
+        } }
+        guard samples.count >= 9, Double(samples.count) / Double(xs.count * ys.count) >= 0.9 else { return nil }
+        samples.sort()
+        let median = Double(samples[samples.count / 2])
+        guard Double(samples.last! - samples.first!) <= max(0.08, median * 0.06) else { return nil }
         return median
     }
 }
 
 
 extension Detection {
-    /// Hardware capability, not a temporarily missing depth frame, selects the source.
+    /// Prefer usable measured depth. Otherwise use fresh RGB box area, never invented meters.
     func addingProximity(from snapshot: DepthSnapshot?, lidarCapable: Bool?, enabled: Bool,
                          matchingFrame: Bool, capturedAt: TimeInterval, now: TimeInterval,
                          onRejection: (String) -> Void = { _ in }) -> Detection {
@@ -108,8 +139,9 @@ extension Detection {
         enriched.proximitySource = nil
         enriched.visualProximityArea = nil
         enriched.proximityExpiresAt = nil
-        guard let lidarCapable, matchingFrame else { return enriched }
-        enriched.enrichProximity(lidarCapable: lidarCapable, capturedAt: capturedAt)
+        guard matchingFrame else { return enriched }
+        let hasUsableDepth = enriched.freshProximityDepth(at: now) != nil
+        enriched.enrichProximity(lidarCapable: hasUsableDepth, capturedAt: capturedAt)
         return enriched
     }
 

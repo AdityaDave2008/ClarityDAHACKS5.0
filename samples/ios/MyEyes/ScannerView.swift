@@ -292,12 +292,12 @@ struct ScannerView: View {
                     .font(.caption.weight(.semibold))
                 Text("Near ≤ \(settings.nearMeters, specifier: "%.1f") m · red · 2 Hz\nIntermediate ≤ \(settings.intermediateMeters, specifier: "%.1f") m · amber · 1 Hz\nFar ≤ \(settings.farMeters, specifier: "%.1f") m · green · 0.5 Hz\nOut of range > \(settings.farMeters, specifier: "%.1f") m · muted blue · no pulses\nUnknown · gray · depth unavailable")
                     .font(.caption.monospacedDigit())
-                Text("LiDAR measurements only on this device. Disabled, missing or stale depth remains unknown; visual size is not substituted.")
+                Text("Valid LiDAR readings take priority. When disabled, missing or rejected, fresh detection-box area supplies a visual proximity estimate, not meters: ≥35% near, ≥12% intermediate, ≥3% far. Stale images remain unknown.")
                     .font(.caption)
             } else {
                 Text("Checking depth capability")
                     .font(.caption.weight(.semibold))
-                Text("Start scanning to check this device. Unknown · gray · no pulses. No visual estimate until absence of LiDAR is confirmed.")
+                Text("Start scanning to check this device. Fresh detection-box area can supply a visual proximity estimate while depth is unavailable. Without a fresh detection: Unknown · gray · no pulses.")
                     .font(.caption)
             }
             Text("Cadence applies to selected sound/vibration alerts. Green means a farther band, not a clear path. Estimates are not a safety indication.")
@@ -474,7 +474,7 @@ private struct SettingsView: View {
                 Section {
                     Text("Experimental YOLOX-Nano · fine-tuned candidate")
                     Text(model.modelStatus).font(.caption).foregroundStyle(.secondary)
-                    Text("Testing only. Candidate mAP is worse than baseline. Not safety-certified. 80 model classes, limited to the existing 16-label alert policy. iPhone image decoding differs from offline evaluation and can change threshold decisions. The 78.75% default may give sparse results; lowering it changes the evaluated operating point.").font(.caption).foregroundStyle(.secondary)
+                    Text("Testing only. Candidate mAP is worse than baseline. Not safety-certified. All 80 model classes can alert. The 45% default was measured on 300 COCO validation images: it reports about 0.39 of annotated objects at 0.71 precision, versus 0.20 at the old 78.75% default. Raising it returns fewer, more certain detections. iPhone image decoding differs from offline evaluation.").font(.caption).foregroundStyle(.secondary)
                 } header: { Text("Offline detector") } footer: {
                     Text("Fine-tuned model and runtime are bundled on this iPhone. No server, Wi-Fi, or mobile data is needed. Start scanning to load the model.")
                 }

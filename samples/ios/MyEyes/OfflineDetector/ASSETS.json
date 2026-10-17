@@ -1,7 +1,7 @@
 {
   "model": "YOLOX-Nano fine-tuned candidate",
   "onnxRuntimeVersion": "1.20.1",
-  "confidenceThreshold": 0.7874982953071594,
+  "confidenceThreshold": 0.45,
   "files": {
     "candidate.onnx": {
       "bytes": 3815640,
@@ -20,16 +20,16 @@
       "sha256": "207d02be4591c156b0a98f024f3d58005b5b04c92274d759fb390338c63559ea"
     },
     "model-contract.json": {
-      "bytes": 8013,
-      "sha256": "f3e8999876857070886110f5bfc1cea1a399b64600967dd178bc77798249523e"
+      "bytes": 7999,
+      "sha256": "a59086579b33f774f7405e0202e74a7c7760d27569721f550f8c3c3537cae919"
     },
     "yolox.js": {
-      "bytes": 3522,
-      "sha256": "e1c7825e0ce783fe273ffddfae5ea502617fa8682a755a53910dac8b4700fb8c"
+      "bytes": 3508,
+      "sha256": "8634a6cec6e04600a53f355d8609e432a8bb9ae473b9dd453bb6bdb7e921277d"
     },
     "policy.js": {
-      "bytes": 3640,
-      "sha256": "a62bd2032c7f3d1ce1a294ae735536543ce6cc96ed11e89840d538c70c5b15f3"
+      "bytes": 4597,
+      "sha256": "b73c2bdd6a5e19d1623e65882688e47c8adf17bad6f067d20ce423148469197c"
     },
     "detector.js": {
       "bytes": 3716,

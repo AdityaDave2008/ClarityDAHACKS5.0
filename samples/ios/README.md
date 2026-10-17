@@ -7,7 +7,7 @@
 - Display name: **Clarity V2 Test**. Bundle identifier: `com.dahacks.clarity.v2testing`.
 - Packaged model: `MyEyes/OfflineDetector/candidate.onnx`, with ONNX Runtime Web **1.20.1** and its bundled WASM runtime. No model-download, Node server or Swift package step is required for the native app.
 - [Model provenance](MyEyes/OfflineDetector/PROVENANCE.md), [asset hashes](MyEyes/OfflineDetector/ASSETS.json), and [V2 verification and limitations](../../docs/v2-testing/README.md) describe this candidate. Earlier COCO-SSD model paths, confidence measurements and bundle identifiers in historical records below do **not** describe current main.
-- Candidate mAP is worse than baseline. The default confidence threshold is approximately **0.7875** and may yield sparse detections. JPEG preprocessing parity is not established. This is experimental testing, not an accuracy improvement or a safety device.
+- Candidate mAP is worse than baseline. The default confidence threshold is **0.45**, measured over 300 COCO val2017 images at 0.714 precision and 0.394 recall. The previous 0.7875 precision-tuned default returned only 0.204 recall and left whole scenes empty. JPEG preprocessing parity is not established. This is experimental testing, not an accuracy improvement or a safety device.
 - Native images and LiDAR data stay on-device. Optional hardware depth is approximate axial depth, not collision prediction or clearance.
 
 ## Build and run

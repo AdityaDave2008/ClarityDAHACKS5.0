@@ -433,5 +433,5 @@
   ],
   "selected_confidence_source": "candidate-tune frozen threshold (not selected baseline)",
   "safety_note": "Experimental candidate, worse mAP than baseline. No safety certification. Model emits 80 COCO classes; unchanged app policy exposes only its 16 supported alert labels.",
-  "confidence_threshold": 0.7874982953071594
+  "confidence_threshold": 0.45
 }
