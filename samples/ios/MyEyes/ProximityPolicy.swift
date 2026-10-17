@@ -8,6 +8,7 @@ struct ProximityPolicy {
         var retreatFrames: Int = 0
         let id: Int
         let latestExpiry: TimeInterval
+        let confirmedFrames: Int
     }
     private struct Match {
         let current: Int
@@ -61,21 +62,25 @@ struct ProximityPolicy {
         for index in detections.indices.sorted(by: { Self.ordered(detections[$0], detections[$1]) }) {
             output[index].proximityBand = .unknown
             output[index].proximityTrackID = nil
+            output[index].proximityConfirmed = nil
             guard let depth = detections[index].freshProximityDepth(at: now) else { continue }
             let raw = Self.band(depth, settings: currentSettings)
             var band = raw
             var retreatFrames = 0
+            var confirmedFrames = detections[index].inZone ? 1 : 0
             let id: Int
             var latestExpiry = detections[index].depthExpiresAt!
             if let match = associations[index] {
                 let prior = previous[match]
                 id = prior.id
+                let isNewFrame = detections[index].depthExpiresAt! > prior.latestExpiry
+                confirmedFrames = detections[index].inZone
+                    ? min(2, prior.confirmedFrames + (isNewFrame ? 1 : 0)) : 0
                 latestExpiry = max(latestExpiry, prior.latestExpiry)
                 let oldBand = prior.detection.proximityBand ?? .unknown
                 if Self.rank(raw) > Self.rank(oldBand), let boundary = Self.upperBound(oldBand, settings: currentSettings) {
                     band = oldBand
                     // A timestamp identifies a depth frame. Re-processing it cannot count twice.
-                    let isNewFrame = detections[index].depthExpiresAt! > prior.latestExpiry
                     if depth >= boundary + 0.15 {
                         retreatFrames = prior.retreatFrames + (isNewFrame ? 1 : 0)
                         if retreatFrames >= 2 { band = raw; retreatFrames = 0 }
@@ -87,7 +92,8 @@ struct ProximityPolicy {
             }
             output[index].proximityBand = band
             output[index].proximityTrackID = id
-            tracks.append(Track(detection: output[index], retreatFrames: retreatFrames, id: id, latestExpiry: latestExpiry))
+            output[index].proximityConfirmed = confirmedFrames >= 2
+            tracks.append(Track(detection: output[index], retreatFrames: retreatFrames, id: id, latestExpiry: latestExpiry, confirmedFrames: confirmedFrames))
         }
         return output
     }

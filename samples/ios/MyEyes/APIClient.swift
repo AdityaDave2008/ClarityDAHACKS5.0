@@ -136,6 +136,8 @@ struct Detection: Decodable, Equatable {
     // Local policy output only, never accepted from detector JSON.
     var proximityBand: ProximityBand? = nil
     var proximityTrackID: Int? = nil
+    // Two distinct fresh matched frames are required before the first proximity output.
+    var proximityConfirmed: Bool? = nil
     private enum CodingKeys: String, CodingKey {
         case label, confidence, bbox, anchor, inZone, depthMeters, depthRequested, depthExpiresAt
     }
