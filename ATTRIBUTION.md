@@ -11,11 +11,11 @@
 - **ADE20K**: training data and label provenance for the surface model. [Dataset](https://ade20k.csail.mit.edu/). No ADE20K images are bundled.
 - **COCO**: training data/category provenance for the pretrained detector. This project did not train the initial model. [Dataset terms](https://cocodataset.org/#termsofuse). No COCO image dataset is bundled.
 
-`backend/package-lock.json` records installed versions, and the dependencies include their license files. Model weights are downloaded from their provider by the model adapter. Retain applicable notices in distributions and credit any later test photos, training data, sounds, icons, or other assets separately.
+`backend/package-lock.json` records installed versions, and the dependencies include their license files. The backend downloads model weights from their provider. The iPhone app bundles the exact same official COCO-SSD graph and weights for offline inference; see `samples/ios/StepSense/OfflineDetector/PROVENANCE.md` for exact URLs, versions, hashes, and retained licenses. Retain applicable notices in distributions and credit any later test photos, training data, sounds, icons, or other assets separately.
 
 The session handling, API contract, normalized detection-zone logic, alert policy, tests, and integration documentation were developed for this project with AI assistance. Tests use generated image data and test-only detector outputs; these are not evidence of model accuracy. Describe AI assistance in the submission according to organizer requirements.
 
-The browser sample's sidewalk illustration, footprint icon, UI, generated notification tones, and native sample code were created for this project with AI assistance. The guided browser mode is an explicitly labeled simulation. Native samples use Apple/Android platform frameworks and the existing backend; they do not bundle another detector or training dataset.
+The browser sample's sidewalk illustration, footprint icon, UI, generated notification tones, and native sample code were created for this project with AI assistance. The guided browser mode is an explicitly labeled simulation. The Android sample uses its platform frameworks and the existing backend. The iPhone sample uses Apple frameworks plus the bundled TensorFlow.js COCO-SSD detector/runtime described above. Neither bundles a training dataset.
 
 The Android sample includes the official **Gradle 8.13 wrapper**, Apache-2.0. Its wrapper license is retained in `samples/android/gradle/wrapper/LICENSE`; Gradle and the Android Gradle Plugin are build tools downloaded by the wrapper, not embedded app detection libraries. [Gradle source/license](https://github.com/gradle/gradle).
 
