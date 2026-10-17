@@ -20,6 +20,14 @@ struct DepthEstimateTests {
         }
         precondition(ScanPreferences(confidenceThreshold: 0.4).confidenceThreshold == 0.4)
         let good = snapshot(Array(repeating: 2, count: 400))
+        let distribution = snapshot([.nan, .infinity, 0.1, 6, 2, 3], width: 3, height: 2).distributionSummary
+        precondition(distribution.contains("valid=2"))
+        precondition(distribution.contains("nan=1"))
+        precondition(distribution.contains("nonfinite=1"))
+        precondition(distribution.contains("below=1"))
+        precondition(distribution.contains("beyond=1"))
+        precondition(distribution.contains("center=2.000"))
+        precondition(snapshot([2]).distributionSummary == "malformed map")
         precondition(good.centerSurface(now: 10.1) == 2)
         precondition(good.centerSurface(now: 10.75) == nil, "center test expires")
         precondition(good.centerSurface(now: 9) == nil, "center test rejects future capture")
@@ -31,6 +39,13 @@ struct DepthEstimateTests {
         centerOnly[10 * 20 + 10] = 1.25
         precondition(snapshot(centerOnly).centerSurface(now: 10) == 1.25, "raw center does not claim object ROI validity")
         var rejection = ""
+        for (value, expected): (Float, String) in [(.nan, "no center return"), (.infinity, "nonfinite center"), (0.1, "center below 0.2 m"), (6, "center beyond 5 m")] {
+            _ = snapshot(Array(repeating: value, count: 400)).centerSurface(now: 10, onRejection: { rejection = $0 })
+            precondition(rejection == expected, "center failure must not masquerade as object ROI failure")
+        }
+        _ = good.centerSurface(now: 11, onRejection: { rejection = $0 })
+        precondition(rejection == "stale/invalid time")
+
         precondition(good.estimate(in: full, now: 11, onRejection: { rejection = $0 }) == nil)
         precondition(rejection == "stale/invalid time")
         _ = snapshot(Array(repeating: Float.nan, count: 400)).estimate(in: full, now: 10, onRejection: { rejection = $0 })

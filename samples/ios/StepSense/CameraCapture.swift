@@ -521,6 +521,7 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
         if now - lastCenterLog >= 3, synchronizedDepth != nil {
             lastCenterLog = now
             let center = depth?.centerSurface(now: now)
+            if let depth { PiPDiagnostics.log("lidar.distribution", depth.distributionSummary) }
             PiPDiagnostics.log("lidar.center", "meters=\(center.map { String(format: "%.3f", $0) } ?? "unavailable") ageMs=\(depthCapturedAt.map { Int((now - $0) * 1000) } ?? -1) snapshot=\(reason)")
         }
         let source = CIImage(cvPixelBuffer: buffer)

@@ -9,15 +9,48 @@ struct DepthSnapshot: Sendable {
     let meters: [Float]
     let capturedAt: TimeInterval
 
+    /// Aggregate sensor metadata only. No depth map or camera image is persisted.
+    var distributionSummary: String {
+        guard width > 0, height > 0, width <= 4096, height <= 4096,
+              meters.count == width * height else { return "malformed map" }
+        func summary(_ values: [Float]) -> String {
+            var valid = 0, missing = 0, nonfinite = 0, below = 0, beyond = 0
+            var minimum = Float.infinity, maximum = -Float.infinity
+            for value in values {
+                if value.isNaN { missing += 1 }
+                else if !value.isFinite { nonfinite += 1 }
+                else {
+                    minimum = min(minimum, value); maximum = max(maximum, value)
+                    if value < 0.2 { below += 1 }
+                    else if value > 5 { beyond += 1 }
+                    else { valid += 1 }
+                }
+            }
+            return "n=\(values.count) valid=\(valid) nan=\(missing) nonfinite=\(nonfinite) below=\(below) beyond=\(beyond) min=\(minimum) max=\(maximum)"
+        }
+        var neighbors: [Float] = []
+        for y in max(0, height / 2 - 2)...min(height - 1, height / 2 + 2) {
+            for x in max(0, width / 2 - 2)...min(width - 1, width / 2 + 2) {
+                neighbors.append(meters[y * width + x])
+            }
+        }
+        let center = meters[(height / 2) * width + width / 2]
+        return "center=\(String(format: "%.3f", center)) map{\(summary(meters))} center5x5{\(summary(neighbors))}"
+    }
+
     /// Single center pixel for an explicitly labeled sensor test, never an object distance.
     /// The capture adapter has already enforced absolute, high-quality, unfiltered geometry.
-    func centerSurface(now: TimeInterval) -> Double? {
+    func centerSurface(now: TimeInterval, onRejection: (String) -> Void = { _ in }) -> Double? {
+        func reject(_ reason: String) -> Double? { onRejection(reason); return nil }
         let age = now - capturedAt
-        guard now.isFinite, capturedAt.isFinite, age >= 0, age < Self.maximumAge,
-              width > 0, height > 0, width <= 4096, height <= 4096,
-              meters.count == width * height else { return nil }
+        guard now.isFinite, capturedAt.isFinite, age >= 0, age < Self.maximumAge else { return reject("stale/invalid time") }
+        guard width > 0, height > 0, width <= 4096, height <= 4096,
+              meters.count == width * height else { return reject("malformed map") }
         let value = meters[(height / 2) * width + width / 2]
-        guard value.isFinite, value >= 0.2, value <= 5 else { return nil }
+        guard !value.isNaN else { return reject("no center return") }
+        guard value.isFinite else { return reject("nonfinite center") }
+        guard value >= 0.2 else { return reject("center below 0.2 m") }
+        guard value <= 5 else { return reject("center beyond 5 m") }
         return Double(value)
     }
 

@@ -30,9 +30,10 @@ final class ScanModel: ObservableObject {
     @Published private(set) var checkedFrames = 0
     @Published private(set) var depthStatus = "Not started"
     @Published private(set) var centerSurfaceMeasurement: (meters: Double, capturedAt: TimeInterval)?
+    @Published private(set) var centerSurfaceUnavailableReason = "waiting for depth"
     var centerSurfaceText: String {
-        guard preferences.isLidarEnabled, cameraRunning, !cameraPaused,
-              let measurement = centerSurfaceMeasurement else { return "unavailable" }
+        guard preferences.isLidarEnabled, cameraRunning, !cameraPaused else { return "unavailable" }
+        guard let measurement = centerSurfaceMeasurement else { return "unavailable · " + centerSurfaceUnavailableReason }
         let age = ProcessInfo.processInfo.systemUptime - measurement.capturedAt
         guard age >= 0, age < DepthSnapshot.maximumAge else { return "unavailable · stale" }
         return String(format: "≈%.2f m axial", measurement.meters)
@@ -240,7 +241,8 @@ final class ScanModel: ObservableObject {
     private func analyze(_ frame: CapturedFrame, generation current: UUID) {
         guard phase == .scanning, !cameraPaused, generation == current, frameTask == nil else { return }
         depthStatus = frame.depthDiagnostic
-        if let snapshot = frame.depth, let value = snapshot.centerSurface(now: ProcessInfo.processInfo.systemUptime) {
+        centerSurfaceUnavailableReason = frame.depthDiagnostic
+        if let snapshot = frame.depth, let value = snapshot.centerSurface(now: ProcessInfo.processInfo.systemUptime, onRejection: { centerSurfaceUnavailableReason = $0 }) {
             centerSurfaceMeasurement = (value, snapshot.capturedAt)
         } else { centerSurfaceMeasurement = nil }
         sequence += 1
@@ -381,6 +383,7 @@ final class ScanModel: ObservableObject {
 
     private func clearDisplayedResult() {
         centerSurfaceMeasurement = nil
+        centerSurfaceUnavailableReason = "waiting for depth"
         depthExpirationTask?.cancel()
         depthExpirationTask = nil
         overlayExpirationTask?.cancel()
