@@ -13,7 +13,8 @@ struct ScannerView: View {
     private var title: String {
         switch model.phase {
         case .idle: return "Ready when you are"
-        case .connecting: return "Connecting…"
+        case .connecting: return "Loading offline detector…"
+        case .previewing: return "Camera preview only"
         case .paused: return "Scanning paused"
         case .failed: return "Unable to start"
         case .scanning:
@@ -35,12 +36,27 @@ struct ScannerView: View {
                     Circle().fill(model.phase == .scanning ? Color.senseTeal : Color.senseMuted).frame(width: 6, height: 6)
                     Text(model.phase == .scanning ? "LIVE SCAN" : "CAMERA SCANNER")
                     Spacer()
-                    Label("Foreground only", systemImage: "iphone")
+                    Label("Floating window", systemImage: "pip")
                 }
                 .font(.system(size: 10, weight: .semibold, design: .monospaced))
                 .foregroundStyle(Color.senseMuted)
 
                 cameraCard
+
+                if model.preferences.isLidarEnabled {
+                    VStack(alignment: .leading, spacing: 5) {
+                        TimelineView(.periodic(from: .now, by: 0.1)) { _ in
+                            Text("Center-surface LiDAR test: \(model.centerSurfaceText)")
+                                .font(.subheadline.monospacedDigit())
+                        }
+                        Text("Raw center pixel. Not object distance or a safety indication.")
+                            .font(.caption)
+                        Text(model.depthStatus).font(.caption)
+                    }
+                    .foregroundStyle(Color.senseMuted)
+                }
+
+                pictureInPictureCard
 
                 VStack(alignment: .leading, spacing: 9) {
                     HStack(alignment: .top, spacing: 11) {
@@ -80,6 +96,7 @@ struct ScannerView: View {
                     .buttonStyle(.borderedProminent)
                     .tint(.senseTeal)
                     .foregroundStyle(.black)
+                    .disabled(model.cameraStopping)
 
                     Button { model.testAlert() } label: {
                         Image(systemName: "speaker.wave.2")
@@ -112,14 +129,14 @@ struct ScannerView: View {
                     if let processing = model.processingMs, let roundTrip = model.roundTripMs {
                         VStack(alignment: .trailing, spacing: 4) {
                             Text("LAST RESPONSE").font(.system(size: 9, weight: .semibold, design: .monospaced))
-                            Text("\(roundTrip) ms total · \(processing) ms server").font(.caption.monospacedDigit())
+                            Text("\(roundTrip) ms total · \(processing) ms inference").font(.caption.monospacedDigit())
                         }
                     }
                 }
                 .foregroundStyle(Color.senseMuted)
                 .padding(.vertical, 4)
 
-                    Text("Clarity can recognize some objects, but it cannot measure their distance or tell whether the path is clear. During a scan, camera frames are sent to the backend you chose.")
+                Text("Prototype for selected objects. The image zone does not establish that a path is clear. Optional LiDAR labels estimate axial depth, not safety. Camera frames are processed on this iPhone and are not uploaded.")
                     .font(.caption)
                     .foregroundStyle(Color.senseMuted)
                     .fixedSize(horizontal: false, vertical: true)
@@ -139,7 +156,7 @@ struct ScannerView: View {
                 .background(Color.senseTeal.opacity(0.12), in: RoundedRectangle(cornerRadius: 15))
             VStack(alignment: .leading, spacing: 3) {
                 Text("Clarity").font(.system(size: 27, weight: .semibold, design: .rounded))
-                Text("A heads-up for the path ahead.").font(.caption).foregroundStyle(Color.senseMuted)
+                Text("A little more awareness.").font(.caption).foregroundStyle(Color.senseMuted)
             }
             Spacer()
             Button { showingSettings = true } label: {
@@ -149,25 +166,78 @@ struct ScannerView: View {
                     .background(Color.senseSurface, in: Circle())
             }
             .foregroundStyle(Color.senseTeal)
-            .accessibilityLabel("Backend and alert settings")
+            .accessibilityLabel("Offline detector and alert settings")
         }
+    }
+
+    private var pictureInPictureCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 11) {
+                Image(systemName: model.pip.isActive ? "pip.fill" : "pip")
+                    .font(.title3)
+                    .foregroundStyle(model.pip.isActive ? Color.senseTeal : Color.senseMuted)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Keep scanning while you use other apps").font(.subheadline.weight(.semibold))
+                    Text(pipDetail)
+                        .font(.caption)
+                        .foregroundStyle(Color.senseMuted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            LabeledContent("System reports ready", value: model.pip.isPossible ? "Yes" : "Not yet")
+                .font(.caption)
+                .foregroundStyle(Color.senseMuted)
+            Button {
+                model.startPictureInPicture()
+            } label: {
+                Label("Open floating window now", systemImage: "pip.enter")
+                    .font(.system(size: 15, weight: .semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+            }
+            .buttonStyle(.bordered)
+            .tint(.senseTeal)
+            // Only hard blockers disable this. Readiness is handled by start(), which waits and
+            // then explains itself, so a stale isPossible cannot silently hide the feature.
+            .disabled(model.pip.unavailableReason != nil || model.pip.isActive)
+            if let failure = model.pip.failureMessage {
+                Text(failure).font(.caption).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(17)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.senseSurface, in: RoundedRectangle(cornerRadius: 18))
+        .overlay(PiPSourceAnchor(controller: model.pip).allowsHitTesting(false))
+    }
+
+    private var pipDetail: String {
+        if let reason = model.pip.unavailableReason { return reason }
+        if model.pip.isActive {
+            return model.multitaskingEnabled == true
+                ? "Live camera continues in the floating window. Offline analysis may pause in the background; old boxes expire."
+                : "Floating window is open. This device does not grant camera access outside the app, so the window pauses when Clarity is backgrounded."
+        }
+        if !model.cameraRunning { return "Camera and floating window stay closed until you choose to start. Tap Start scanning to prepare automatic floating-window entry, or open an empty window manually." }
+        if model.phase == .previewing { return "Camera preview only. Swipe home, or open the window now." }
+        return "Swipe home while scanning, or open the window now."
     }
 
     private var cameraCard: some View {
         ZStack {
             CameraPreview(session: model.camera.session)
-            if model.phase == .scanning {
+            if model.cameraRunning {
                 DetectionOverlay(zone: model.zone, detections: model.detections, imageSize: model.imageSize)
                     .allowsHitTesting(false)
                     .accessibilityHidden(true)
-            } else {
+            }
+            if !model.cameraRunning {
                 Color.senseSurface
                 VStack(spacing: 14) {
                     Image(systemName: model.phase == .paused ? "pause.circle" : "viewfinder")
                         .font(.system(size: 52, weight: .ultraLight))
                     Text(model.phase == .connecting ? "Getting ready…" : "See what’s ahead")
                         .font(.title3.weight(.medium))
-                    Text("Rear camera · keep this app open")
+                    Text("Rear camera · floating window supported")
                         .font(.caption)
                         .foregroundStyle(Color.senseMuted)
                     if model.phase == .connecting { ProgressView().tint(.senseTeal) }
@@ -216,7 +286,7 @@ private struct DetectionOverlay: View {
                     .stroke(color, lineWidth: 2)
                     .frame(width: box.width, height: box.height)
                     .position(x: box.midX, y: box.midY)
-                Text("\(detection.label)  \(Int(detection.confidence * 100))%")
+                Text("\(detection.label)  \(Int(detection.confidence * 100))%" + (detection.depthLabel.map { " · " + $0 } ?? ""))
                     .font(.system(size: 10, weight: .semibold, design: .monospaced))
                     .foregroundStyle(.black)
                     .padding(.horizontal, 6)
@@ -256,26 +326,10 @@ private struct SettingsView: View {
         NavigationStack {
             Form {
                 Section {
-                    TextField("http://192.168.1.20:3001", text: $model.backendAddress)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .keyboardType(.URL)
-                        .font(.callout.monospaced())
-                        .disabled(model.isBusy)
-                        .accessibilityLabel("Backend server URL")
-                    Button {
-                        Task { await model.checkConnection() }
-                    } label: {
-                        HStack {
-                            Text("Check connection")
-                            Spacer()
-                            if model.checkingConnection { ProgressView() }
-                        }
-                    }
-                    .disabled(model.isBusy || model.checkingConnection)
+                    Text("COCO-SSD · lite_mobilenet_v2")
                     Text(model.modelStatus).font(.caption).foregroundStyle(.secondary)
-                } header: { Text("Backend") } footer: {
-                    Text("On a physical iPhone, use your laptop's LAN IP or a deployed HTTPS origin. 127.0.0.1 reaches the iPhone itself. Stop scanning before editing the URL.")
+                } header: { Text("Offline detector") } footer: {
+                    Text("Pretrained model and runtime are bundled on this iPhone. No server, Wi-Fi, or mobile data is needed. Start scanning to load the model.")
                 }
 
                 Section {
@@ -299,6 +353,19 @@ private struct SettingsView: View {
                     Text("All options are editable. With every channel off, warnings stay visual. Haptics require supported hardware; test your selected channels before scanning.")
                 }
 
+                Section {
+                    Toggle("LiDAR depth estimates", isOn: $preferences.isLidarEnabled)
+                        .disabled(model.isBusy || model.cameraRunning || model.cameraStopping || saving)
+                    LabeledContent("Capture status", value: model.depthStatus)
+                    TimelineView(.periodic(from: .now, by: 0.1)) { _ in
+                        LabeledContent("Center-surface test", value: model.centerSurfaceText)
+                    }
+                    Text("Raw center pixel, not object distance. Requires fresh absolute LiDAR depth.")
+                        .font(.caption).foregroundStyle(.secondary)
+                } header: { Text("Optional LiDAR") } footer: {
+                    Text("Off by default. Stop scanning to change LiDAR, then tap Apply. On supported rear cameras, labels show approximate axial depth in meters along the camera's forward axis, not radial distance to an object. Missing, mixed, unreliable, or stale depth is unavailable. Detection continues without LiDAR. Depth does not establish a clear or safe path.")
+                }
+
                 Section("Detection preferences") {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Confidence threshold · \(Int(preferences.confidenceThreshold * 100))%")
@@ -312,9 +379,9 @@ private struct SettingsView: View {
 
                 Section("Camera diagnostics") {
                     LabeledContent("Multitasking API support", value: model.multitaskingSupported.map { $0 ? "Yes" : "No" } ?? "Not queried")
-                    Text("This check runs after the camera starts. It does not enable background scanning. Clarity stops using the camera when you leave the app.")
-                        .font(.caption).foregroundStyle(.secondary)
-                    Text("Clarity does not use call or picture-in-picture features to keep the camera running.")
+                    LabeledContent("Background camera access", value: model.multitaskingEnabled.map { $0 ? "Enabled" : "Not enabled" } ?? "Not queried")
+                    LabeledContent("Picture in Picture", value: model.pip.isSupported ? (model.pip.isActive ? "Active" : "Available") : "Unsupported")
+                    Text("Queried from AVCaptureSession after starting the camera. The app requests video-call Picture in Picture with the voip background mode. Where background camera access is unavailable, the floating window shows a paused state instead of a live feed.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 if let errorMessage {
@@ -337,7 +404,7 @@ private struct SettingsView: View {
                             saving = false
                         }
                     }
-                    .disabled(saving || model.phase == .connecting)
+                    .disabled(saving || model.phase == .connecting || model.cameraStopping)
                 }
             }
             .disabled(saving)

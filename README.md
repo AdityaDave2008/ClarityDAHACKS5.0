@@ -6,7 +6,9 @@ Team project for De Anza Hacks 5.0, October 16–17, 2026.
 
 ## Start here
 
-Clarity is a camera-based obstacle alert prototype. The Node.js 24/Fastify backend is in `backend/`. Try the browser walkthrough and live camera in `frontend/`, or use the native iPhone and Android samples in `samples/`. See [the sample guide](samples/README.md) for setup steps.
+Clarity is a camera-based obstacle alert prototype. **Prototype 1 — Alpha (α)** combines the website/browser frontend and native samples. The browser in `frontend/` uses the Node.js/Fastify detection backend in `backend/`. The iPhone sample in `samples/ios/` uses packaged offline object detection, with optional LiDAR depth estimation. An Android example also remains in `samples/`.
+
+See [Alpha architecture, verification, and limitations](docs/PROTOTYPE_1_ALPHA.md) and [the sample guide](samples/README.md). Backend account features are planned architecture rather than an implemented account system. The native iPhone scanner does not upload camera or LiDAR data.
 
 ## Try the browser sample
 
@@ -15,7 +17,7 @@ npm --prefix backend ci
 npm run demo
 ```
 
-Open **http://localhost:5180**. Try **Walkthrough → Start walkthrough → Add backpack**, then stop and select **Live camera** for actual camera/backend detection. The browser and native iPhone examples scan in the foreground. The Android example uses a camera foreground service for app switching and still needs an Android build/device check. [Setup and verification details](samples/README.md).
+Open **http://localhost:5180** for the integrated website and browser camera flow. Browser camera frames use backend detection only after Start. For the offline iPhone app and its floating-window behavior, follow [native setup and limitations](samples/ios/README.md). Background native object alerts are not guaranteed. The Android example uses a camera foreground service for app switching and still needs an Android build/device check.
 
 For iPhone Safari, see [launching over HTTPS](docs/PHONE_LAUNCH.md). [Related projects and tutorials](docs/RELATED_PROJECTS.md) collect the useful GitHub, YouTube, and Instructables references.
 

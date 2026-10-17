@@ -110,7 +110,10 @@
       <section id="camera" class="screen active blindness-screen" aria-label="Camera scanner">
         <div class="camera-feature" id="camera-feature">
           <p id="permission-help">Point the camera ahead. Alerts may miss hazards.</p>
-          <video id="camera-video" autoplay muted playsinline aria-label="Live camera preview. Controls work without viewing the preview."></video>
+          <div class="camera-preview">
+            <video id="camera-video" autoplay muted playsinline aria-label="Live camera preview. Controls work without viewing the preview."></video>
+            <canvas id="camera-overlay" aria-hidden="true"></canvas>
+          </div>
           <div class="camera-actions" role="group" aria-label="Camera controls">
             <button type="button" id="camera-start" aria-describedby="permission-help">Start scanning</button>
             <button type="button" id="camera-stop" disabled>Stop scanning</button>
@@ -118,6 +121,11 @@
           <section class="status-panel" aria-label="Camera and detection status">
             <p id="camera-status">Camera off. Tap Start when ready.</p>
             <p class="detection-status-line"><span id="detection-status-light" class="dot needs-permission" aria-hidden="true"></span><span id="detection-status">Detection stopped.</span></p>
+          </section>
+          <section class="camera-results" aria-labelledby="camera-objects-heading">
+            <h2 id="camera-objects-heading">Detected objects</h2>
+            <p id="camera-objects">Start scanning to see supported objects.</p>
+            <p class="camera-result-note">Labels show model confidence, not distance or safety. Browser camera does not measure distance.</p>
           </section>
           <section class="speech-controls" aria-label="Spoken alerts">
             <button type="button" id="camera-speech" aria-pressed="false">Turn on spoken alerts</button>

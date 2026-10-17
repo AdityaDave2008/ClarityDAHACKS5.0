@@ -331,3 +331,88 @@ test('preview serves integrated camera assets and preserves the file allowlist',
     assert.match(await (await fetch(origin + '/camera.html')).text(), /id="demo-tab"/);
   } finally { await new Promise(resolve => server.close(resolve)); }
 });
+
+test('fresh detections expire, reject old sequences and clear on error and stop', async () => {
+  const f = fixture();
+  let context;
+  f.feature.registerDetector({ async start(value) { context = value; } });
+  await f.feature.start();
+  const result = sequence => ({ frame: { sequence }, ageMs: 400, sourceWidth: 640, sourceHeight: 480,
+    detections: [{ label: 'person', confidence: .91, inZone: true, bbox: { x: .1, y: .2, width: .3, height: .4 } }],
+    alert: { triggered: false, reason: 'confirming' } });
+  assert.equal(typeof context.onResult, 'function');
+  context.onResult(result(2));
+  assert.equal(f.feature.state.detections.length, 1);
+  assert.match(f.feature.state.detection, /confirm/i);
+  context.onResult({ ...result(1), detections: [] });
+  assert.equal(f.feature.state.detections.length, 1);
+  f.advance(2100);
+  assert.deepEqual(f.feature.state.detections, []);
+  assert.match(f.feature.state.detection, /fresh/i);
+  context.onResult(result(3));
+  context.onError(new Error('Connection lost'));
+  assert.deepEqual(f.feature.state.detections, []);
+  context.onResult(result(4));
+  assert.deepEqual(f.feature.state.detections, []);
+  f.feature.stop();
+  assert.deepEqual(f.feature.state.detections, []);
+});
+
+test('invalid result dimensions, stale frames and previous runs cannot display boxes', async () => {
+  const f = fixture();
+  const contexts = [];
+  f.feature.registerDetector({ async start(context) { contexts.push(context); } });
+  await f.feature.start();
+  const result = { frame: { sequence: 1 }, ageMs: 0, sourceWidth: 640, sourceHeight: 480,
+    detections: [{ label: 'chair', confidence: .8, bbox: { x: .1, y: .1, width: .2, height: .3 } }], alert: {} };
+  contexts[0].onResult({ ...result, sourceWidth: 0 });
+  assert.equal(f.feature.state.result, null);
+  contexts[0].onResult({ ...result, ageMs: 2500 });
+  assert.equal(f.feature.state.result, null);
+  contexts[0].onResult(result);
+  assert.equal(f.feature.state.detections.length, 1);
+  f.feature.stop();
+  await f.feature.start();
+  contexts[0].onResult({ ...result, frame: { sequence: 99 } });
+  assert.equal(f.feature.state.result, null);
+  contexts[1].onResult({ ...result, detections: [...result.detections,
+    { label: '<script>', confidence: NaN, bbox: {} },
+    { label: 'bad', confidence: 1, bbox: { x: -1, y: 0, width: 1, height: 1 } }] });
+  assert.equal(f.feature.state.detections.length, 1);
+  f.feature.stop();
+});
+
+test('hidden document suppresses result and obstacle callbacks even before visibility event delivery', async () => {
+  let visible = true, context;
+  const f = fixture({ isVisible: () => visible });
+  f.feature.registerDetector({ async start(value) { context = value; } });
+  await f.feature.start();
+  visible = false;
+  context.onResult({ frame: { sequence: 1 }, ageMs: 0, sourceWidth: 640, sourceHeight: 480,
+    detections: [{ label: 'chair', confidence: .8, bbox: { x: 0, y: 0, width: .3, height: .3 } }], alert: {} });
+  context.onObstacle();
+  assert.equal(f.feature.state.result, null);
+  assert.equal(f.feature.state.obstacle, '');
+  f.feature.stop();
+});
+
+test('mounted camera redraws safely on viewport and intrinsic video resize', () => {
+  const dom = fakeDOM();
+  const feature = mountCamera(dom.root, dom.platform);
+  assert.doesNotThrow(() => dom.windowListeners.resize());
+  assert.doesNotThrow(() => feature.video.listeners.resize());
+  feature.destroy();
+});
+
+test('default timers preserve native browser receiver requirements', () => {
+  const originals = { setTimeout: globalThis.setTimeout, clearTimeout: globalThis.clearTimeout };
+  let feature;
+  globalThis.setTimeout = function () { if (this === feature) throw new TypeError('Illegal invocation'); return 1; };
+  globalThis.clearTimeout = function () { if (this === feature) throw new TypeError('Illegal invocation'); };
+  try {
+    ({ feature } = fixture({ schedule: undefined, unschedule: undefined }));
+    assert.doesNotThrow(() => feature.acceptResult({ frame: { sequence: 1 }, ageMs: 0,
+      sourceWidth: 640, sourceHeight: 480, detections: [], alert: {} }));
+    assert.doesNotThrow(() => feature.stopDetection());
+  } finally { Object.assign(globalThis, originals); }
+});
