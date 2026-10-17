@@ -19,7 +19,9 @@ The repair starts from fetched main `cda3b5e`. It does not replace model weights
 | Independent sensor validity | Executable Swift tests cover throttle/backpressure, old completion tokens, invalid/future/stale samples, pause boundary, and unchanged object-depth expiry. | Synthetic depth maps do not establish physical LiDAR calibration or object association. |
 | Icon integration | Tests inspect the built app Assets.car, generated icon declarations and icon PNG resources. | Home-screen appearance on the judging phone is not yet observed. |
 | Native compilation/regressions | Unsigned generic-iOS Debug build succeeded. Native suite: 65 passed, zero failed/skipped, with actual built-app icon validation enabled. | Unsigned builds are not installable iPhone IPAs. |
-| Web compatibility | Current production browser model workflow passed on local Chrome: actual COCO inference, cache migration, Start/Stop/restart and fresh offline inference. | Browser fixtures are not physical iPhone/Safari acceptance. Hosted delivery is checked separately after deployment. |
+| Web compatibility | Current production browser model workflow passed locally and on the existing HTTPS preview after redeployment: exact `sw.js`/detector/logic parity, v11 cache migration, actual COCO inference, Start/Stop/restart, no uploads and fresh offline inference. Preview version: `182af37b-3703-42e2-8108-52e55112259e`. | Chrome with synthetic camera input, not physical iPhone/Safari acceptance. |
+
+The open Xcode workspace on the development Mac still pointed to the older checkout's `StepSense.xcodeproj/project.xcworkspace`, not this checkout's repaired `samples/ios/MyEyes.xcodeproj`. The tool environment blocked automatically opening the repaired project. Open the correct project explicitly and select scheme **Clarity** before building for the phone. Do not assume a build in the old workspace contains these repairs.
 
 Local validation logs are retained under `$HOME/.jcode/scratch/ios-repair-20261017/`; browser logs under `$HOME/.jcode/scratch/alert-browser-audit/`. These local paths are not public downloadable artifacts.
 
