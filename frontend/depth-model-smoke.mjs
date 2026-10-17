@@ -1,8 +1,11 @@
 // Manual real-browser smoke: node frontend/depth-model-smoke.mjs /absolute/photo.png
-// Open printed localhost URL, click Run. No model or image is committed/downloaded by this helper.
+// Open printed localhost URL, click Run. Model assets stream through the shared allowlisted handler.
+// The helper never uploads frames and does not download or commit the photo for you.
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
+import { Readable } from 'node:stream';
+import { handleDepthAsset } from '../worker/src/depth-assets.js';
 const photo = process.argv[2];
 if (!photo) throw Error('Usage: node frontend/depth-model-smoke.mjs /absolute/photo.png');
 const root = new URL('./', import.meta.url);
@@ -32,6 +35,16 @@ const allowed = new Set(['/depth-model.js', '/vendor-depth/depth-worker.js', '/v
 const server=http.createServer(async(req,res)=>{
   try {
     const path=new URL(req.url,'http://localhost').pathname;
+    if(path==='/depth-assets'||path.startsWith('/depth-assets/')) {
+      const asset=await handleDepthAsset(new Request(new URL(req.url,'http://127.0.0.1:8799'),{method:req.method}));
+      res.writeHead(asset.status,Object.fromEntries(asset.headers));
+      if(asset.body) {
+        const body=Readable.fromWeb(asset.body);
+        body.on('error',error=>res.destroy(error));
+        body.pipe(res);
+      } else res.end();
+      return;
+    }
     if(path==='/'){res.setHeader('content-type','text/html');res.end(html);return;}
     if(path!=='/photo'&&!allowed.has(path)){res.writeHead(404);res.end();return;}
     res.setHeader('content-type',path.endsWith('.wasm')?'application/wasm':path==='/photo'?'image/png':'text/javascript');

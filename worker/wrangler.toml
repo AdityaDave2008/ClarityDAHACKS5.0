@@ -1,0 +1,34 @@
+name = "stepsense-detection"
+main = "src/index.js"
+compatibility_date = "2026-10-17"
+
+# Inference runs on Cloudflare's hosted models rather than in this isolate.
+[ai]
+binding = "AI"
+
+# The web app ships from the same origin as the API, so the browser needs no CORS
+# permission and phones get one URL to open.
+[assets]
+directory = "../frontend"
+binding = "ASSETS"
+not_found_handling = "none"
+
+[vars]
+# Empty allows any origin, which suits a demo where phone and tunnel origins change.
+# Set exact origins such as "https://example.pages.dev" to restrict the API.
+ALLOWED_ORIGINS = ""
+SESSION_TTL_MS = "1800000"
+MAX_SESSIONS = "200"
+
+# Sessions need state that survives isolate churn; a module-level map lost roughly
+# three in five sessions between requests.
+[[durable_objects.bindings]]
+name = "SESSIONS"
+class_name = "SessionObject"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["SessionObject"]
+
+[observability]
+enabled = true

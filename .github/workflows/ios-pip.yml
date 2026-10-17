@@ -1,0 +1,39 @@
+name: iPhone PiP build
+on:
+  push:
+    branches: [main, feat/cloudflare-worker]
+    paths: ['samples/ios/**', 'backend/alerts.js', '.github/workflows/ios-pip.yml']
+  pull_request:
+    paths: ['samples/ios/**', 'backend/alerts.js', '.github/workflows/ios-pip.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  simulator-build:
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Run native regression and Swift execution tests
+        env:
+          JCODE_SCRATCH_DIR: ${{ runner.temp }}/clarity-native-tests
+        run: node --test samples/ios/tests/*.test.mjs
+      - name: Build the native iPhone app without signing
+        run: >-
+          xcodebuild
+          -project samples/ios/MyEyes.xcodeproj
+          -scheme Clarity
+          -configuration Debug
+          -destination 'generic/platform=iOS Simulator'
+          -derivedDataPath DerivedData
+          CODE_SIGNING_ALLOWED=NO
+          build
+      - name: Upload simulator app
+        uses: actions/upload-artifact@v4
+        with:
+          name: Clarity-iOS-Simulator
+          path: DerivedData/Build/Products/Debug-iphonesimulator/Clarity.app
+          if-no-files-found: error
