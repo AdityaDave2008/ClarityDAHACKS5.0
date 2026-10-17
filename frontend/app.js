@@ -1,4 +1,4 @@
-﻿import { notifyPhone } from './phone-notifications.js';
+import { notifyPhone } from './phone-notifications.js';
 import { containRect, captureSize } from './logic.js';
 
 const $ = (id) => document.getElementById(id);
@@ -123,6 +123,7 @@ function playTonePreset(preset) {
 
   const schedule = tones[preset] || tones.ping;
   const now = state.audio.currentTime;
+  const volume = Math.min(100, Math.max(0, Number(localStorage.getItem('clearpath-alert-volume') ?? 70))) / 100;
 
   schedule.forEach(({ frequency, start, duration, type }) => {
     const oscillator = state.audio.createOscillator();
@@ -132,7 +133,7 @@ function playTonePreset(preset) {
     oscillator.type = type;
     oscillator.frequency.value = frequency;
     gain.gain.setValueAtTime(.001, begins);
-    gain.gain.linearRampToValueAtTime(.12, begins + .015);
+    gain.gain.linearRampToValueAtTime(.12 * volume, begins + .015);
     gain.gain.exponentialRampToValueAtTime(.001, begins + duration);
     oscillator.connect(gain).connect(state.audio.destination);
     oscillator.start(begins);
@@ -178,13 +179,16 @@ async function playCustomSound() {
 
   const buffer = await state.audio.decodeAudioData(await file.arrayBuffer());
   const source = state.audio.createBufferSource();
+  const gain = state.audio.createGain();
+  gain.gain.value = Math.min(100, Math.max(0, Number(localStorage.getItem('clearpath-alert-volume') ?? 70))) / 100;
   source.buffer = buffer;
-  source.connect(state.audio.destination);
+  source.connect(gain).connect(state.audio.destination);
   source.start();
   state.oscillators.add(source);
   source.onended = () => {
     state.oscillators.delete(source);
     source.disconnect();
+    gain.disconnect();
   };
   return true;
 }
@@ -217,7 +221,10 @@ function notify(message, modes = selectedModes()) {
     window.speechSynthesis.speak(utterance);
     delivered += 1;
   }
-  if (modes.includes('vibration') && supports.vibration && navigator.vibrate([180, 80, 180])) delivered += 1;
+  const vibrationStrength = Math.min(100, Math.max(0, Number(localStorage.getItem('clearpath-vibration-strength') ?? 65)));
+  const vibrationPulse = Math.round(50 + vibrationStrength * 1.8);
+  const vibrationPause = Math.max(40, Math.round(130 - vibrationStrength * .5));
+  if (modes.includes('vibration') && supports.vibration && navigator.vibrate([vibrationPulse, vibrationPause, vibrationPulse])) delivered += 1;
   toast(message + (modes.length && delivered === 0 ? ' Check your device’s alert support and volume.' : ''));
 }
 async function api(path, options = {}, signal = state.controller?.signal) {
@@ -481,9 +488,20 @@ function updateCustomSoundRow() {
 
 soundSelect.value = localStorage.getItem('clearpath-alert-sound') || 'ping';
 updateCustomSoundRow();
-soundSelect.addEventListener('change', () => {
+soundSelect.addEventListener('change', async () => {
   localStorage.setItem('clearpath-alert-sound', soundSelect.value);
   updateCustomSoundRow();
+  await primeAudio();
+
+  if (soundSelect.value === 'custom' && !selectedCustomSound) {
+    selectedCustomSound = await readStoredCustomSound().catch(() => null);
+    if (!selectedCustomSound) {
+      toast('Add a sound file before previewing your custom alert.');
+      return;
+    }
+  }
+
+  if (!await playSelectedAlertSound()) toast('Could not play the selected sound.');
 });
 
 customSoundInput.addEventListener('change', async () => {

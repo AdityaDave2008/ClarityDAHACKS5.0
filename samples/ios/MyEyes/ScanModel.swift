@@ -11,7 +11,7 @@ final class ScanModel: ObservableObject {
     @Published var phase: Phase = .idle
     @Published var detail = "Point the rear camera forward and slightly down."
     @Published var backendAddress: String {
-        didSet { UserDefaults.standard.set(backendAddress, forKey: "stepsense.backend") }
+        didSet { UserDefaults.standard.set(backendAddress, forKey: "myeyes.backend") }
     }
     @Published private(set) var preferences: ScanPreferences
     @Published private(set) var zone: [NormalizedPoint] = []
@@ -37,8 +37,8 @@ final class ScanModel: ObservableObject {
     private let maxResultAge: TimeInterval = 2.5
 
     init() {
-        backendAddress = UserDefaults.standard.string(forKey: "stepsense.backend") ?? "http://127.0.0.1:3001"
-        if let data = UserDefaults.standard.data(forKey: "stepsense.preferences"),
+        backendAddress = UserDefaults.standard.string(forKey: "myeyes.backend") ?? "http://127.0.0.1:3001"
+        if let data = UserDefaults.standard.data(forKey: "myeyes.preferences"),
            let saved = try? JSONDecoder().decode(ScanPreferences.self, from: data) {
             preferences = saved
         } else {
@@ -128,7 +128,7 @@ final class ScanModel: ObservableObject {
     }
 
     func testAlert() {
-        alerts.deliver(preferences.alertModes, message: "This is a StepSense test alert.")
+        alerts.deliver(preferences.alertModes, message: "This is a Clarity test alert.")
         if preferences.alertModes.isEmpty { detail = "Visual-only mode. Object warnings appear on this screen." }
     }
 
@@ -144,7 +144,7 @@ final class ScanModel: ObservableObject {
             preferences = updated
         }
         if let encoded = try? JSONEncoder().encode(preferences) {
-            UserDefaults.standard.set(encoded, forKey: "stepsense.preferences")
+            UserDefaults.standard.set(encoded, forKey: "myeyes.preferences")
         }
         alerts.stop()
     }

@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleDevelopmentRegion</key><string>$(DEVELOPMENT_LANGUAGE)</string>
-    <key>CFBundleDisplayName</key><string>StepSense</string>
+    <key>CFBundleDisplayName</key><string>Clarity</string>
     <key>CFBundleExecutable</key><string>$(EXECUTABLE_NAME)</string>
     <key>CFBundleIdentifier</key><string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
     <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
@@ -13,9 +13,9 @@
     <key>CFBundleVersion</key><string>$(CURRENT_PROJECT_VERSION)</string>
     <key>LSRequiresIPhoneOS</key><true/>
     <key>NSCameraUsageDescription</key>
-    <string>StepSense uses the rear camera during a scan and sends small frames to the detection backend you select.</string>
+    <string>Clarity uses the rear camera while scanning and sends camera frames to your chosen server for analysis.</string>
     <key>NSLocalNetworkUsageDescription</key>
-    <string>Connect to your development laptop's StepSense backend over your local network.</string>
+    <string>Clarity connects to your chosen scan server over your local network.</string>
     <key>NSAppTransportSecurity</key>
     <dict>
         <key>NSAllowsArbitraryLoads</key><true/>

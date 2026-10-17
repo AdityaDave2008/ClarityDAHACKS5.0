@@ -1,4 +1,4 @@
-# StepSense — native iPhone sample
+# Clarity — native iPhone sample
 
 A dependency-free SwiftUI application using the repository's real Node backend. It shows a rear-camera preview, the backend's image zone and object boxes, editable alert settings, and Start/Stop controls. Sound, speech, and haptics are delivered on the phone only when the backend returns `alert.triggered: true`.
 
@@ -40,12 +40,12 @@ In the native app, use `http://<laptop-LAN-address>:3002` as the backend origin.
 
 Requirements: a Mac with Xcode and the iOS SDK, plus an iPhone running iOS 16 or newer for live camera and haptic testing. The project uses only Apple frameworks; there are no Swift package dependencies or package-generation steps.
 
-1. Open `samples/ios/StepSense.xcodeproj` in Xcode.
-2. Select the **StepSense** target and open **Signing & Capabilities**.
+1. Open `samples/ios/MyEyes.xcodeproj` in Xcode.
+2. Select the **Clarity** target and open **Signing & Capabilities**.
 3. Choose your development team. A personal team can be used for local device development where supported.
-4. Change `com.dahacks.stepsense.sample` to a unique bundle identifier for your team if Xcode requests it.
+4. Change `com.dahacks.myeyes.sample` to a unique bundle identifier for your team if Xcode requests it.
 5. Connect and select your iPhone. Complete Xcode's device pairing, trust, and Developer Mode prompts if required.
-6. Run the **StepSense** scheme. Approve camera and local-network access when asked.
+6. Run the **Clarity** scheme. Approve camera and local-network access when asked.
 
 The app is portrait-only to keep preview, frame orientation, and normalized overlays consistent. No VoIP background mode, PiP entitlement, or fake video call is configured.
 
@@ -82,11 +82,11 @@ Yellow boxes identify supported objects whose bottom-center is in the zone; teal
 
 | File | Responsibility |
 | --- | --- |
-| `StepSense/APIClient.swift` | Actual session, preferences, metadata/readiness, raw JPEG upload, and error contracts |
-| `StepSense/CameraCapture.swift` | Rear camera, portrait buffers/preview, fresh JPEG encoding, and camera diagnostics |
-| `StepSense/ScanModel.swift` | Serialized frame loop, increasing sequence, session lifetime, preferences, and stale-result protection |
-| `StepSense/AlertPlayer.swift` | Generated beep, speech synthesis, and native warning haptic |
-| `StepSense/ScannerView.swift` | Teal-on-black UI, normalized aspect-fit overlay, and settings |
+| `MyEyes/APIClient.swift` | Actual session, preferences, metadata/readiness, raw JPEG upload, and error contracts |
+| `MyEyes/CameraCapture.swift` | Rear camera, portrait buffers/preview, fresh JPEG encoding, and camera diagnostics |
+| `MyEyes/ScanModel.swift` | Serialized frame loop, increasing sequence, session lifetime, preferences, and stale-result protection |
+| `MyEyes/AlertPlayer.swift` | Generated beep, speech synthesis, and native warning haptic |
+| `MyEyes/ScannerView.swift` | Teal-on-black UI, normalized aspect-fit overlay, and settings |
 
 The camera output is sampled only after the previous request completes. Fresh images are resized to a longest edge of at most 640 pixels and JPEG-encoded at quality 0.65. Uploads are serialized and capped at approximately three per second; actual rate depends on network and inference latency. Busy responses wait one second before sampling a new frame. A preference change sends the exact top-level PATCH fields without resetting sequence numbers.
 
@@ -102,12 +102,12 @@ From the repository root, an unsigned simulator compile can be run without selec
 
 ```sh
 xcodebuild \
-  -project samples/ios/StepSense.xcodeproj \
-  -scheme StepSense \
+  -project samples/ios/MyEyes.xcodeproj \
+  -scheme Clarity \
   -configuration Debug \
   -sdk iphonesimulator \
   -destination 'generic/platform=iOS Simulator' \
-  -derivedDataPath /private/tmp/stepsense-ios-build \
+  -derivedDataPath /private/tmp/myeyes-ios-build \
   CODE_SIGNING_ALLOWED=NO build
 ```
 

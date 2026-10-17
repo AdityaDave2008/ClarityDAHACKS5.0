@@ -1,4 +1,4 @@
-package dev.stepsense.sample;
+package dev.myeyes.sample;
 
 import android.content.Context;
 import android.graphics.Bitmap;

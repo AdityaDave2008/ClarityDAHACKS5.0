@@ -1,6 +1,6 @@
-# StepSense: native Android sample
+# Clarity: native Android sample
 
-This separate Android app captures small rear-camera images, sends them to the existing StepSense backend, and plays selected alerts. A user starts the camera foreground service from the visible app, then can switch to Instagram or another app while the service continues its capture/request loop. A persistent scanning notification has a **Stop** action.
+This separate Android app captures small rear-camera images, sends them to the existing Clarity backend, and plays selected alerts. A user starts the camera foreground service from the visible app, then can switch to Instagram or another app while the service continues its capture/request loop. A persistent scanning notification has a **Stop** action.
 
 The app uses **real backend COCO-SSD inference**. It contains no fake detector, embedded ML model, recording, account system, or screen scraping. It is independent of the web and iOS samples. The dark/teal screen shows the last analyzed image, normalized detection boxes, the backend's zone, request timing, and Start/Stop controls.
 
@@ -37,8 +37,8 @@ The app uses **real backend COCO-SSD inference**. It contains no fake detector, 
    This lets the phone use the laptop's existing loopback backend without changing its bind address. Android native HTTP requests do not require a browser CORS origin entry.
 
 6. Press **Run** in Android Studio. Select sound/vibration, try **Test selected alerts**, then tap **Start scanning** and grant Camera. Allow notifications to keep the notification's Stop action visible.
-7. Wait until the status says **Scanning**, then switch to Instagram's viewing screen. Keep the rear camera facing a controlled scene with a supported object such as a backpack or chair. Return to StepSense to inspect the analyzed frames and measured timing.
-8. Stop from the notification or the app. Swiping the StepSense task away also stops the service. A restart always requires another Start tap from the app.
+7. Wait until the status says **Scanning**, then switch to Instagram's viewing screen. Keep the rear camera facing a controlled scene with a supported object such as a backpack or chair. Return to Clarity to inspect the analyzed frames and measured timing.
+8. Stop from the notification or the app. Swiping the Clarity task away also stops the service. A restart always requires another Start tap from the app.
 
 The Debug build permits plain HTTP for a local demo. The Release build does not opt into cleartext traffic; use HTTPS for it. No backend credentials belong in the app URL. This sample does not install or publish anything externally.
 

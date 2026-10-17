@@ -10,7 +10,7 @@ try {
   reuseBackend = response.ok && model.name === 'coco-ssd' && Array.isArray(model.supportedLabels);
 } catch { /* Start our own backend when none is already running. */ }
 const projects = reuseBackend ? ['frontend'] : ['backend', 'frontend'];
-if (reuseBackend) console.log('Reusing the existing StepSense API on port 3001.');
+if (reuseBackend) console.log('Reusing the existing Clarity API on port 3001.');
 const children = [];
 let shuttingDown = false;
 function stop(code = 0) {
@@ -29,7 +29,7 @@ for (const project of projects) {
   child.on('error', () => { console.error(`Could not launch ${project}. Run npm --prefix backend ci first.`); stop(1); });
   child.on('exit', (code, signal) => { if (!shuttingDown) { console.error(`${project} stopped${signal ? ` (${signal})` : ''}.`); stop(code || 1); } });
 }
-console.log('Starting the combined ClearPath website at http://localhost:5180');
+console.log('Starting the combined Clarity website at http://localhost:5180');
 console.log('Open Camera, then Start. AI detection needs the backend model to finish loading. The original walkthrough is at /camera.html.');
 console.log('For AI detection, open /camera.html, choose Live camera, then Start camera. Wait for the backend model to finish loading. Walkthrough mode uses simulated detections.');
 if (lan) {

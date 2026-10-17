@@ -1,9 +1,9 @@
 {
-  "name": "stepsense-backend",
+  "name": "clarity-backend",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Frame detection and customizable alert decisions for the StepSense mobile web prototype.",
+  "description": "API for checking camera frames and deciding when to send an alert.",
   "engines": {
     "node": ">=24"
   },

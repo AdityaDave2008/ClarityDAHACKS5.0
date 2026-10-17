@@ -1,4 +1,4 @@
-const CACHE = 'clearpath-pwa-v4';
+const CACHE = 'myeyes-pwa-v5';
 const ASSETS = [
   '/',
   '/index.html',
@@ -13,6 +13,7 @@ const ASSETS = [
   '/phone-notifications.js',
   '/backend-detector.js',
   '/standalone.js',
+  '/gradient.js',
   '/manifest.webmanifest',
   '/demo-scene.svg',
   '/icons/icon.svg',
@@ -21,7 +22,7 @@ const ASSETS = [
   '/icons/apple-touch-icon.png',
 ];
 self.addEventListener('install', (event) => event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(ASSETS)).then(() => self.skipWaiting())));
-self.addEventListener('activate', (event) => event.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((key) => (key.startsWith('stepsense-sample-') || key.startsWith('clearpath-pwa-')) && key !== CACHE).map((key) => caches.delete(key)))).then(() => self.clients.claim())));
+self.addEventListener('activate', (event) => event.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((key) => (key.startsWith('myeyes-sample-') || key.startsWith('myeyes-pwa-') || key.startsWith('clearpath-pwa-') || key.startsWith('stepsense-sample-')) && key !== CACHE).map((key) => caches.delete(key)))).then(() => self.clients.claim())));
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   // Frame uploads, API results, and readiness are never cached.

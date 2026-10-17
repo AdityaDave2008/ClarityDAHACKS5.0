@@ -1,4 +1,4 @@
-package dev.stepsense.sample;
+package dev.myeyes.sample;
 
 import android.net.Uri;
 

@@ -1,9 +1,9 @@
 {
-  "name": "stepsense-browser-demo",
+  "name": "clarity-browser-demo",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Dependency-free local preview and API proxy for the StepSense browser demo.",
+  "description": "Local web server and API proxy for the Clarity browser app.",
   "engines": {
     "node": ">=24"
   },

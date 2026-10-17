@@ -18,7 +18,7 @@ enum CameraFailure: LocalizedError {
     case permission, unavailable, configuration, encoding
     var errorDescription: String? {
         switch self {
-        case .permission: return "Camera access is off. Allow it in Settings → StepSense to start scanning."
+        case .permission: return "Camera access is off. Allow it in Settings → Clarity to start scanning."
         case .unavailable: return "A rear camera is unavailable. Use a physical iPhone to try live scanning."
         case .configuration: return "The camera could not start. Close other camera apps and try again."
         case .encoding: return "This camera frame could not be encoded. Stop and try again."
@@ -29,8 +29,8 @@ enum CameraFailure: LocalizedError {
 /// Capture runs on dedicated queues. The lock protects the small request/handler state only.
 final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate, @unchecked Sendable {
     let session = AVCaptureSession()
-    private let sessionQueue = DispatchQueue(label: "stepsense.camera.session", qos: .userInitiated)
-    private let frameQueue = DispatchQueue(label: "stepsense.camera.frames", qos: .userInitiated)
+    private let sessionQueue = DispatchQueue(label: "myeyes.camera.session", qos: .userInitiated)
+    private let frameQueue = DispatchQueue(label: "myeyes.camera.frames", qos: .userInitiated)
     private let context = CIContext(options: [.cacheIntermediates: false])
     private let lock = NSLock()
     private var configured = false

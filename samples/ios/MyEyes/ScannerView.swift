@@ -119,7 +119,7 @@ struct ScannerView: View {
                 .foregroundStyle(Color.senseMuted)
                 .padding(.vertical, 4)
 
-                Text("Prototype for selected objects. The image zone does not measure distance or establish that a path is clear. Camera frames are sent to your configured backend during a scan.")
+                    Text("Clarity can recognize some objects, but it cannot measure their distance or tell whether the path is clear. During a scan, camera frames are sent to the backend you chose.")
                     .font(.caption)
                     .foregroundStyle(Color.senseMuted)
                     .fixedSize(horizontal: false, vertical: true)
@@ -138,8 +138,8 @@ struct ScannerView: View {
                 .frame(width: 47, height: 47)
                 .background(Color.senseTeal.opacity(0.12), in: RoundedRectangle(cornerRadius: 15))
             VStack(alignment: .leading, spacing: 3) {
-                Text("StepSense").font(.system(size: 27, weight: .semibold, design: .rounded))
-                Text("A little more awareness.").font(.caption).foregroundStyle(Color.senseMuted)
+                Text("Clarity").font(.system(size: 27, weight: .semibold, design: .rounded))
+                Text("A heads-up for the path ahead.").font(.caption).foregroundStyle(Color.senseMuted)
             }
             Spacer()
             Button { showingSettings = true } label: {
@@ -312,9 +312,9 @@ private struct SettingsView: View {
 
                 Section("Camera diagnostics") {
                     LabeledContent("Multitasking API support", value: model.multitaskingSupported.map { $0 ? "Yes" : "No" } ?? "Not queried")
-                    Text("Queried from AVCaptureSession after starting the camera. This diagnostic does not authorize background scanning. This sample releases the camera when it leaves the foreground.")
+                    Text("This check runs after the camera starts. It does not enable background scanning. Clarity stops using the camera when you leave the app.")
                         .font(.caption).foregroundStyle(.secondary)
-                    Text("No VoIP mode or video-call Picture in Picture is used.")
+                    Text("Clarity does not use call or picture-in-picture features to keep the camera running.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 if let errorMessage {

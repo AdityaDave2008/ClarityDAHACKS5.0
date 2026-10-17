@@ -61,7 +61,7 @@ export class CameraFeature {
       }
       if (run !== this.generation) { stream.getTracks().forEach(track => track.stop()); return; }
       this.stream = stream;
-      this.emit('clearpath:permissionchange', { kind: 'camera', state: 'granted' });
+      this.emit('myeyes:permissionchange', { kind: 'camera', state: 'granted' });
       for (const track of stream.getTracks()) {
         track.addEventListener('ended', () => {
           if (run === this.generation) this.stop('Camera interrupted. Close other camera apps, then tap Start again.');
@@ -359,7 +359,7 @@ export function mountCamera(root, platform = window, { onState = () => {} } = {}
     if (root.ownerDocument.hidden) feature.stop('Camera off because this page was hidden. Tap Start when you return.');
   });
   platform.addEventListener('pagehide', () => feature.stop('Camera off because you left the page. Tap Start to restart.'));
-  platform.addEventListener('clearpath:permissionchange', event => {
+  platform.addEventListener('myeyes:permissionchange', event => {
     if (event.detail?.kind === 'camera') {
       permissionState = event.detail.state;
       renderPermission(feature.state);
@@ -383,7 +383,7 @@ export function mountCamera(root, platform = window, { onState = () => {} } = {}
 }
 
 export function exposeCamera(feature, platform = window) {
-  platform.clearPathCamera = Object.freeze({ video: feature.video, start: () => feature.start(), stop: () => feature.stop(),
+  platform.myEyesCamera = Object.freeze({ video: feature.video, start: () => feature.start(), stop: () => feature.stop(),
     registerDetector: detector => feature.registerDetector(detector),
     setRepeatCount: count => feature.setRepeatCount(count) });
 }

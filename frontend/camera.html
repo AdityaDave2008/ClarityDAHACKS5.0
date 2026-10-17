@@ -1,30 +1,33 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#101b18">
+  <meta name="theme-color" content="#101820">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="description" content="Try StepSense: a camera obstacle-alert prototype for everyday city life.">
+  <meta name="description" content="Try a camera scan or a walkthrough that shows how Clarity checks for obstacles.">
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css">
-  <title>StepSense · A little more awareness</title>
+  <title>Clarity · Path alerts</title>
 </head>
 <body>
   <div class="app-shell">
-    <aside class="sidebar" aria-label="About StepSense">
-      <a class="brand" href="/" aria-label="StepSense home"><img src="/icons/icon.svg" alt="" width="38" height="38"><span>stepsense<span class="brand-dot">.</span></span></a>
-      <div class="sidebar-middle"><span class="eyebrow">THE EVERYDAY, AWARE.</span><p>A little more<br>awareness.<br>A better walk.</p><div class="city-lines" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div></div>
+    <aside class="sidebar" aria-label="About Clarity">
+      <a class="brand" href="/" aria-label="Clarity home"><img src="/icons/icon.svg" alt="" width="38" height="38"><span>Clarity</span></a>
+      <div class="sidebar-middle"><span class="eyebrow">WALK WITH MORE AWARENESS.</span><p>A heads-up<br>for the path<br>ahead.</p><div class="city-lines" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div></div>
       <div class="sidebar-bottom"><span class="small-dot"></span> Built for city life<br><span class="muted">DA Hacks 2026 · Prototype</span></div>
     </aside>
     <main>
       <header class="topbar"><span class="breadcrumb">THE LAB <span>/</span> OBSTACLE AWARENESS</span><button class="text-button" id="how-button">How it works <span aria-hidden="true">↗</span></button></header>
       <section class="intro">
-        <div><div class="eyebrow green">YOUR WALK. A LITTLE MORE CONNECTED.</div><h1>See what’s<br><span>in your way.</span></h1><p>A camera, a second look, and a timely heads-up.<br class="desktop-break"> Try the idea below, then give your camera a go.</p></div>
-        <div class="prototype-tag"><span class="small-dot"></span> WORKING PROTOTYPE<span>01 / BROWSER</span></div>
+        <div><div class="eyebrow green">A SECOND LOOK AT THE PATH AHEAD.</div><h1>See what’s<br><span>in your way.</span></h1><p>Try the walkthrough, or start a live scan with your camera.</p></div>
+        <div class="prototype-tag"><span class="small-dot"></span> BROWSER DEMO<span>01 / CAMERA</span></div>
       </section>
       <div class="workspace">
         <section class="scanner-card" aria-label="Scanner preview">
@@ -35,7 +38,7 @@
             <canvas id="overlay" aria-label="Detection zone and object boxes"></canvas>
             <div class="camera-corner top-left" aria-hidden="true"></div><div class="camera-corner bottom-right" aria-hidden="true"></div>
             <div class="feed-top"><span class="feed-label" id="feed-label"><span></span> GUIDED DEMO</span><span class="feed-counter" id="feed-counter">0000</span></div>
-            <div class="feed-bottom"><span id="feed-caption">Simulated camera & detections</span><span>StepSense / 01</span></div>
+            <div class="feed-bottom"><span id="feed-caption">Simulated camera & detections</span><span>Clarity / 01</span></div>
             <div class="stage-prompt" id="stage-prompt"><span class="prompt-icon" aria-hidden="true">↗</span><strong>A second look, before your next step.</strong><span>Start the walkthrough to see how an alert happens.</span></div>
           </div>
           <div class="scanner-status" role="status" aria-live="polite"><span class="status-orb" id="status-orb"></span><div><strong id="status-title">Ready when you are</strong><span id="status-detail">No camera permission needed for the walkthrough.</span></div><span class="status-word" id="status-word">IDLE</span></div>
@@ -43,7 +46,7 @@
           <div class="demo-controls" id="demo-controls"><span>SET THE SCENE</span><button id="add-obstacle" disabled>＋ Add backpack</button><button id="move-obstacle" disabled>Move to edge</button><button id="remove-obstacle" disabled>Remove</button></div>
         </section>
         <aside class="settings-column">
-          <section class="settings-card"><div class="section-label"><span>01</span> MAKE IT YOURS</div><h2>Your walk, your alerts.</h2><p class="card-description">Choose a starting point. Every setting is yours to adjust.</p>
+          <section class="settings-card"><div class="section-label"><span>01</span> ALERT SETTINGS</div><h2>Choose your alerts.</h2><p class="card-description">Set how you want to hear or feel an alert.</p>
             <fieldset id="preferences"><legend class="sr-only">Alert preferences</legend><div class="preset-options"><button class="preset selected" id="standard-preset" type="button" aria-pressed="true"><span aria-hidden="true">↗</span><strong>Standard</strong><small>A simple heads-up</small></button><button class="preset" id="accessible-preset" type="button" aria-pressed="false"><span aria-hidden="true">◎</span><strong>Accessibility</strong><small>Spoken guidance</small></button></div>
             <div class="field-label">LET ME KNOW WITH</div>
             <label class="switch-row"><span><strong>Sound</strong><small>A short two-tone cue</small></span><input id="sound-mode" type="checkbox" checked role="switch"><span class="switch" aria-hidden="true"></span></label>
@@ -70,12 +73,13 @@
           <section class="activity-card"><div class="activity-header"><div class="section-label"><span>02</span> AT A GLANCE</div><span class="activity-live" id="activity-live">STANDBY</span></div><div class="metrics"><div><strong id="frame-count">0</strong><span id="frame-metric-label">Demo observations</span></div><div><strong id="latency">—</strong><span>Capture → result</span></div></div><ol id="activity-log" class="activity-log"><li><span></span><div>Waiting for your first scan<small>Start with the walkthrough or live camera.</small></div></li></ol></section>
         </aside>
       </div>
-      <section class="flow-card" aria-label="How detection works"><div class="flow-heading"><div class="section-label"><span>03</span> THE LITTLE THINGS BEHIND A HEADS-UP</div><p>One frame. One check. A little more awareness.</p></div><div class="flow-steps"><div data-step="capture"><span>01</span><strong>Capture</strong><small>Get a fresh frame</small></div><b aria-hidden="true">→</b><div data-step="detect"><span>02</span><strong>Detect</strong><small>Find supported objects</small></div><b aria-hidden="true">→</b><div data-step="confirm"><span>03</span><strong>Confirm</strong><small>Check another frame</small></div><b aria-hidden="true">→</b><div data-step="alert"><span>04</span><strong>Heads-up</strong><small>Use your chosen alert</small></div></div></section>
+      <section class="flow-card" aria-label="How detection works"><div class="flow-heading"><div class="section-label"><span>03</span> HOW ALERTS WORK</div><p>Clarity checks camera frames for selected objects.</p></div><div class="flow-steps"><div data-step="capture"><span>01</span><strong>Capture</strong><small>Take a camera frame</small></div><b aria-hidden="true">→</b><div data-step="detect"><span>02</span><strong>Detect</strong><small>Look for selected objects</small></div><b aria-hidden="true">→</b><div data-step="confirm"><span>03</span><strong>Confirm</strong><small>Check another frame</small></div><b aria-hidden="true">→</b><div data-step="alert"><span>04</span><strong>Alert</strong><small>Send your chosen alert</small></div></div></section>
       <footer><p><span class="small-dot"></span> Foreground scanning · Keep this page open</p><span>Look up. Stay connected.</span></footer>
     </main>
   </div>
-  <dialog id="how-dialog"><button class="dialog-close text-button" id="close-dialog" aria-label="Close explanation">✕</button><span class="eyebrow green">A SECOND LOOK</span><h2>Here’s what you’re trying.</h2><p><strong>Walkthrough</strong> uses an illustrated scene and simulated detections. Add a backpack, move it out of the marked zone, or remove it. Two matching observations produce an alert.</p><p><strong>Live camera</strong> sends small JPEG frames to your running backend. Its pretrained model returns supported objects and decides whether an alert should fire. Frames are processed without being saved.</p><p>The image zone is a prototype heuristic, not a distance measurement. This model recognizes people, chairs, bags, and other selected objects; it does not recognize every hazard, including curbs, stairs, or potholes.</p><p>Scanning pauses when you leave this page. This browser sample does not demonstrate background scanning behind Instagram.</p><button class="primary-button" id="understood-button">Got it — let’s try it <span aria-hidden="true">↗</span></button></dialog>
+      <dialog id="how-dialog"><button class="dialog-close text-button" id="close-dialog" aria-label="Close explanation">✕</button><span class="eyebrow green">HOW IT WORKS</span><h2>About this demo</h2><p><strong>Walkthrough:</strong> Add a backpack, move it out of the marked area, or remove it. The demo sends an alert after the object appears in two checks.</p><p><strong>Live camera:</strong> Clarity sends small camera images to your backend to check for selected objects. The backend decides whether to send an alert. Images are processed but not saved.</p><p>Clarity can miss hazards such as curbs, stairs, potholes, and barriers. The marked area does not measure distance or show whether a path is clear.</p><p>Scanning stops when you leave this page. Background scanning is not part of this demo.</p><button class="primary-button" id="understood-button">Got it — let’s try it <span aria-hidden="true">↗</span></button></dialog>
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <script src="/gradient.js"></script>
   <script type="module" src="/app.js"></script>
 </body>
 </html>

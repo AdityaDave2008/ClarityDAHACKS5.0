@@ -6,7 +6,7 @@ Team project for De Anza Hacks 5.0, October 16–17, 2026.
 
 ## Start here
 
-The selected concept is StepSense, a camera obstacle-alert prototype. The Node.js 24/Fastify backend is implemented under `backend/`. A browser sample with a guided walkthrough and live camera is in `frontend/`; native iPhone and Android examples are in `samples/`. See [the three-sample walkthrough](samples/README.md) to try them in order.
+Clarity is a camera-based obstacle alert prototype. The Node.js 24/Fastify backend is in `backend/`. Try the browser walkthrough and live camera in `frontend/`, or use the native iPhone and Android samples in `samples/`. See [the sample guide](samples/README.md) for setup steps.
 
 ## Try the browser sample
 
