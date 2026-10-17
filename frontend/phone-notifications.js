@@ -10,9 +10,23 @@ export async function notifyPhone(message, platform = globalThis) {
     badge: new URL('icons/logo-orange.svg', document.baseURI).href,
     tag: `myeyes-obstacle-${Date.now()}`,
     renotify: true,
-    vibrate: [220, 100, 220],
     data: { url: '/#camera' },
   };
+
+  // OS notifications can vibrate independently of the in-page alert. Respect
+  // the current controls first (including unsaved changes), then saved prefs.
+  const doc = platform.document || globalThis.document;
+  const alertMode = doc?.getElementById('alert')?.value
+    || platform.localStorage?.getItem('clearpath-alert')
+    || 'vibration';
+  const vibrationEnabled = doc?.getElementById('vibrate')?.checked
+    ?? platform.localStorage?.getItem('clearpath-vibrate') !== 'false';
+  if (vibrationEnabled && ['vibration', 'both'].includes(alertMode)) {
+    const strength = Math.min(100, Math.max(0, Number(platform.localStorage?.getItem('clearpath-vibration-strength') ?? 65)));
+    const pulse = Math.round(50 + strength * 1.8);
+    const pause = Math.max(40, Math.round(130 - strength * 0.5));
+    options.vibrate = [pulse, pause, pulse];
+  }
 
   try {
     if (platform.navigator?.serviceWorker) {
