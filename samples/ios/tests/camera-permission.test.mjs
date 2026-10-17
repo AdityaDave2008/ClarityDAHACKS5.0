@@ -10,8 +10,8 @@ const start = model.slice(model.indexOf('    func start()'), model.indexOf('    
 
 test('model readiness gates authorization and capture through the production startup coordinator', () => {
   assert.match(start, /try await ModelFirstStartup\.run/);
-  assert.ok(start.indexOf('let loadedZone = try await detector.start()') < start.indexOf('try await camera.requestAuthorization()'));
-  assert.ok(start.indexOf('try await camera.requestAuthorization()') < start.indexOf('try await camera.start('));
+  assert.ok(start.indexOf('let loadedZone = try await self.detector.start()') < start.indexOf('try await self.camera.requestAuthorization()'));
+  assert.ok(start.indexOf('try await self.camera.requestAuthorization()') < start.indexOf('try await self.camera.start('));
   assert.match(start, /isCurrent: \{ self\.generation == current && self\.appInForeground \}/);
 });
 test('camera session and preview are not initialized while the model is loading', () => {

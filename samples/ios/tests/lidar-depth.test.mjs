@@ -36,7 +36,7 @@ test('capture uses synchronized unfiltered calibrated depth without replacing or
 test('settings require Stop and estimates expire independently from detector boxes', () => {
   const model = read('ScanModel.swift');
   const ui = read('ScannerView.swift');
-  assert.match(model, /lidarEnabled: preferences.isLidarEnabled/);
+  assert.match(model, /lidarEnabled: self\.preferences\.isLidarEnabled/);
   assert.match(model, /updated.isLidarEnabled != preferences.isLidarEnabled/);
   assert.match(model, /depthExpirationTask/);
   assert.match(model, /frame.depth/);
