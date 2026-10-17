@@ -87,7 +87,7 @@ struct ScannerView: View {
         }
         .padding(28)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.black.ignoresSafeArea())
+        .background(Color.senseBackground.ignoresSafeArea())
     }
 
     private var scannerContent: some View {
@@ -100,7 +100,7 @@ struct ScannerView: View {
                     Spacer()
                     Label("Floating window", systemImage: "pip")
                 }
-                .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                .font(.caption2.weight(.semibold).monospaced())
                 .foregroundStyle(Color.senseMuted)
 
                 cameraCard
@@ -152,7 +152,7 @@ struct ScannerView: View {
                         if model.isBusy { model.stop() } else { model.start() }
                     } label: {
                         Label(model.isBusy ? "Stop scanning" : (model.phase == .failed ? "Retry" : "Start scanning"), systemImage: model.isBusy ? "stop.fill" : "viewfinder")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.body.weight(.semibold))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
                     }
@@ -191,13 +191,13 @@ struct ScannerView: View {
 
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("DETECTION MODEL").font(.system(size: 9, weight: .semibold, design: .monospaced))
+                        Text("DETECTION MODEL").font(.caption2.weight(.semibold).monospaced())
                         Text(model.modelStatus).font(.caption)
                     }
                     Spacer()
                     if let processing = model.processingMs, let roundTrip = model.roundTripMs {
                         VStack(alignment: .trailing, spacing: 4) {
-                            Text("LAST RESPONSE").font(.system(size: 9, weight: .semibold, design: .monospaced))
+                            Text("LAST RESPONSE").font(.caption2.weight(.semibold).monospaced())
                             Text("\(roundTrip) ms total · \(processing) ms inference").font(.caption.monospacedDigit())
                         }
                     }
@@ -212,31 +212,52 @@ struct ScannerView: View {
             }
             .padding(22)
         }
-        .background(Color.black.ignoresSafeArea())
+        .background(Color.senseBackground.ignoresSafeArea())
+        .safeAreaInset(edge: .bottom) { bottomNavigation }
         .sheet(isPresented: $showingSettings) { SettingsView(model: model) }
     }
 
     private var header: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "figure.walk")
-                .font(.system(size: 25, weight: .medium))
-                .foregroundStyle(Color.senseTeal)
-                .frame(width: 47, height: 47)
-                .background(Color.senseTeal.opacity(0.12), in: RoundedRectangle(cornerRadius: 15))
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Clarity").font(.system(size: 27, weight: .semibold, design: .rounded))
-                Text("A little more awareness.").font(.caption).foregroundStyle(Color.senseMuted)
-            }
-            Spacer()
-            Button { showingSettings = true } label: {
-                Image(systemName: "slider.horizontal.3")
-                    .font(.title3)
-                    .frame(width: 42, height: 42)
-                    .background(Color.senseSurface, in: Circle())
-            }
-            .foregroundStyle(Color.senseTeal)
-            .accessibilityLabel("Offline detector and alert settings")
+        HStack(spacing: 14) {
+            Image("ClarityLogo")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 52, height: 52)
+                .accessibilityHidden(true)
+            Text("Clarity")
+                .font(.title.weight(.bold))
+                .accessibilityAddTraits(.isHeader)
         }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+        .accessibilityElement(children: .combine)
+    }
+
+    private var bottomNavigation: some View {
+        HStack(spacing: 12) {
+            Button { showingSettings = false } label: {
+                Label("Home", systemImage: "house.fill")
+                    .frame(maxWidth: .infinity, minHeight: 48)
+                    .padding(.horizontal, 8)
+                    .background(Color.senseTeal, in: RoundedRectangle(cornerRadius: 13))
+            }
+            .foregroundStyle(Color.senseBackground)
+            .accessibilityAddTraits(.isSelected)
+            Button { showingSettings = true } label: {
+                Label("Settings", systemImage: "slider.horizontal.3")
+                    .frame(maxWidth: .infinity, minHeight: 48)
+                    .padding(.horizontal, 8)
+            }
+            .foregroundStyle(Color.senseMuted)
+            .accessibilityHint("Open offline detector, depth and alert settings")
+        }
+        .font(.subheadline.weight(.semibold))
+        .buttonStyle(.plain)
+        .padding(10)
+        .background(Color.senseNavigation, in: RoundedRectangle(cornerRadius: 24))
+        .overlay(RoundedRectangle(cornerRadius: 24).stroke(Color.white.opacity(0.1), lineWidth: 1))
+        .padding(.horizontal, 12)
+        .padding(.bottom, 8)
     }
 
     private var proximityLegend: some View {
@@ -274,7 +295,7 @@ struct ScannerView: View {
                 model.startPictureInPicture()
             } label: {
                 Label("Open floating window now", systemImage: "pip.enter")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.body.weight(.semibold))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
             }
@@ -316,7 +337,7 @@ struct ScannerView: View {
                 .accessibilityHidden(true)
             }
             if !model.cameraRunning {
-                Color.senseSurface
+                LinearGradient(colors: [.senseSurface, .senseSurfaceBottom], startPoint: .topLeading, endPoint: .bottomTrailing)
                 VStack(spacing: 14) {
                     Image(systemName: model.phase == .paused ? "pause.circle" : "viewfinder")
                         .font(.system(size: 52, weight: .ultraLight))
@@ -332,7 +353,7 @@ struct ScannerView: View {
         }
         .aspectRatio(3.0 / 4, contentMode: .fit)
         .clipShape(RoundedRectangle(cornerRadius: 24))
-        .overlay(RoundedRectangle(cornerRadius: 24).stroke(Color.senseTeal.opacity(0.25), lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 24).stroke(Color.white.opacity(0.1), lineWidth: 1))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Rear camera preview. \(model.detections.count) supported objects detected in the last frame.")
     }
@@ -499,7 +520,9 @@ private struct SettingsView: View {
                     Section { Text(errorMessage).foregroundStyle(.orange) }
                 }
             }
-            .navigationTitle("Scan settings")
+            .scrollContentBackground(.hidden)
+            .background(Color.senseBackground.ignoresSafeArea())
+            .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } }
