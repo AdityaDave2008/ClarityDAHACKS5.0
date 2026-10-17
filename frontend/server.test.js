@@ -19,7 +19,7 @@ after(async () => {
 });
 
 test('home and retained camera page serve their local scripts, styles, and linked assets', async () => {
-  for (const path of ['/', '/camera.html']) {
+  for (const path of ['/', '/camera.html', '/pip-test.html']) {
     const response = await fetch(origin + path);
     assert.equal(response.status, 200, path);
     assert.match(response.headers.get('content-type'), /text\/html/);

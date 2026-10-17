@@ -1,6 +1,64 @@
 # Clarity browser app
 
-The main Camera tab runs bundled COCO-SSD locally through TensorFlow.js/WASM. Frames stay in the browser for this default detector. The separate `/camera.html` walkthrough is explicitly simulated unless its backend Live camera mode is selected. Keep the page visible for inference and alerts. PiP can retain the raw preview where supported, but does not promise background scanning.
+The main website (`/`) runs the bundled object detector on the device by default.
+The retained `/camera.html` page offers a simulated walkthrough and live camera
+mode that uploads frames to the backend. Both camera screens offer browser
+Picture in Picture so the camera and alerts can continue while another app is
+open, when the browser permits it.
+
+## Floating camera in Safari
+
+1. Open the website over trusted HTTPS in Safari (localhost works on a computer).
+2. On the main camera screen, tap **Start scanning**, wait for detection, then
+   **Enable Spoken Alerts**. On `/camera.html`, select **Live camera**, choose
+   **Spoken alert**, then start the scan; this retained page needs its backend.
+3. Tap **Open floating camera** while the website is still in front. Confirm a
+   floating camera window appears and shows moving camera video before switching
+   to another app. The main button is available once the camera plays, even if
+   the detection model is still loading; alerts need the model to finish loading.
+4. The floating window shows the camera video; boxes and labels remain on the
+   website. Fresh confirmed detections still use the screen's existing alerts.
+5. Stop, navigating away, or closing PiP while the page is hidden releases the
+   camera. Switching away without active PiP also stops scanning. Frozen or muted
+   camera input never counts as another fresh observation. Scanning does not
+   automatically restart when returning.
+
+If the window opens with paused playback, return to Safari and tap **Resume
+camera** when that action appears. The status distinguishes paused playback
+from an interrupted or stopped camera source. If the browser interrupts the
+source, return to Safari and restart scanning. Opening a PiP window alone does
+not establish that capture or detection continues in the background.
+
+Safari and a Home Screen install can expose different PiP support. A request
+that fails or produces no actual mode change shows recovery guidance; scanning
+remains available in the foreground. The user reported background speech in the
+separate Safari experiment, but the integrated feature still needs acceptance on
+the target phone. Screen lock, a camera-using app, and unsupported devices may
+interrupt capture. No universal background guarantee is made. See the
+[experiment and device test](../docs/PIP_EXPERIMENT.md).
+
+## Confirmed object alerts
+
+The existing detector's confirmed obstacle event drives the main page's visible
+banner, selected speech, phone notifications and vibration. This does not add or
+change proximity measurement. Use **Enable phone notifications** on the camera
+screen, or **Settings → Notifications → Allow**, to grant notification permission.
+Detection never requests permission automatically.
+
+**Phone notifications** has an independent Settings switch. Page vibration follows
+the **Alert style**, **Vibration alerts**, strength and repeat controls. Turning
+vibration off also removes the notification vibration pattern and makes that
+notification silent. Changing preferences or stopping detection cancels pending
+delivery and page vibration. Repeated notifications replace the previous object
+notification instead of accumulating. OS notification sounds and actual hardware
+delivery remain subject to device settings.
+
+Ordinary Safari tabs on iPhone do not offer system notifications or the Vibration
+API. The camera displays unavailable-output guidance and retains spoken and
+on-screen alerts. iOS web notifications require a Home Screen web app; this is
+separate from the working Safari PiP route. Other browsers may block page
+vibration while hidden; an allowed system notification can carry its own
+selected vibration pattern. Validate those outputs on the target device.
 
 ## Run locally
 
@@ -40,19 +98,23 @@ No provider/model credentials belong in browser assets. The preview does not log
 
 ### Live camera picture in picture
 
-On the main Camera tab, start scanning and select **Picture in picture**. When the browser supports this live camera source, the existing video opens in a native floating window. It shows only the raw camera preview, not detection boxes, depth maps, or application controls.
+On the main Camera tab, start scanning and select **Open floating camera**. When the browser supports this live camera source, the existing video opens in a native floating window. It shows only the raw camera preview, not detection boxes, depth maps, or application controls.
 
-Switching to another browser tab while this window is open retains the preview where the browser permits, but **pauses inference, uploads, and alerts** and clears old detections. Returning to the visible page starts a fresh detector using the same camera stream. Closing PiP while hidden releases the camera. Stop, navigation to another app screen, and leaving the page release both camera and PiP. Browser/OS suspension can still interrupt the live preview, so this is not background navigation or a safety feature.
+The default scanner accepts fresh detections while its camera is in browser-confirmed PiP. The user reported working spoken alerts during a Safari phone test; that observation does not establish support across devices or long sessions. Frozen, paused and muted inputs cannot trigger new alerts. Closing PiP while hidden releases the camera. Stop, navigation to another app screen, and leaving the page release both camera and PiP. Browser/OS suspension can still interrupt capture or JavaScript.
 
-Support is checked for the current browser and video source. Unsupported browsers show a disabled control and instructions to keep the page open. In particular, ordinary video PiP support on iPhone/iPad does not guarantee PiP for a live camera stream. Installing the PWA does not grant background camera privileges. A rejected PiP request leaves the inline preview and scanning controls usable.
+The team's conservative preview-only lifecycle remains available at **`/?pip=preview`**. In that mode, hiding the page with PiP open pauses inference and alerts, clears old detections, and retains only the preview where supported. Returning to the foreground starts a fresh detector using the same camera stream.
+
+Support is checked when requesting PiP for the current camera source. A rejected request or one that opens no window shows recovery guidance and leaves foreground scanning available. Ordinary video PiP support on iPhone/iPad does not guarantee PiP for a live camera stream. Installing the PWA does not grant background camera privileges.
 
 Automated native acceptance, using an isolated Chromium profile, synthetic camera, and deterministic inference adapter:
 
 ```sh
-PLAYWRIGHT_MODULE=/absolute/path/to/playwright/index.mjs node scripts/pip-browser-smoke.mjs
+PLAYWRIGHT_MODULE=/absolute/path/to/playwright/index.mjs node scripts/pip-preview-smoke.mjs
 ```
 
 Run from the repository root. `PIP_CHROME_PATH` optionally selects an installed Chromium executable. The default is headful, so it exercises the actual native window. The test covers entry, hidden preview/inference pause, foreground resume, hidden close, Stop, and unavailable-API fallback. It does not validate real-model inference or physical iOS support. Before claiming mobile support, test live-source entry/rejection, tab/app switching, interruption, return, and Stop on actual Safari/iOS and Android devices.
+
+`scripts/pip-browser-smoke.mjs` retains the separate experiment check. The default integrated scanner, real model and recorded notification outputs are checked by `scripts/pip-website-smoke.mjs`; that runner uses synthetic hidden state and does not establish iPhone scheduling or hardware vibration.
 
 Camera permission requires a secure context. Desktop loopback HTTP is a development exception; opening `http://<laptop-LAN-IP>:5180` on a phone does not provide that exception. A phone's `127.0.0.1` also refers to the phone itself. Use a properly trusted HTTPS deployment or approved HTTPS development endpoint. Setting `HOST=0.0.0.0` makes the server reachable on a network but does not add TLS or make camera capture available by itself.
 

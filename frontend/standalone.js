@@ -1,6 +1,7 @@
 import { mountCamera, exposeCamera } from './camera.js';
 import { createBackendDetector } from './backend-detector.js';
 import { createLocalDetector } from './local-detector.js';
+import { mountObjectAlerts } from './object-alerts.js';
 
 const colorVisionModes = ['standard', 'protanopia', 'deuteranopia', 'tritanopia', 'achromatopsia'];
 const colorVisionDescriptions = {
@@ -33,7 +34,14 @@ async function chooseDetector() {
     : createLocalDetector();
 }
 
-const feature = mountCamera(document.querySelector('#camera-feature'));
+const feature = mountCamera(document.querySelector('#camera-feature'), window, { onState(state) {
+  const voice = document.querySelector('#voice');
+  if (voice) { voice.checked = state.speechEnabled; voice.disabled = !state.speechSupported; }
+  const banner = document.querySelector('#camera-alert-banner');
+  if (banner) { banner.textContent = state.obstacle; banner.hidden = !state.obstacle; }
+  document.querySelector('#camera-alert-output-status')?.setAttribute('aria-live', state.announcements === 'screen-reader' ? 'polite' : 'off');
+} });
+mountObjectAlerts(document, window, feature);
 let depth = null;
 let activeDepthContext = null;
 // Optional module failures must not prevent mounting or starting v1.

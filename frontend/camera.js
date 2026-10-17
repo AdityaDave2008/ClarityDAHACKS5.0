@@ -1,13 +1,13 @@
 import { drawDetectionOverlay } from './logic.js';
-import { notifyPhone } from './phone-notifications.js';
-import { mountPictureInPicture } from './picture-in-picture.js';
+import { createPictureInPicture } from './picture-in-picture.js';
+import { cameraFrameAvailable } from './video-frames.js';
 
 // Camera/speech controller. Detection is supplied by a separate adapter.
 export class CameraFeature {
   constructor({ video, mediaDevices, secure = true, speech, Utterance, emit = () => {}, render = () => {},
     now = () => performance.now(), schedule = (callback, ms) => setTimeout(callback, ms),
-    unschedule = timer => clearTimeout(timer), development = false, isVisible = () => true }) {
-    Object.assign(this, { video, mediaDevices, secure, speech, Utterance, emit, render, now, schedule, unschedule, development, isVisible });
+    unschedule = timer => clearTimeout(timer), development = false, isVisible = () => true, onStop = () => {} }) {
+    Object.assign(this, { video, mediaDevices, secure, speech, Utterance, emit, render, now, schedule, unschedule, development, isVisible, onStop });
     this.state = { phase: 'off', previewOnly: false, camera: 'Camera off. Tap Start when ready.', detection: 'Detection not connected.',
       distance: 'Not available', detections: [], result: null, obstacle: '', speechEnabled: false, announcements: 'screen-reader',
       speechStatus: 'Spoken alerts off.', performance: 'No measurements yet.' };
@@ -109,6 +109,7 @@ export class CameraFeature {
     this.unschedule(this.stallTimer);
     this.stallTimer = null;
     this.stopDetection();
+    this.onStop();
     this.stream?.getTracks().forEach(track => track.stop());
     this.stream = null;
     this.video.pause();
@@ -157,6 +158,10 @@ export class CameraFeature {
         this.lastFrameTime = currentTime;
         this.lastFrameAt = this.now();
         this.recoveryAttempts = 0;
+        if (this.state.camera.startsWith('Camera preview stalled.')) {
+          this.state.camera = 'Camera active.';
+          this.update();
+        }
       } else if (this.now() - this.lastFrameAt >= this.stallLimitMs) {
         this.lastFrameAt = this.now();
         this.recoveryAttempts += 1;
@@ -165,6 +170,10 @@ export class CameraFeature {
           return;
         }
         this.state.camera = `Camera preview stalled. Recovering (attempt ${this.recoveryAttempts} of 2).`;
+        this.cancelSpeech();
+        this.state.detections = [];
+        this.state.result = null;
+        this.state.obstacle = '';
         this.update(this.state.camera);
         try { void Promise.resolve(this.video.play?.()).catch(() => {}); } catch { /* Restart remains available. */ }
       }
@@ -293,6 +302,7 @@ export class CameraFeature {
 
   obstacle(simulated = false) {
     if (simulated ? !this.development : !this.detectionRunning || this.state.phase !== 'active') return false;
+    if (!simulated && (!this.isVisible() || !cameraFrameAvailable(this.video) || this.state.camera.startsWith('Camera preview stalled.'))) return false;
     if (this.now() - this.lastObstacleAt < this.cooldownMs) return false;
     this.lastObstacleAt = this.now();
     this.state.obstacle = simulated ? 'Simulation: Object ahead. No real detection.' : 'Object ahead.';
@@ -300,9 +310,6 @@ export class CameraFeature {
     // Render without automatic speech so there is only one spoken obstacle message.
     this.render({ ...this.state, pending: Boolean(this.pending), speechSupported: this.speechSupported }, this.state.obstacle);
     this.emit('camera:obstacle', { simulated });
-    void notifyPhone(simulated
-      ? 'Demo alert: an object is in the camera zone. Check your surroundings.'
-      : 'An object may be close ahead. Check your walking path.');
     if (this.state.speechEnabled) this.speak('Object ahead.', this.repeatCount);
     this.obstacleTimer = this.schedule(() => { this.state.obstacle = ''; this.update(); }, 5000);
     return true;
@@ -393,7 +400,12 @@ export function mountCamera(root, platform = window, { onState = () => {} } = {}
   const announcer = find('announcer');
   let permissionState = 'prompt';
   let announceTimer;
-  let pictureInPicture;
+  const previewOnlyPiP = new URLSearchParams(platform.location.search).get('pip') === 'preview';
+  let feature;
+  const pip = createPictureInPicture({ video: find('video'), doc: root.ownerDocument, platform,
+    onChange() { feature?.update(); },
+    onHiddenExit() { if (feature?.state.phase !== 'off') feature?.stop('Camera off because the floating camera closed. Tap Start to restart.'); },
+  });
   function renderPermission(state) {
     const light = find('permission-light');
     const label = find('permission-label');
@@ -424,17 +436,14 @@ export function mountCamera(root, platform = window, { onState = () => {} } = {}
       ? 'Allowed'
       : permissionState === 'denied' ? 'Denied — allow access in browser settings' : 'Not allowed yet';
   }
-  const feature = new CameraFeature({
+  feature = new CameraFeature({
     video: find('video'), mediaDevices: platform.navigator.mediaDevices, secure: platform.isSecureContext,
     speech: platform.speechSynthesis, Utterance: platform.SpeechSynthesisUtterance,
-    isVisible: () => !root.ownerDocument.hidden,
+    isVisible: () => !root.ownerDocument.hidden || pip.isActive(),
+    onStop: () => pip.close(),
     development: new URLSearchParams(platform.location.search).get('dev') === '1',
-    emit: (name, detail) => {
-      if (name === 'camera:stopped') void pictureInPicture?.stop();
-      platform.dispatchEvent(new CustomEvent(name, { detail }));
-    },
+    emit: (name, detail) => platform.dispatchEvent(new CustomEvent(name, { detail })),
     render: (state, message) => {
-      pictureInPicture?.update(state);
       renderPermission(state);
       find('status').textContent = state.camera;
       const performanceNode = find('performance');
@@ -453,6 +462,17 @@ export function mountCamera(root, platform = window, { onState = () => {} } = {}
       find('start').disabled = state.pending || state.phase !== 'off';
       find('stop').disabled = state.phase === 'off';
       find('stop').textContent = state.phase === 'requesting' ? 'Cancel camera request' : 'Stop camera';
+      const pipButton = find('pip');
+      const pipState = pip.snapshot();
+      if (pipButton) {
+        pipButton.disabled = state.phase !== 'active' || pipState.opening;
+        pipButton.textContent = pipState.active ? 'Close floating camera' : 'Open floating camera';
+        pipButton.setAttribute('aria-pressed', String(pipState.active));
+      }
+      const pipStatus = find('pip-status');
+      if (pipStatus) pipStatus.textContent = `${previewOnlyPiP ? 'Preview only: detection pauses while this page is hidden. ' : ''}${pipState.message}`;
+      const resumeButton = find('pip-resume');
+      if (resumeButton) resumeButton.hidden = !pipState.canResume;
       find('speech').disabled = !state.speechSupported;
       find('speech').setAttribute('aria-pressed', String(state.speechEnabled));
       find('speech').textContent = state.speechEnabled ? 'Disable Spoken Alerts' : 'Enable Spoken Alerts';
@@ -468,18 +488,13 @@ export function mountCamera(root, platform = window, { onState = () => {} } = {}
       }
     },
   });
-  if (find('pip') && find('pip-status')) {
-    pictureInPicture = mountPictureInPicture({ video: feature.video, button: find('pip'), status: find('pip-status'),
-      doc: root.ownerDocument,
-      onChange: active => {
-        if (!active && root.ownerDocument.hidden && feature.state.phase === 'active') {
-          feature.stop('Camera off because picture in picture closed while this page was hidden. Tap Start to restart.');
-        }
-      },
-    });
-  }
   find('start').addEventListener('click', () => void feature.start());
   find('stop').addEventListener('click', () => feature.stop());
+  find('pip')?.addEventListener('click', () => {
+    if (pip.isActive()) pip.close();
+    else if (feature.state.phase === 'active') pip.open();
+  });
+  find('pip-resume')?.addEventListener('click', () => pip.resume());
   find('speech').addEventListener('click', () => feature.enableSpeech(!feature.state.speechEnabled));
   find('test').addEventListener('click', () => feature.speak('Speech test. Object ahead.'));
   find('repeat').addEventListener('click', () => feature.speak(feature.meaningfulStatus()));
@@ -492,10 +507,9 @@ export function mountCamera(root, platform = window, { onState = () => {} } = {}
   find('simulate').hidden = !feature.development;
   find('simulate').addEventListener('click', () => feature.obstacle(true));
   const visibilityChanged = () => {
-    if (root.ownerDocument.hidden) {
-      if (pictureInPicture?.active) feature.pauseForPictureInPicture();
-      else feature.stop('Camera off because this page was hidden. Tap Start when you return.');
-    } else feature.resumeFromPictureInPicture();
+    if (root.ownerDocument.hidden && !pip.isActive()) feature.stop('Camera off because this page was hidden without a floating camera. Tap Start when you return.');
+    else if (previewOnlyPiP && root.ownerDocument.hidden) feature.pauseForPictureInPicture();
+    else if (previewOnlyPiP) feature.resumeFromPictureInPicture();
   };
   const pageHidden = () => feature.stop('Camera off because you left the page. Tap Start to restart.');
   root.ownerDocument.addEventListener('visibilitychange', visibilityChanged);
@@ -505,7 +519,7 @@ export function mountCamera(root, platform = window, { onState = () => {} } = {}
     root.ownerDocument.removeEventListener?.('visibilitychange', visibilityChanged);
     platform.removeEventListener?.('pagehide', pageHidden);
     destroy();
-    pictureInPicture?.destroy();
+    pip.destroy();
   };
   platform.addEventListener('myeyes:permissionchange', event => {
     if (event.detail?.kind === 'camera') {
