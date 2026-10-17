@@ -87,12 +87,37 @@ function failure(error, request, env) {
   });
 }
 
+async function readBoundedBody(request) {
+  if (!request.body) return new ArrayBuffer(0);
+  const reader = request.body.getReader();
+  const chunks = [];
+  let length = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      length += value.byteLength;
+      if (length > LIMITS.maxFrameBytes) {
+        await reader.cancel().catch(() => {});
+        throw new ApiError(413, 'FRAME_TOO_LARGE', 'The request exceeds the 1 MiB limit.');
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const bytes = new Uint8Array(length);
+  let offset = 0;
+  for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+  return bytes.buffer;
+}
+
 async function readJson(request) {
   const type = request.headers.get('Content-Type')?.split(';')[0].trim().toLowerCase();
   if (request.method !== 'GET' && type && type !== 'application/json') {
     throw new ApiError(415, 'UNSUPPORTED_MEDIA_TYPE', 'Use application/json for preferences.');
   }
-  const text = await request.text();
+  const text = new TextDecoder().decode(await readBoundedBody(request));
   if (!text) return {};
   try {
     return JSON.parse(text);
@@ -118,12 +143,9 @@ async function handleFrame(request, env, sessionId) {
   const session = await sessions.call(sessionId, 'read');
   const sequence = Number(rawSequence);
 
-  const bytes = await request.arrayBuffer();
+  const bytes = await readBoundedBody(request);
   if (bytes.byteLength === 0) {
     throw new ApiError(400, 'INVALID_IMAGE', 'Send a non-empty JPEG or PNG image.');
-  }
-  if (bytes.byteLength > LIMITS.maxFrameBytes) {
-    throw new ApiError(413, 'FRAME_TOO_LARGE', 'Frame exceeds the 1 MiB limit.');
   }
 
   const started = Date.now();
