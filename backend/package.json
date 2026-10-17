@@ -12,7 +12,8 @@
     "start": "node --env-file-if-exists=.env server.js",
     "test": "node --test tests/*.test.js",
     "check": "node scripts/check.js",
-    "smoke:model": "node scripts/smoke-model.js"
+    "smoke:model": "node scripts/smoke-model.js",
+    "measure:latency": "node scripts/measure-latency.js"
   },
   "dependencies": {
     "@fastify/cors": "11.3.1",
