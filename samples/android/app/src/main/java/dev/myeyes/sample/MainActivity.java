@@ -1,4 +1,4 @@
-package dev.stepsense.sample;
+package dev.myeyes.sample;
 
 import android.Manifest;
 import android.app.Activity;
@@ -80,16 +80,16 @@ public final class MainActivity extends Activity {
         TextView eyebrow = text("NATIVE ANDROID SAMPLE", 11, TEAL);
         eyebrow.setLetterSpacing(0.18f);
         root.addView(eyebrow);
-        TextView title = text("StepSense", 38, Color.WHITE);
+        TextView title = text("Clarity", 38, Color.WHITE);
         title.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         add(root, title, 8);
-        add(root, text("A little more awareness, wherever you scroll.", 16, 0xFFACC5C9), 4);
+        add(root, text("Scan ahead for selected objects and choose sound or vibration alerts.", 16, 0xFFACC5C9), 4);
 
         LinearLayout settings = card(root, 24);
         TextView setupTitle = text("Connect your backend", 19, Color.WHITE);
         setupTitle.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         settings.addView(setupTitle);
-        add(settings, text("Small camera frames are sent to this server for detection. No images are saved by this sample.", 13, 0xFFACC5C9), 8);
+        add(settings, text("Clarity sends camera frames to this server to check for selected objects. The server does not save the images.", 13, 0xFFACC5C9), 8);
         backend = new EditText(this);
         backend.setSingleLine(true);
         backend.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_URI);
@@ -142,7 +142,7 @@ public final class MainActivity extends Activity {
         frameView = new FrameView(this);
         frameView.setMinimumHeight(dp(250));
         root.addView(frameView, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(290)));
-        add(root, text("Keep the rear camera facing ahead. Supported objects only; this prototype is not validated navigation assistance.", 12, 0xFF8EB1B8), 14);
+        add(root, text("Keep the rear camera pointed ahead. Clarity only detects selected objects and has not been tested as a navigation aid.", 12, 0xFF8EB1B8), 14);
     }
 
     @Override protected void onStart() {

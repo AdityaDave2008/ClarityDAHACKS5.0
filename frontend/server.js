@@ -185,7 +185,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
     });
     server.listen(config.port, config.host, () => {
       const displayHost = config.host.includes(':') ? `[${config.host}]` : config.host;
-      console.log(`StepSense preview: http://${displayHost}:${config.port}`);
+  console.log(`Clarity preview: http://${displayHost}:${config.port}`);
       console.log('API proxy ready. Start the backend separately for live detection.');
     });
     for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => server.close());

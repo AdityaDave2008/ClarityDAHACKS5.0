@@ -155,7 +155,7 @@ struct ScannerView: View {
                 .frame(width: 47, height: 47)
                 .background(Color.senseTeal.opacity(0.12), in: RoundedRectangle(cornerRadius: 15))
             VStack(alignment: .leading, spacing: 3) {
-                Text("StepSense").font(.system(size: 27, weight: .semibold, design: .rounded))
+                Text("Clarity").font(.system(size: 27, weight: .semibold, design: .rounded))
                 Text("A little more awareness.").font(.caption).foregroundStyle(Color.senseMuted)
             }
             Spacer()
@@ -215,7 +215,7 @@ struct ScannerView: View {
         if model.pip.isActive {
             return model.multitaskingEnabled == true
                 ? "Live camera continues in the floating window. Offline analysis may pause in the background; old boxes expire."
-                : "Floating window is open. This device does not grant camera access outside the app, so the window pauses when StepSense is backgrounded."
+                : "Floating window is open. This device does not grant camera access outside the app, so the window pauses when Clarity is backgrounded."
         }
         if !model.cameraRunning { return "Camera and floating window stay closed until you choose to start. Tap Start scanning to prepare automatic floating-window entry, or open an empty window manually." }
         if model.phase == .previewing { return "Camera preview only. Swipe home, or open the window now." }

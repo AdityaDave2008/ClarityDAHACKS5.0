@@ -4,10 +4,10 @@ import { readFileSync } from 'node:fs';
 
 // Structural regression guards for the floating-window controls. The actual window, background
 // camera access, and Apple's own eligibility checks require a physical iPhone.
-const model = readFileSync(new URL('../StepSense/ScanModel.swift', import.meta.url), 'utf8');
-const view = readFileSync(new URL('../StepSense/ScannerView.swift', import.meta.url), 'utf8');
-const pip = readFileSync(new URL('../StepSense/PictureInPicture.swift', import.meta.url), 'utf8');
-const plist = readFileSync(new URL('../StepSense/Info.plist', import.meta.url), 'utf8');
+const model = readFileSync(new URL('../MyEyes/ScanModel.swift', import.meta.url), 'utf8');
+const view = readFileSync(new URL('../MyEyes/ScannerView.swift', import.meta.url), 'utf8');
+const pip = readFileSync(new URL('../MyEyes/PictureInPicture.swift', import.meta.url), 'utf8');
+const plist = readFileSync(new URL('../MyEyes/Info.plist', import.meta.url), 'utf8');
 
 test('the floating window is offered whenever the camera runs, not only once detection connects', () => {
   // A preview-only session still has camera frames to show, so gating on `.scanning` disabled
@@ -27,7 +27,7 @@ test('automatic preparation is not gated by the obsolete saved toggle', () => {
 });
 
 test('launch prepares the anchor without starting the camera or opening PiP', () => {
-  const app = readFileSync(new URL('../StepSense/StepSenseApp.swift', import.meta.url), 'utf8');
+  const app = readFileSync(new URL('../MyEyes/MyEyesApp.swift', import.meta.url), 'utf8');
   const init = model.slice(model.indexOf('    init()'), model.indexOf('    var isBusy'));
   assert.match(model, /cameraRunning = false/);
   assert.match(model, /var phase: Phase = \.idle/);
@@ -115,7 +115,7 @@ test('entering and leaving the floating window resets the display', () => {
 });
 
 test('returning to the foreground and resuming capture reset the display', () => {
-  const model = readFileSync(new URL('../StepSense/ScanModel.swift', import.meta.url), 'utf8');
+  const model = readFileSync(new URL('../MyEyes/ScanModel.swift', import.meta.url), 'utf8');
   const foreground = model.slice(model.indexOf('func returnedToForeground()'), model.indexOf('func startPictureInPicture()'));
   assert.match(foreground, /pip\.resetDisplay\(\)/);
   const interruption = model.slice(model.indexOf('private func handleCameraInterruption('), model.indexOf('private func refreshPiPOverlay()'));

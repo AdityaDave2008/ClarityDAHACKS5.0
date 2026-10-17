@@ -1,13 +1,13 @@
-# StepSense native iPhone sample
+# Clarity native iPhone sample
 
 The SwiftUI camera app now runs **fully offline object detection** using the same pretrained COCO-SSD `lite_mobilenet_v2` graph as the backend. It bundles TensorFlow.js 4.22.0, its single-threaded WebAssembly backend, COCO-SSD 2.2.3, and all five weight shards. No server, Wi-Fi, mobile data, or runtime model download is required. This is not a custom-trained model or a different Core ML detector.
 
-**Model path:** `samples/ios/StepSense/OfflineDetector/model/model.json`, with `group1-shard1of5` through `group1-shard5of5` alongside it. See [exact provenance, SHA-256 manifest, and Apache-2.0 notices](StepSense/OfflineDetector/PROVENANCE.md).
+**Model path:** `samples/ios/MyEyes/OfflineDetector/model/model.json`, with `group1-shard1of5` through `group1-shard5of5` alongside it. See [exact provenance, SHA-256 manifest, and Apache-2.0 notices](MyEyes/OfflineDetector/PROVENANCE.md).
 
 ## Build and run
 
-1. Open `samples/ios/StepSense.xcodeproj` in Xcode. Select your development team and connected iPhone. The minimum deployment target remains iOS 16.
-2. Build/run the **StepSense** scheme. No Swift package installation, Node server, or model-download step is necessary for the checked-in app.
+1. Open `samples/ios/MyEyes.xcodeproj` in Xcode. Select your development team and connected iPhone. The minimum deployment target remains iOS 16.
+2. Build/run the **Clarity** scheme. No Swift package installation, Node server, or model-download step is necessary for the checked-in app.
 3. Tap **Start scanning** and allow camera access if iOS requests it. Existing permission is reused. Denied permission must be changed in iOS Settings; do not reset permissions to test this app.
 4. The camera preview starts before model initialization. If initialization fails, the app explicitly remains **Preview only**, with no object alerts. Stop then Start retries.
 5. Configure confidence, cooldown, and sound/haptics/speech in Scan settings. No backend address is required.
@@ -42,11 +42,11 @@ After installing a Debug build, launch with opt-in diagnostics and keep this com
 xcrun devicectl device process launch --device YOUR_DEVICE_UDID \
   --terminate-existing --console \
   --environment-variables '{"STEPSENSE_PIP_DIAGNOSTICS":"1"}' \
-  com.dahacks.stepsense.sample
+  com.dahacks.myeyes.sample
 ```
 
 On the phone tap **Start scanning**, then **Open floating window now**, wait three seconds,
-swipe Home, wait five seconds, and return to StepSense. Launch alone does not start the camera
+swipe Home, wait five seconds, and return to Clarity. Launch alone does not start the camera
 or explicitly request PiP. Look for `scan.start`, `camera.started`,
 `scan.pipButton`, `pip.start.invoke`, and `pip.delegate.didStart` or `pip.delegate.failed`.
 `pip.start.timeout` means readiness never became true during the existing two-second wait.
@@ -81,12 +81,12 @@ Run actual offline inference using the production Swift bridge, WKWebView, JS ru
 
 ```sh
 swiftc -parse-as-library \
-  samples/ios/StepSense/APIClient.swift \
-  samples/ios/StepSense/OfflineDetector.swift \
+  samples/ios/MyEyes/APIClient.swift \
+  samples/ios/MyEyes/OfflineDetector.swift \
   samples/ios/tests/OfflineInferenceSmoke.swift \
   -o "$JCODE_SCRATCH_DIR/offline-inference-smoke"
 "$JCODE_SCRATCH_DIR/offline-inference-smoke" \
-  "$PWD/samples/ios/StepSense/OfflineDetector" /absolute/path/to/cat.jpg
+  "$PWD/samples/ios/MyEyes/OfflineDetector" /absolute/path/to/cat.jpg
 ```
 
 The smoke asserts a high-confidence cat and normalized box, confirming → triggered → cooldown, stale suppression, stale/error streak breaking, canceled startup replacement, malformed-image recovery, blocked remote fetch, single-flight rejection, a real 15-second hung-frame timeout, and shutdown. This exercises real production WebKit inference, not mocked detections. It is a macOS runtime test, not proof of iPhone camera/thermal/background behavior.
@@ -94,9 +94,9 @@ The smoke asserts a high-confidence cat and normalized box, confirming → trigg
 Signed iPhone build:
 
 ```sh
-xcodebuild -project samples/ios/StepSense.xcodeproj -scheme StepSense \
+xcodebuild -project samples/ios/MyEyes.xcodeproj -scheme Clarity \
   -configuration Debug -destination 'id=YOUR_DEVICE_UDID' \
-  -derivedDataPath "$JCODE_SCRATCH_DIR/stepsense-device-signed" build
+  -derivedDataPath "$JCODE_SCRATCH_DIR/clarity-device-signed" build
 ```
 
 ### Observed October 16, 2026
@@ -104,7 +104,7 @@ xcodebuild -project samples/ios/StepSense.xcodeproj -scheme StepSense \
 - Real WKWebView WASM inference: cat confidence **0.9304017425**, box `(x: 0.006709, y: 0.093559, width: 0.871384, height: 0.899779)`, in-zone. Representative macOS inference times **34–51 ms**, not iPhone performance measurements.
 - Same bridge passed confirmation/cooldown, stale/error recovery, restart cancellation, and CSP-blocked remote fetch checks.
 - Signed Debug iPhone build succeeded with team `MB3Z8QW8ML`.
-- Installed and launched `com.dahacks.stepsense.sample` on the connected iPhone 15 Pro at 21:59:33Z and again with final verified sources at 22:03:13Z. Camera permissions were not reset.
+- Installed and launched `com.dahacks.myeyes.sample` on the connected iPhone 15 Pro at 21:59:33Z and again with final verified sources at 22:03:13Z. Camera permissions were not reset.
 - Live-camera detection accuracy, sound/haptic delivery, airplane-mode use on the physical phone, thermal/battery behavior, and PiP background inference still need on-device acceptance. Build/install/launch alone does not establish those results.
 
 ## Optional LiDAR axial depth
@@ -143,7 +143,7 @@ Signed build/install and automated tests are not reference-distance acceptance. 
 - Signed Debug build for the connected iPhone 15 Pro succeeded using the installed iPhoneOS 27.1 SDK. `codesign --verify --deep --strict` passed. No new Swift compiler warnings remain (Xcode reports only the unrelated absent-AppIntents metadata notice).
 - Final app installed on the connected iPhone at approximately **23:53:16Z**. An earlier feature build launched successfully at **23:51:48Z**. Launch of the final tightened-outlier build was denied because the phone was locked (`FBSOpenApplicationErrorDomain`, `Locked`). No unlock, permission reset, or credential action was attempted.
 - Physical depth/reference-distance accuracy, real on/off persistence UI, non-LiDAR hardware fallback, and LiDAR-enabled PiP/background behavior remain **unverified**. The physical acceptance checklist above is still required.
-- Pre-feature baseline is `aa2c7d4291db99098dcf5ae065ad8a274ec009b8`. A verified signed pre-LiDAR app is preserved outside the feature build directory at `$JCODE_SCRATCH_DIR/stepsense-pre-lidar-rollback/StepSense.app`, with restore instructions and binary checksum in `ROLLBACK.md`. No rollback was performed because no device regression was observed. A locked-device launch failure alone is not evidence of a regression.
+- Pre-feature baseline is `aa2c7d4291db99098dcf5ae065ad8a274ec009b8`. A verified signed pre-LiDAR app is preserved outside the feature build directory at `$JCODE_SCRATCH_DIR/stepsense-pre-lidar-rollback/Clarity.app`, with restore instructions and binary checksum in `ROLLBACK.md`. No rollback was performed because no device regression was observed. A locked-device launch failure alone is not evidence of a regression.
 
 
 ### Physical LiDAR diagnosis and repair, October 17, 2026 UTC

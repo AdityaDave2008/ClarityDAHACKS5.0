@@ -1,4 +1,4 @@
-# StepSense browser sample
+# Clarity browser app
 
 The browser sample has a guided, explicitly simulated mode for learning the flow and a live camera mode that uploads frames to the real backend. Keep the camera page visible during live use. Browser PiP, home-screen installation, and a native application's multitasking privileges are different capabilities; the sample does not promise scanning behind another app.
 

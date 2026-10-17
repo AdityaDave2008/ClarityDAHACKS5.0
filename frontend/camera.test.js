@@ -40,7 +40,7 @@ test('requests nothing before Start; prefers rear camera, video only; stops ever
   assert.equal(f.feature.state.detection, 'Detection not connected.');
   const started = f.events.find(event => event.name === 'camera:started');
   assert.equal(started.detail.video, f.video);
-  assert.ok(f.events.some(event => event.name === 'clearpath:permissionchange' && event.detail.state === 'granted'));
+  assert.ok(f.events.some(event => event.name === 'myeyes:permissionchange' && event.detail.state === 'granted'));
   f.feature.stop();
   assert.ok(f.tracks.every(track => track.stopped));
   assert.equal(f.video.srcObject, null);

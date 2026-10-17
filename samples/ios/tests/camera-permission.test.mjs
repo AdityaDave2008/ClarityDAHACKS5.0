@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 // Structural regression guards, not a substitute for exercising Apple's permission dialog on a device.
-const model = readFileSync(new URL('../StepSense/ScanModel.swift', import.meta.url), 'utf8');
-const camera = readFileSync(new URL('../StepSense/CameraCapture.swift', import.meta.url), 'utf8');
+const model = readFileSync(new URL('../MyEyes/ScanModel.swift', import.meta.url), 'utf8');
+const camera = readFileSync(new URL('../MyEyes/CameraCapture.swift', import.meta.url), 'utf8');
 const start = model.slice(model.indexOf('    func start()'), model.indexOf('    func stop()'));
 
 test('startup requests camera authorization before loading the offline detector', () => {
@@ -37,6 +37,6 @@ test('offline model failure retains a clearly labeled preview-only state', () =>
 });
 
 test('view does not cover an active camera while connecting or offline', () => {
-  const view = readFileSync(new URL('../StepSense/ScannerView.swift', import.meta.url), 'utf8');
+  const view = readFileSync(new URL('../MyEyes/ScannerView.swift', import.meta.url), 'utf8');
   assert.match(view, /if !model.cameraRunning \{/);
 });

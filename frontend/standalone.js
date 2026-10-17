@@ -23,7 +23,7 @@ function applyColorVision(mode) {
 applyColorVision(localStorage.getItem('clearpath-color-vision'));
 window.addEventListener('storage', (event) => {
   if (event.key === 'clearpath-color-vision') applyColorVision(event.newValue);
-  if (event.key === 'clearpath-alert-repeat-count') window.clearPathCamera?.setRepeatCount(Number(event.newValue));
+  if (event.key === 'clearpath-alert-repeat-count') window.myEyesCamera?.setRepeatCount(Number(event.newValue));
 });
 
 // Always use the bundled v1 model unless backend testing is explicitly requested.

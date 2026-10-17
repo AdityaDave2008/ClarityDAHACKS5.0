@@ -6,59 +6,89 @@
       name="viewport"
       content="width=device-width, initial-scale=1, viewport-fit=cover"
     >
-    <meta name="theme-color" content="#101c25">
-    <meta name="description" content="ClearPath helps you stay aware of walking path issues and customize alerts.">
+    <meta name="theme-color" content="#101820">
+    <meta name="description" content="Check reports about blocked paths and choose how Clarity alerts you.">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="ClearPath">
-    <title>ClearPath | Walk with confidence</title>
+    <meta name="apple-mobile-web-app-title" content="Clarity">
+    <title>Clarity | Home</title>
     <link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
     <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="homePage.css">
   </head>
 
   <body>
     <main class="app">
+      <dialog class="setup-dialog" id="firstRunDialog" aria-labelledby="firstRunTitle" aria-describedby="firstRunHelp">
+        <form id="firstRunForm" method="dialog">
+          <h1 id="firstRunTitle">Set up Clarity</h1>
+          <p class="setup-intro" id="firstRunHelp">Choose what works for you. You can change any of these options later in Settings.</p>
+
+          <p class="setup-progress" id="setupProgress" aria-live="polite">Step 1 of 3</p>
+
+          <div class="setup-step" data-setup-step="0">
+            <fieldset class="setup-question">
+              <legend>Which display works best for you?</legend>
+              <label class="setup-choice"><input type="radio" name="setupMode" value="normal" checked><span>Standard display</span></label>
+              <label class="setup-choice"><input type="radio" name="setupMode" value="blindness"><span>Large mode</span></label>
+            </fieldset>
+          </div>
+
+          <div class="setup-step" data-setup-step="1" hidden>
+            <fieldset class="setup-question">
+              <legend>Would you like a color-adjusted palette?</legend>
+              <label class="setup-choice color-option-standard"><input type="radio" name="setupColorVision" value="standard" checked><span>No adjustment</span></label>
+              <label class="setup-choice color-option-protanopia"><input type="radio" name="setupColorVision" value="protanopia"><span>Protanopia</span></label>
+              <label class="setup-choice color-option-deuteranopia"><input type="radio" name="setupColorVision" value="deuteranopia"><span>Deuteranopia</span></label>
+              <label class="setup-choice color-option-tritanopia"><input type="radio" name="setupColorVision" value="tritanopia"><span>Tritanopia</span></label>
+              <label class="setup-choice color-option-achromatopsia"><input type="radio" name="setupColorVision" value="achromatopsia"><span>Achromatopsia</span></label>
+            </fieldset>
+          </div>
+
+          <div class="setup-step" data-setup-step="2" hidden>
+            <fieldset class="setup-question">
+              <legend>How should Clarity alert you?</legend>
+              <label class="setup-choice"><input type="radio" name="setupAlert" value="vibration" checked><span>Vibration</span></label>
+              <label class="setup-choice"><input type="radio" name="setupAlert" value="sound"><span>Sound</span></label>
+              <label class="setup-choice"><input type="radio" name="setupAlert" value="voice"><span>Spoken cue</span></label>
+              <label class="setup-choice"><input type="radio" name="setupAlert" value="both"><span>Sound and vibration</span></label>
+            </fieldset>
+          </div>
+
+          <div class="setup-step-actions">
+            <button class="setup-back" id="setupBack" type="button" hidden>Back</button>
+            <button class="primary setup-next" id="setupNext" type="button">Continue</button>
+            <button class="primary setup-submit" id="setupFinish" type="submit" hidden>Start using Clarity</button>
+          </div>
+        </form>
+      </dialog>
+
       <header>
         <div class="brand">
           <span class="logo">CP</span>
-          ClearPath
-        </div>
-        <div class="status" id="ready-to-walk" role="status" aria-label="Camera permission needed">
-          <span class="dot needs-permission" id="ready-permission-light" aria-hidden="true"></span>
-          <span id="ready-to-walk-label">Not ready to walk</span>
+          Clarity
         </div>
       </header>
 
-      <!-- Home -->
-      <section id="home" class="screen active">
-        <p class="eyebrow">Move through the city</p>
-        <h1>Eyes up.<br>Feel confident.</h1>
-        <p class="intro">
-          Find local access updates and choose alerts that fit your needs.
-        </p>
+      <!-- Issues -->
+      <section id="home" class="screen">
+        <p class="eyebrow">Community updates</p>
+        <h1>Issues</h1>
+        <p class="intro">Reports of blocked sidewalks and damaged paths nearby.</p>
 
         <section class="forum-section" aria-labelledby="forum-title">
-          <div class="forum-heading">
-            <div>
-              <p class="eyebrow">AI street reports</p>
-              <h2 id="forum-title">Path issues</h2>
-            </div>
-            <span class="forum-live"><span class="dot"></span>Demo feed</span>
-          </div>
-
-          <p class="forum-intro">
-            A list of reported roadblocks and damaged paths.
-          </p>
-
+<!--  -->
           <div id="issueFeed" class="forum-feed" aria-label="Reported path issues" aria-live="polite" aria-relevant="additions">
           </div>
 
           <dialog class="issue-dialog" id="issueDialog" aria-labelledby="issueDialogTitle">
             <div class="issue-dialog-header">
-              <p class="eyebrow">AI path report</p>
+              <p class="eyebrow">Path report</p>
               <button class="issue-dialog-close" type="button" id="issueDialogClose" aria-label="Close issue details">Close</button>
             </div>
             <h2 id="issueDialogTitle">Issue details</h2>
@@ -70,70 +100,29 @@
               <div><dt>Reported</dt><dd id="issueDialogTime"></dd></div>
               <div><dt>Status</dt><dd id="issueDialogStatus"></dd></div>
             </dl>
-            <p class="issue-dialog-note">AI reports can be wrong. Check your surroundings and use your judgment.</p>
+            <p class="issue-dialog-note">Reports may be wrong or out of date. Check the path before you change your route.</p>
           </dialog>
         </section>
 
       </section>
 
-      <!-- Camera: accessible scanner integrated into the shared app shell -->
-      <section id="camera" class="screen blindness-screen" aria-label="Camera scanner">
+      <!-- Home: camera scanner -->
+      <section id="camera" class="screen active blindness-screen" aria-label="Camera scanner">
         <div class="camera-feature" id="camera-feature">
-          <nav class="camera-screen-nav" aria-label="Camera screen navigation">
-            <button type="button" data-camera-screen="home">Home</button>
-            <button type="button" data-camera-screen="settings">Settings</button>
-          </nav>
-          <h1>Path scanner</h1>
-          <div class="camera-permission" role="status" aria-live="polite">
-            <span id="camera-permission-light" class="dot needs-permission" aria-hidden="true"></span>
-            <span id="camera-permission-label">Camera permission needed — tap Start to allow</span>
-          </div>
           <p id="permission-help">Point the camera ahead. Alerts may miss hazards.</p>
-          <section class="status-panel" aria-label="Camera and detection status">
-            <p id="camera-status">Camera off. Tap Start when ready.</p>
-            <p id="detection-status">Detection stopped.</p>
-          </section>
+          <video id="camera-video" autoplay muted playsinline aria-label="Live camera preview. Controls work without viewing the preview."></video>
           <div class="camera-actions" role="group" aria-label="Camera controls">
             <button type="button" id="camera-start" aria-describedby="permission-help">Start scanning</button>
             <button type="button" id="camera-stop" disabled>Stop scanning</button>
           </div>
-          <div class="camera-preview">
-            <video id="camera-video" autoplay muted playsinline aria-label="Live camera preview. Controls work without viewing the preview."></video>
-            <canvas id="camera-overlay" aria-hidden="true"></canvas>
-          </div>
-          <section class="camera-results" aria-labelledby="camera-objects-heading">
-            <h2 id="camera-objects-heading">Detected objects</h2>
-            <p id="camera-objects">Start scanning to see supported objects.</p>
-            <p class="camera-result-note">Labels show model confidence, not distance or safety. Browser camera does not measure distance.</p>
-          </section>
-          <div class="readings">
-            <section aria-label="Distance estimate"><h2>Distance</h2><p id="camera-distance">Not available</p></section>
-            <section aria-label="Obstacle alert"><h2>Alert</h2><p id="camera-obstacle">No alert. Keep watching your path.</p></section>
-          </div>
-          <section class="camera-results" aria-label="Measured camera performance">
-            <h2>Speed</h2>
-            <p id="camera-performance">No measurements yet.</p>
-            <p class="camera-result-note">Measured on this device, from frame capture to displayed result. Capture size adjusts automatically when results are slow.</p>
-          </section>
           <section class="speech-controls" aria-label="Spoken alerts">
-            <button type="button" id="camera-speech" aria-pressed="false" aria-describedby="announcement-help">Turn on spoken alerts</button>
+            <button type="button" id="camera-speech" aria-pressed="false">Turn on spoken alerts</button>
             <div class="camera-actions">
               <button type="button" id="camera-test">Test speech</button>
               <button type="button" id="camera-repeat">Repeat status</button>
             </div>
             <p id="speech-status">Spoken alerts off.</p>
           </section>
-          <details>
-            <summary>More settings</summary>
-            <label for="camera-announcements">Voice announcements</label>
-            <select id="camera-announcements" aria-describedby="announcement-help">
-              <option value="screen-reader">Screen reader</option>
-              <option value="app-voice">App voice</option>
-            </select>
-            <p id="announcement-help">Choose screen reader or app voice.</p>
-            <label for="camera-cooldown">Alert delay in seconds</label>
-            <input id="camera-cooldown" type="number" min="1" max="30" step="1" value="3" inputmode="numeric">
-          </details>
           <button type="button" id="camera-simulate" hidden>Simulate obstacle — development only</button>
           <p class="prototype-note sr-only">Alerts may miss hazards and do not measure collision risk.</p>
           <div id="camera-announcer" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
@@ -143,12 +132,15 @@
       <!-- Settings -->
       <section id="settings" class="screen">
         <p class="eyebrow">Make it yours</p>
-        <h1>Your way<br>to move.</h1>
-        <p class="intro">
-          Change any setting whenever you need.
-        </p>
+        <h1>Your way to move.</h1>
+          <p class="intro">Adjust display and alert settings here.</p>
 
         <div class="card">
+          <section class="install-card" aria-labelledby="install-title">
+            <h2 id="install-title" class="section-title">Install Clarity</h2>
+            <p id="install-help">iPhone or iPad: open this page in Safari, tap Share, then Add to Home Screen. Android: use your browser menu and choose Install app or Add to Home screen.</p>
+            <button type="button" id="installAppButton" hidden>Install app</button>
+          </section>
           <h2 class="section-title">Walking mode</h2>
           <div class="mode-switch" role="group" aria-label="Choose walking mode">
             <button
@@ -165,18 +157,14 @@
               data-mode="blindness"
               aria-pressed="false"
             >
-              Blindness mode
+              Large mode
             </button>
           </div>
-          <p class="mode-description">
-            Blindness mode enlarges text and controls and strengthens contrast on every page.
-          </p>
-
-          <h2 class="section-title">Color vision preference</h2>
+          <h2 class="section-title walking-mode-following">Color vision preference</h2>
           <div class="setting-row color-vision-setting">
             <div>
               <b>Color vision type</b>
-              <small>Change the app’s accent and background gradient</small>
+              <small>Choose colors that are easier for you to tell apart</small>
             </div>
             <select id="colorVision" aria-label="Choose a color vision preference">
               <option value="standard">Standard</option>
@@ -187,15 +175,15 @@
             </select>
           </div>
           <p class="color-vision-note" id="colorVisionNote" aria-live="polite">
-            Standard palette: teal and mint accents.
+            Standard palette: warm coral accents on deep slate.
           </p>
 
           <h2 class="section-title">Alert preferences</h2>
 
-          <div class="setting-row">
+          <div class="setting-row alert-style-setting">
             <div>
               <b>Alert style</b>
-              <small>How ClearPath gets your attention</small>
+              <small>How you want to be alerted</small>
             </div>
             <select id="alert">
               <option value="vibration">Vibration</option>
@@ -203,6 +191,23 @@
               <option value="voice">Spoken cue</option>
               <option value="both">Sound + vibration</option>
             </select>
+          </div>
+          <div class="setting-row alert-control-setting">
+            <div>
+              <b>Voice announcements</b>
+              <small id="announcement-help">Choose screen reader or app voice</small>
+            </div>
+            <select id="camera-announcements" aria-describedby="announcement-help">
+              <option value="screen-reader">Screen reader</option>
+              <option value="app-voice">App voice</option>
+            </select>
+          </div>
+          <div class="setting-row alert-control-setting">
+            <div>
+              <b>Alert delay</b>
+              <small>Delay between repeated alerts, in seconds</small>
+            </div>
+            <input id="camera-cooldown" type="number" min="1" max="5" step="1" value="3" inputmode="numeric" aria-label="Alert delay in seconds">
           </div>
           <div class="setting-row">
             <div>
@@ -220,7 +225,7 @@
           <div class="setting-row">
             <div>
               <b>Alert sound</b>
-              <small>Choose the tone used for sound alerts</small>
+              <small>Select a tone to hear a preview</small>
             </div>
             <select id="alertSound" aria-label="Alert sound">
               <option value="ping">Classic ping</option>
@@ -241,15 +246,33 @@
           <div class="setting-row">
             <div>
               <b>Vibration alerts</b>
-              <small>Feel a pulse when a hazard is near</small>
+              <small>Feel a vibration when an alert is triggered</small>
             </div>
             <input id="vibrate" class="toggle" type="checkbox" checked>
+          </div>
+
+          <div class="setting-row range-setting-row">
+            <div class="range-setting-copy">
+              <b>Alert volume</b>
+              <small>Set how loud sound alerts play</small>
+            </div>
+            <output id="alertVolumeValue" for="alertVolume">70%</output>
+            <input id="alertVolume" type="range" min="0" max="100" step="1" value="70" aria-label="Alert volume">
+          </div>
+
+          <div class="setting-row range-setting-row">
+            <div class="range-setting-copy">
+              <b>Vibration strength</b>
+              <small>Changes pulse length; your phone controls motor strength</small>
+            </div>
+            <output id="vibrationStrengthValue" for="vibrationStrength">65%</output>
+            <input id="vibrationStrength" type="range" min="0" max="100" step="1" value="65" aria-label="Vibration strength">
           </div>
 
           <div class="setting-row">
             <div>
               <b>Spoken alerts</b>
-              <small>Hear a short heads-up</small>
+              <small>Hear alerts spoken aloud</small>
             </div>
             <input id="voice" class="toggle" type="checkbox">
           </div>
@@ -257,19 +280,9 @@
           <div class="controls">
             <button id="save" class="primary">Save preferences</button>
           </div>
-          <section class="install-card" aria-labelledby="install-title">
-            <h2 id="install-title" class="section-title">Install ClearPath</h2>
-            <p id="install-help">iPhone or iPad: open this page in Safari, tap Share, then Add to Home Screen. Android: use your browser menu and choose Install app or Add to Home screen.</p>
-            <button type="button" id="installAppButton" hidden>Install app</button>
-          </section>
           <section class="device-access" aria-labelledby="device-access-title">
             <h2 class="section-title" id="device-access-title">Permissions & device tests</h2>
-            <p class="device-access-intro">Allow notifications to receive a phone alert when scanning detects an object nearby. Alerts run while the scanner is open. Speaker and vibration tests work without separate browser permissions. To revoke access later, use your browser’s site settings.</p>
-
-            <div class="notification-test-card">
-              <div><b>Phone notification test</b><small>Tap to send a test notification to this device.</small></div>
-              <button type="button" class="permission-button" id="testNotifications">Send test notification</button>
-            </div>
+            <p class="device-access-intro">Allow notifications to get phone alerts while the scanner is open. Use the speaker and vibration tests to check your device. Change access later in your browser’s site settings.</p>
 
             <div class="device-access-row">
               <div><b>Camera</b><small id="cameraPermissionSetting" role="status">Checking camera access…</small></div>
@@ -281,7 +294,7 @@
             </div>
             <div class="device-access-row">
               <div><b>Notifications</b><small id="notificationPermissionSetting" role="status">Checking notification access…</small></div>
-              <div class="permission-actions"><button type="button" class="permission-button" id="requestNotifications">Allow</button></div>
+              <div class="permission-actions"><button type="button" class="permission-button" id="requestNotifications">Allow</button><button type="button" class="permission-button" id="testNotifications">Test</button></div>
             </div>
             <div class="device-access-row">
               <div><b>Speaker</b><small id="speakerPermissionSetting">No separate browser permission</small></div>
@@ -298,16 +311,26 @@
 
       <!-- Navigation -->
       <nav class="bottom-nav" aria-label="Main navigation">
-        <button class="nav-btn active" data-screen="home">
-          <span class="icon">H</span>
+        <button class="nav-btn" data-screen="home">
+          <span class="icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>
+          </span>
+          Issues
+        </button>
+        <button class="nav-btn active" data-screen="camera" aria-current="page">
+          <span class="icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3 10 9-7 9 7"/><path d="M5 9v12h14V9M9 21v-7h6v7"/></svg>
+          </span>
           Home
         </button>
-        <button class="nav-btn" data-screen="camera">
-          <span class="icon">C</span>
-          Camera
-        </button>
         <button class="nav-btn" data-screen="settings">
-          <span class="icon">S</span>
+          <span class="icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="6.7" />
+              <circle cx="12" cy="12" r="2.7" />
+              <path d="M12 2v2.3M12 19.7V22M2 12h2.3M19.7 12H22M4.93 4.93l1.63 1.63m10.88 10.88 1.63 1.63m0-14.14-1.63 1.63M6.56 17.44l-1.63 1.63" />
+            </svg>
+          </span>
           Settings
         </button>
       </nav>
@@ -322,7 +345,7 @@
 
       if ("serviceWorker" in navigator && window.isSecureContext) {
         navigator.serviceWorker.register("/sw.js").catch((error) => {
-          console.warn("ClearPath offline support could not start.", error);
+        console.warn("Clarity offline support could not start.", error);
         });
       }
 
@@ -343,11 +366,11 @@
 
       window.addEventListener("appinstalled", () => {
         installButton.hidden = true;
-        installHelp.textContent = "ClearPath is installed on this device.";
+        installHelp.textContent = "Clarity is installed on this device.";
       });
 
       if (window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true) {
-        installHelp.textContent = "ClearPath is installed on this device.";
+        installHelp.textContent = "Clarity is installed on this device.";
       }
 
       const issueFeed = document.getElementById("issueFeed");
@@ -387,7 +410,7 @@
         meta.className = "post-meta";
         const tag = document.createElement("span");
         tag.className = "post-tag";
-        tag.textContent = `AI REPORT · ${issue.category}`;
+        tag.textContent = `REPORT · ${issue.category}`;
         const time = document.createElement("time");
         time.textContent = issue.reported;
         meta.append(tag, time);
@@ -435,35 +458,72 @@
           title: "Sidewalk blocked",
           category: "Sidewalk blockage",
           severity: "High",
-          location: "Example intersection",
-          description: "A temporary barrier appears to block most of the sidewalk, leaving limited space to pass. The model flagged it as a likely obstruction.",
+          location: "De Anza College",
+          description: "A barrier is blocking most of the sidewalk. There may be only a narrow space to get around it.",
           status: "Needs confirmation",
         },
         {
           title: "Damaged pavement",
           category: "Surface damage",
           severity: "Medium",
-          location: "Example block",
-          description: "The walking surface appears uneven, with a broken section that may be difficult to navigate. The extent of the damage is not confirmed.",
+          location: "De Anza College",
+          description: "A section of the sidewalk looks broken and uneven. The size of the damaged area is unclear.",
           status: "Needs confirmation",
         },
       ].forEach(addIssueReport);
 
-      // AI integration can add reports with window.clearPathIssueFeed.add(report).
-      window.clearPathIssueFeed = { add: addIssueReport };
+      // AI integration can add reports with window.myEyesIssueFeed.add(report).
+      window.myEyesIssueFeed = { add: addIssueReport };
       const screens = [...document.querySelectorAll(".screen")];
       const navButtons = [...document.querySelectorAll(".nav-btn")];
       let previewFallbackStream = null;
+      let activePageTransitionCleanup = null;
+      const detectionStatusLight = document.getElementById("detection-status-light");
+      const setDetectionStatusLight = (isOn) => {
+        detectionStatusLight?.classList.toggle("permission-granted", isOn);
+        detectionStatusLight?.classList.toggle("needs-permission", !isOn);
+      };
+      window.addEventListener("camera:started", () => setDetectionStatusLight(true));
+      window.addEventListener("camera:stopped", () => setDetectionStatusLight(false));
+
+      const scrollRevealTargets = [...document.querySelectorAll(
+        "#home > .eyebrow, #home > h1, #home > .intro, #home .forum-section, #camera .camera-actions, #camera .status-panel, #camera .readings, #camera .speech-controls, #camera .camera-feature details, #settings .page-intro-card, #settings .card > .section-title, #settings .mode-switch, #settings .mode-description, #settings .setting-row, #settings .color-vision-note, #settings .custom-sound-row, #settings .controls, #settings .install-card, #settings .device-access-row"
+      )];
+      scrollRevealTargets.forEach((element, index) => {
+        element.classList.add("scroll-reveal");
+        element.style.setProperty("--scroll-reveal-delay", `${(index % 4) * 45}ms`);
+      });
+      if ("IntersectionObserver" in window && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        const scrollRevealObserver = new IntersectionObserver((entries, observer) => {
+          entries.forEach((entry) => {
+            if (!entry.isIntersecting) return;
+            entry.target.classList.add("is-visible");
+            observer.unobserve(entry.target);
+          });
+        }, { threshold: 0.12, rootMargin: "0px 0px -6% 0px" });
+        scrollRevealTargets.forEach((element) => scrollRevealObserver.observe(element));
+      } else {
+        scrollRevealTargets.forEach((element) => element.classList.add("is-visible"));
+      }
 
       function showScreen(id) {
+        const nextScreen = document.getElementById(id);
+        if (!nextScreen?.classList.contains("screen")) return;
+        if (activePageTransitionCleanup) activePageTransitionCleanup();
+        const currentScreen = screens.find((screen) => screen.classList.contains("active"));
+        const shouldAnimate = currentScreen && currentScreen.id !== id
+          && !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        const currentBounds = shouldAnimate ? currentScreen.getBoundingClientRect() : null;
+
         if (document.getElementById("camera").classList.contains("active") && id !== "camera") {
           // Navigation must still work if a phone/browser throws while releasing
           // the camera. Stop each stream defensively, then always switch screens.
-          try { window.clearPathCamera?.stop(); } catch (error) { console.warn("Could not stop camera cleanly:", error); }
+          try { window.myEyesCamera?.stop(); } catch (error) { console.warn("Could not stop camera cleanly:", error); }
           try {
             previewFallbackStream?.getTracks().forEach((track) => track.stop());
           } catch (error) { console.warn("Could not stop preview stream cleanly:", error); }
           previewFallbackStream = null;
+          setDetectionStatusLight(false);
           const video = document.getElementById("camera-video");
           if (video) video.srcObject = null;
           const startButton = document.getElementById("camera-start");
@@ -472,11 +532,63 @@
           if (stopButton) stopButton.disabled = true;
         }
 
-        if (!document.getElementById(id)?.classList.contains("screen")) return;
+        if (shouldAnimate) {
+          currentScreen.style.setProperty("--fade-top", `${currentBounds.top}px`);
+          currentScreen.style.setProperty("--fade-left", `${currentBounds.left}px`);
+          currentScreen.style.setProperty("--fade-width", `${currentBounds.width}px`);
+          currentScreen.classList.add("page-fade-out");
+          nextScreen.classList.remove("page-fade-in");
+          void nextScreen.offsetWidth;
+          nextScreen.classList.add("page-fade-in");
+        }
 
         screens.forEach((screen) => {
           screen.classList.toggle("active", screen.id === id);
         });
+
+        if (shouldAnimate) {
+          let transitionTimer;
+          const finishTransition = (event) => {
+            if (event && (event.target !== nextScreen || event.animationName !== "page-fade-in")) return;
+            clearTimeout(transitionTimer);
+            currentScreen.classList.remove("page-fade-out");
+            currentScreen.style.removeProperty("--fade-top");
+            currentScreen.style.removeProperty("--fade-left");
+            currentScreen.style.removeProperty("--fade-width");
+            nextScreen.classList.remove("page-fade-in");
+            nextScreen.removeEventListener("animationend", finishTransition);
+            activePageTransitionCleanup = null;
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          };
+          nextScreen.addEventListener("animationend", finishTransition);
+          activePageTransitionCleanup = () => {
+            clearTimeout(transitionTimer);
+            currentScreen.classList.remove("page-fade-out");
+            currentScreen.style.removeProperty("--fade-top");
+            currentScreen.style.removeProperty("--fade-left");
+            currentScreen.style.removeProperty("--fade-width");
+            nextScreen.classList.remove("page-fade-in");
+            nextScreen.removeEventListener("animationend", finishTransition);
+            activePageTransitionCleanup = null;
+          };
+          transitionTimer = window.setTimeout(() => finishTransition(), 700);
+        }
+
+        if (id === "home" && currentScreen?.id !== id && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+          const issueBoxes = [...document.querySelectorAll("#home .page-intro-card, #home .forum-post")];
+          issueBoxes.forEach((box) => box.classList.remove("issues-box-enter"));
+          void nextScreen.offsetWidth;
+          issueBoxes.forEach((box) => box.classList.add("issues-box-enter"));
+        }
+
+        if (id === "settings") {
+          settingsRevealTargets.forEach((element) => {
+            const bounds = element.getBoundingClientRect();
+            if (bounds.top < window.innerHeight && bounds.bottom > 0) {
+              element.classList.add("is-visible", "is-initially-visible");
+            }
+          });
+        }
 
         navButtons.forEach((button) => {
           const isActive = button.dataset.screen === id;
@@ -489,7 +601,7 @@
           }
         });
 
-        window.scrollTo({ top: 0, behavior: "smooth" });
+        if (!shouldAnimate) window.scrollTo({ top: 0, behavior: "smooth" });
       }
 
       navButtons.forEach((button) => {
@@ -498,10 +610,6 @@
           showScreen(screen);
 
         });
-      });
-
-      document.querySelectorAll("[data-camera-screen]").forEach((button) => {
-        button.addEventListener("click", () => showScreen(button.dataset.cameraScreen));
       });
 
       window.addEventListener("hashchange", () => {
@@ -552,7 +660,7 @@
         if (save) {
           showToast(
             mode === "blindness"
-              ? "Blindness mode on"
+              ? "Large mode on"
               : "Normal mode on"
           );
         }
@@ -561,19 +669,17 @@
       modeButtons.forEach((button) => {
         button.addEventListener("click", () => {
           setMode(button.dataset.mode);
-          // Switching modes returns to Home so the new version is immediately visible.
-          showScreen(button.dataset.mode === "blindness" ? "home" : "settings");
         });
       });
 
       const colorVisionSelect = document.getElementById("colorVision");
       const colorVisionNote = document.getElementById("colorVisionNote");
       const colorVisionDescriptions = {
-        standard: "Standard palette: teal and mint accents.",
-        protanopia: "Protanopia palette: blue and amber accents with a deep blue gradient.",
-        deuteranopia: "Deuteranopia palette: cyan and gold accents with a deep teal gradient.",
-        tritanopia: "Tritanopia palette: coral and rose accents with a warm plum gradient.",
-        achromatopsia: "Achromatopsia palette: high-contrast grayscale accents and gradient.",
+        standard: "For users without a color-vision adjustment. Uses the standard palette.",
+        protanopia: "For people with reduced red vision. Red can look darker, and red and green can be hard to tell apart.",
+        deuteranopia: "For people with reduced green vision. Red and green can be hard to tell apart.",
+        tritanopia: "For people with reduced blue vision. Blue and yellow can be hard to tell apart.",
+        achromatopsia: "For people who see little or no color. Colors appear as shades of gray.",
       };
 
       function setColorVision(mode, save = true) {
@@ -596,14 +702,170 @@
         document.getElementById("alert").value = savedAlert;
       }
 
+      const firstRunDialog = document.getElementById("firstRunDialog");
+      const firstRunForm = document.getElementById("firstRunForm");
+      const selectSetupChoice = (name, value) => {
+        const choice = firstRunForm.querySelector(`input[name="${name}"][value="${value}"]`);
+        if (choice) choice.checked = true;
+      };
+      selectSetupChoice("setupMode", savedMode);
+      selectSetupChoice("setupColorVision", colorVisionSelect.value);
+      selectSetupChoice("setupAlert", document.getElementById("alert").value);
+      firstRunForm.querySelectorAll('input[name="setupMode"]').forEach((choice) => {
+        choice.addEventListener("change", () => {
+          if (choice.checked) setMode(choice.value, false);
+        });
+      });
+      firstRunForm.querySelectorAll('input[name="setupColorVision"]').forEach((choice) => {
+        choice.addEventListener("change", () => {
+          if (choice.checked) setColorVision(choice.value);
+        });
+      });
+
+      const setupSteps = [...firstRunForm.querySelectorAll(".setup-step")];
+      const setupProgress = document.getElementById("setupProgress");
+      const setupBackButton = document.getElementById("setupBack");
+      const setupNextButton = document.getElementById("setupNext");
+      const setupFinishButton = document.getElementById("setupFinish");
+      let setupStepIndex = 0;
+      let setupAnimating = false;
+
+      function showSetupStep(index, direction = "") {
+        const previousIndex = setupStepIndex;
+        const nextIndex = Math.min(setupSteps.length - 1, Math.max(0, index));
+        const outgoingStep = setupSteps[previousIndex];
+        const incomingStep = setupSteps[nextIndex];
+        const animate = direction && previousIndex !== nextIndex
+          && !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+        if (animate) {
+          const formBounds = firstRunForm.getBoundingClientRect();
+          const outgoingBounds = outgoingStep.getBoundingClientRect();
+          outgoingStep.style.setProperty("--setup-leave-top", `${outgoingBounds.top - formBounds.top}px`);
+          setupSteps.forEach((step, stepIndex) => {
+            step.hidden = stepIndex !== previousIndex && stepIndex !== nextIndex;
+          });
+          outgoingStep.setAttribute("aria-hidden", "true");
+          outgoingStep.inert = true;
+          incomingStep.hidden = false;
+          incomingStep.removeAttribute("aria-hidden");
+          incomingStep.inert = false;
+
+          const enteringClass = direction === "back" ? "is-entering-back" : "is-entering-forward";
+          const leavingClass = direction === "back" ? "is-leaving-back" : "is-leaving-forward";
+          [incomingStep, outgoingStep].forEach((step) => {
+            step.classList.remove("is-entering-forward", "is-entering-back", "is-leaving-forward", "is-leaving-back");
+          });
+          void incomingStep.offsetWidth;
+          incomingStep.classList.add(enteringClass);
+          outgoingStep.classList.add(leavingClass);
+          setupAnimating = true;
+          setupBackButton.disabled = true;
+          setupNextButton.disabled = true;
+          setupFinishButton.disabled = true;
+
+          let animationTimer;
+          const clearSlide = (event) => {
+            const leaveAnimation = direction === "back" ? "setup-page-leave-back" : "setup-page-leave-forward";
+            if (event && (event.target !== outgoingStep || event.animationName !== leaveAnimation)) return;
+            clearTimeout(animationTimer);
+            outgoingStep.hidden = true;
+            outgoingStep.inert = false;
+            outgoingStep.removeAttribute("aria-hidden");
+            outgoingStep.style.removeProperty("--setup-leave-top");
+            outgoingStep.classList.remove(leavingClass);
+            incomingStep.classList.remove(enteringClass);
+            outgoingStep.removeEventListener("animationend", clearSlide);
+            setupAnimating = false;
+            setupBackButton.disabled = false;
+            setupNextButton.disabled = false;
+            setupFinishButton.disabled = false;
+          };
+          outgoingStep.addEventListener("animationend", clearSlide);
+          animationTimer = window.setTimeout(() => clearSlide(), 640);
+        } else {
+          setupSteps.forEach((step, stepIndex) => {
+            step.hidden = stepIndex !== nextIndex;
+            step.inert = step.hidden;
+            if (!step.hidden) step.removeAttribute("aria-hidden");
+          });
+        }
+
+        setupStepIndex = nextIndex;
+        setupProgress.textContent = `Step ${setupStepIndex + 1} of ${setupSteps.length}`;
+        setupBackButton.hidden = setupStepIndex === 0;
+        setupNextButton.hidden = setupStepIndex === setupSteps.length - 1;
+        setupFinishButton.hidden = setupStepIndex !== setupSteps.length - 1;
+        firstRunDialog.scrollTop = 0;
+      }
+
+      setupBackButton.addEventListener("click", () => {
+        if (!setupAnimating) showSetupStep(setupStepIndex - 1, "back");
+      });
+      setupNextButton.addEventListener("click", () => {
+        if (!setupAnimating) showSetupStep(setupStepIndex + 1, "forward");
+      });
+      showSetupStep(0);
+
+      firstRunForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        if (setupStepIndex < setupSteps.length - 1) {
+          if (!setupAnimating) showSetupStep(setupStepIndex + 1, "forward");
+          return;
+        }
+        const formData = new FormData(event.currentTarget);
+        const selectedMode = formData.get("setupMode");
+        const selectedColorVision = formData.get("setupColorVision");
+        const selectedAlert = formData.get("setupAlert");
+
+        setMode(selectedMode);
+        setColorVision(selectedColorVision);
+        document.getElementById("alert").value = selectedAlert;
+        document.getElementById("voice").checked = selectedAlert === "voice";
+        localStorage.setItem("clearpath-alert", selectedAlert);
+        localStorage.setItem("clarity-initial-setup-complete", "true");
+        firstRunDialog.close();
+        showToast("Setup saved. You can change these choices in Settings.");
+      });
+      firstRunDialog.addEventListener("cancel", (event) => event.preventDefault());
+      if (localStorage.getItem("clarity-initial-setup-complete") !== "true") {
+        firstRunDialog.showModal();
+      }
+
       const alertRepeatCountSelect = document.getElementById("alertRepeatCount");
       const savedRepeatCount = Number(localStorage.getItem("clearpath-alert-repeat-count")) || 1;
       alertRepeatCountSelect.value = String(Math.min(5, Math.max(1, savedRepeatCount)));
       alertRepeatCountSelect.addEventListener("change", () => {
         const count = Number(alertRepeatCountSelect.value);
         localStorage.setItem("clearpath-alert-repeat-count", String(count));
-        window.clearPathCamera?.setRepeatCount(count);
+        window.myEyesCamera?.setRepeatCount(count);
       });
+
+      function loadRangePreference(inputId, outputId, storageKey, fallback) {
+        const input = document.getElementById(inputId);
+        const output = document.getElementById(outputId);
+        const saved = Number(localStorage.getItem(storageKey));
+        input.value = String(Number.isFinite(saved) && localStorage.getItem(storageKey) !== null
+          ? Math.min(100, Math.max(0, saved))
+          : fallback);
+        const update = () => {
+          output.value = `${input.value}%`;
+          localStorage.setItem(storageKey, input.value);
+        };
+        input.addEventListener("input", update);
+        update();
+        return input;
+      }
+
+      const alertVolumeControl = loadRangePreference("alertVolume", "alertVolumeValue", "clearpath-alert-volume", 70);
+      const vibrationStrengthControl = loadRangePreference("vibrationStrength", "vibrationStrengthValue", "clearpath-vibration-strength", 65);
+
+      function getVibrationPattern() {
+        const strength = Number(vibrationStrengthControl.value);
+        const pulse = Math.round(50 + strength * 1.8);
+        const pause = Math.round(130 - strength * 0.5);
+        return [pulse, Math.max(40, pause), pulse];
+      }
 
       document.getElementById("save").addEventListener("click", () => {
         localStorage.setItem(
@@ -611,7 +873,7 @@
           document.getElementById("alert").value
         );
         localStorage.setItem("clearpath-alert-repeat-count", alertRepeatCountSelect.value);
-        window.clearPathCamera?.setRepeatCount(Number(alertRepeatCountSelect.value));
+        window.myEyesCamera?.setRepeatCount(Number(alertRepeatCountSelect.value));
         showToast("Preferences saved");
       });
 
@@ -704,7 +966,7 @@
           oscillator.type = type;
           oscillator.frequency.value = frequency;
           gain.gain.setValueAtTime(0.001, begins);
-          gain.gain.linearRampToValueAtTime(0.12, begins + 0.015);
+          gain.gain.linearRampToValueAtTime(0.12 * (Number(alertVolumeControl.value) / 100), begins + 0.015);
           gain.gain.exponentialRampToValueAtTime(0.001, begins + duration);
           oscillator.connect(gain);
           gain.connect(audioContext.destination);
@@ -726,6 +988,7 @@
             }
 
             const audio = new Audio(URL.createObjectURL(file));
+            audio.volume = Number(alertVolumeControl.value) / 100;
             audio.addEventListener("ended", () => URL.revokeObjectURL(audio.src), { once: true });
             audio.addEventListener("error", () => URL.revokeObjectURL(audio.src), { once: true });
             await audio.play();
@@ -748,6 +1011,7 @@
       alertSoundSelect.addEventListener("change", () => {
         localStorage.setItem("clearpath-alert-sound", alertSoundSelect.value);
         updateCustomSoundVisibility();
+        void testAlertSound();
       });
 
       customSoundInput.addEventListener("change", async () => {
@@ -791,28 +1055,11 @@
       };
 
       function updateCameraPermissionUi(state) {
-        const granted = state === "granted";
-        document.querySelectorAll("#camera-permission-light, #ready-permission-light").forEach(light => {
-          light.classList.toggle("needs-permission", !granted);
-          light.classList.toggle("permission-granted", granted);
-        });
-        const readyLabel = document.getElementById("ready-to-walk-label");
-        const readyStatus = document.getElementById("ready-to-walk");
-        const cameraLabel = document.getElementById("camera-permission-label");
         const settingsStatus = document.getElementById("cameraPermissionSetting");
-        if (readyLabel) readyLabel.textContent = granted ? "Ready to walk" : "Not ready to walk";
-        if (readyStatus) readyStatus.setAttribute("aria-label", granted
-          ? "Ready to walk. Camera permission granted."
-          : "Not ready to walk. Camera permission is not granted.");
-        if (cameraLabel) cameraLabel.textContent = granted
-          ? "Camera permission allowed"
-          : state === "denied"
-            ? "Camera permission denied — allow it in browser settings, then tap Start"
-            : "Camera permission needed — tap Start to allow";
         if (settingsStatus) settingsStatus.textContent = permissionText(state);
       }
 
-      window.addEventListener("clearpath:permissionchange", event => {
+      window.addEventListener("myeyes:permissionchange", event => {
         if (event.detail?.kind === "camera") updateCameraPermissionUi(event.detail.state);
       });
 
@@ -826,7 +1073,7 @@
         const target = permissionLabels[kind];
         if (target) target.textContent = message || permissionText(state);
         if (kind === "camera") {
-          window.dispatchEvent(new CustomEvent("clearpath:permissionchange", {
+          window.dispatchEvent(new CustomEvent("myeyes:permissionchange", {
             detail: { kind, state },
           }));
         }
@@ -872,7 +1119,7 @@
       }
 
       document.getElementById("camera-start").addEventListener("click", async () => {
-        if (window.clearPathCamera) return;
+        if (window.myEyesCamera) return;
         const video = document.getElementById("camera-video");
         const status = document.getElementById("camera-status");
         const startButton = document.getElementById("camera-start");
@@ -888,33 +1135,36 @@
             audio: false,
             video: { facingMode: { ideal: "environment" } },
           });
-          window.dispatchEvent(new CustomEvent("clearpath:permissionchange", {
+          window.dispatchEvent(new CustomEvent("myeyes:permissionchange", {
             detail: { kind: "camera", state: "granted" },
           }));
           video.srcObject = previewFallbackStream;
           video.muted = true;
           await video.play();
+          setDetectionStatusLight(true);
           status.textContent = "Camera preview is on. Reload the page to restore obstacle detection controls.";
           stopButton.disabled = false;
         } catch (error) {
           startButton.disabled = false;
           previewFallbackStream?.getTracks().forEach(track => track.stop());
           previewFallbackStream = null;
+          setDetectionStatusLight(false);
           video.srcObject = null;
           status.textContent = error.name === "NotAllowedError"
             ? "Camera permission denied. Allow camera access in browser settings, then reload this page."
             : "Camera could not start. Check camera permission and close any other app using the camera.";
           if (error.name === "NotAllowedError") {
-            window.dispatchEvent(new CustomEvent("clearpath:permissionchange", {
+            window.dispatchEvent(new CustomEvent("myeyes:permissionchange", {
               detail: { kind: "camera", state: "denied" },
             }));
           }
         }
       });
       document.getElementById("camera-stop").addEventListener("click", () => {
-        if (window.clearPathCamera || !previewFallbackStream) return;
+        if (window.myEyesCamera || !previewFallbackStream) return;
         previewFallbackStream.getTracks().forEach(track => track.stop());
         previewFallbackStream = null;
+        setDetectionStatusLight(false);
         document.getElementById("camera-video").srcObject = null;
         document.getElementById("camera-status").textContent = "Camera off. Tap Start to restart.";
         document.getElementById("camera-start").disabled = false;
@@ -950,9 +1200,9 @@
           if (result === "granted" && sendTest) {
             const registration = await navigator.serviceWorker?.getRegistration();
             if (registration?.showNotification) {
-              await registration.showNotification("ClearPath test", { body: "Notifications are ready.", icon: "/icons/icon-192.png" });
+              await registration.showNotification("Clarity test", { body: "Notifications are ready.", icon: "/icons/icon-192.png" });
             } else {
-              new Notification("ClearPath test", { body: "Notifications are ready." });
+              new Notification("Clarity test", { body: "Notifications are ready." });
             }
           }
           showToast(result === "granted" ? sendTest ? "Test notification sent" : "Notifications allowed" : "Notification permission was not allowed");
@@ -965,7 +1215,7 @@
       document.getElementById("testNotifications").addEventListener("click", () => requestNotifications(true));
       document.getElementById("testVibration").addEventListener("click", () => {
         const supported = typeof navigator.vibrate === "function";
-        const worked = supported && navigator.vibrate([120, 80, 160]);
+        const worked = supported && navigator.vibrate(getVibrationPattern());
         document.getElementById("vibrationPermissionSetting").textContent = supported
           ? worked ? "Vibration test sent" : "Vibration is blocked by this device or browser"
           : "Vibration is not supported by this device";
@@ -978,6 +1228,7 @@
         ? "Supported — no separate browser permission"
         : "Not supported by this device or browser";
     </script>
+    <script src="gradient.js"></script>
     <script type="module" src="standalone.js"></script>
   </body>
 </html>

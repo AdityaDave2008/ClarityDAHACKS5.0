@@ -1,6 +1,6 @@
 # Related projects and tutorials
 
-Research checked October 16, 2026 for the StepSense hackathon prototype. These references help with detection, camera integration, feedback, or testing. They do not establish that a general iPhone obstacle scanner may keep capturing behind Instagram. The linked projects were inspected through their primary documentation, not built or validated on our phone.
+Research checked October 16, 2026 for the Clarity hackathon prototype. These references help with detection, camera integration, feedback, or testing. They do not establish that a general iPhone obstacle scanner may keep capturing behind Instagram. The linked projects were inspected through their primary documentation, not built or validated on our phone.
 
 ## Best code references
 
