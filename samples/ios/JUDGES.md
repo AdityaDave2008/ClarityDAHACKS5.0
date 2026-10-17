@@ -1,5 +1,7 @@
 # Native iPhone guide for judges
 
+**Latest startup update (#37):** see the [model-loading acceptance record](../../docs/MODEL_LOADING_ACCEPTANCE.md) for current code, browser deployment and explicit physical-device limits. Earlier revision/build observations below are historical.
+
 ## What you can access now
 
 | Option | Access and limits |

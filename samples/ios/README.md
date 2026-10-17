@@ -13,9 +13,9 @@
 ## Build and run
 
 1. Open `samples/ios/MyEyes.xcodeproj` in Xcode and select the **Clarity** scheme. Minimum deployment target is iOS 16. A leftover `StepSense.xcodeproj/project.xcworkspace/xcuserdata` directory is not a buildable project and must not be submitted as source.
-2. For a compilation check without signing or touching a phone, run the unsigned build below. For a physical demonstration, prefer the team's already-installed app. Installing a new build requires compatible hardware, appropriate signing and explicit device-owner consent. Do not overwrite an existing app or change its preferences merely to try this sample.
-3. Tap **Start scanning** and allow camera access if requested. Denied permission must be changed by the device owner in Settings. Do not reset permissions or uninstall the app as a test step.
-4. Tap **Start scanning** to see the model-loading screen. The bundled runtime and model must report ready before camera initialization or permission. Loading failure keeps the camera off and offers **Retry** or **Cancel**. A ready idle model is reused safely on the next scan, with alert state reset.
+2. For a compilation check without signing or touching a phone, run the unsigned build below. For a physical demonstration of these fixes, use a signed build of this revision: an already-installed copy may predate the repairs. Installing requires compatible hardware, appropriate signing and explicit device-owner consent. See [wireless setup](WIRELESS_TESTING.md). Do not overwrite an existing app or change its preferences merely to try this sample.
+3. Tap **Start scanning** to see the model-loading screen. The bundled runtime and model must report ready before camera initialization or permission. Loading failure keeps the camera off and offers **Retry** or **Cancel**. A ready idle model is reused safely on the next scan, with alert state reset.
+4. Once the model is ready, allow camera access if requested. Denied permission must be changed by the device owner in Settings. Do not reset permissions or uninstall the app as a test step.
 5. Configure confidence, cooldown and sound/haptics/speech in Scan settings. No backend address is required. The app is portrait-only and uses the rear camera.
 
 From the repository root on a Mac with Xcode and the iPhoneOS SDK:
@@ -36,7 +36,7 @@ The camera captures a fresh JPEG only after the previous local inference complet
 
 `OfflineDetector.swift` serves packaged files over the private `stepsense://offline/` scheme. It rejects other navigation and uses a restrictive page Content Security Policy. JPEGs are passed to JavaScript in memory and never uploaded. There is no local HTTP listener. `APIClient.swift` retains the shared response/preferences types and legacy unused backend client, but `ScanModel` no longer constructs or calls that client.
 
-The exact existing JS alert policy is packaged as `policy.js`, with parity enforced by tests. Two nearby, same-label detections within 2.5 seconds confirm an alert. Cooldown suppresses repeated delivery. Preferences apply locally and invalidate in-flight UI results. Stop cancels pending work, releases the camera/WebKit, and invalidates late callbacks with both operation tokens and scan generations.
+The exact existing JS alert policy is packaged as `policy.js`, with parity enforced by tests. Two nearby, same-label detections within 2.5 seconds confirm an alert. Cooldown suppresses repeated delivery. Preferences apply locally and invalidate in-flight UI results. Stop cancels pending work, releases the camera and invalidates late callbacks with both operation tokens and scan generations. An idle ready WebKit model may be retained for a warm restart; pending or failed runtimes are destroyed.
 
 Initialization times out after 60 seconds and inference after 15 seconds. Results more than 2.5 seconds old never draw boxes or deliver alerts. Both main-view and PiP overlays expire if inference stalls. Model failure is never reported as a clear path.
 

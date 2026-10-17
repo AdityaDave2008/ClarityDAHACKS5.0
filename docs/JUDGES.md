@@ -1,5 +1,7 @@
 # Judge guide: StepSense / Clarity
 
+**Latest startup update (#37):** see the [model-loading acceptance record](MODEL_LOADING_ACCEPTANCE.md) for current code, browser deployment and explicit physical-device limits. Earlier revision/build observations below are historical.
+
 A camera-based object-alert prototype exploring how everyday phones can provide visual, spoken, sound, and supported haptic cues. This is **not a navigation aid certified for safety**. Demonstrate it stationary, not while walking into obstacles or traffic.
 
 ## Fastest way to inspect it
