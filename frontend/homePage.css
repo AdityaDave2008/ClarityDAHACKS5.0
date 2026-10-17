@@ -1513,3 +1513,29 @@ body.blindness-mode {
     min-height: 180px;
   }
 }
+
+/* Blindness mode keeps the main action and real updates, while hiding extra copy. */
+.app.blindness-mode #home > .eyebrow,
+.app.blindness-mode #home > .intro,
+.app.blindness-mode #home .forum-heading > div > .eyebrow,
+.app.blindness-mode #home .forum-live,
+.app.blindness-mode #home .forum-intro,
+.app.blindness-mode #home .post-meta {
+  display: none;
+}
+
+.app.blindness-mode #home .forum-section {
+  gap: 14px;
+}
+
+.app.blindness-mode #home .forum-post p {
+  margin: 0;
+}
+
+.app.blindness-mode #camera .readings > section:first-child {
+  display: none;
+}
+
+.app.blindness-mode #camera #permission-help {
+  max-width: 30ch;
+}
