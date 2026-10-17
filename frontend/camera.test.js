@@ -416,3 +416,37 @@ test('default timers preserve native browser receiver requirements', () => {
     assert.doesNotThrow(() => feature.stopDetection());
   } finally { Object.assign(globalThis, originals); }
 });
+
+test('a frozen preview is recovered, then stopped with restart instructions after repeated failures', async () => {
+  const f = fixture();
+  let plays = 0;
+  f.video.currentTime = 0;
+  f.video.play = async () => { plays++; };
+  await f.feature.start();
+  // A preview that keeps advancing is never treated as stalled.
+  for (let i = 0; i < 6; i++) { f.video.currentTime += 0.2; f.advance(1000); }
+  assert.equal(f.feature.state.phase, 'active');
+  assert.equal(plays, 1, 'Only the initial play call happened while frames advanced');
+  f.advance(5000);
+  assert.match(f.feature.state.camera, /stalled.*attempt 1 of 2/i);
+  assert.equal(plays, 2);
+  f.advance(5000);
+  assert.match(f.feature.state.camera, /attempt 2 of 2/i);
+  f.advance(5000);
+  assert.equal(f.feature.state.phase, 'off');
+  assert.match(f.feature.state.camera, /froze and could not recover/i);
+  assert.ok(f.tracks.every(track => track.stopped));
+});
+
+test('measured performance is reported from detector metrics and cleared on stop', async () => {
+  const f = fixture();
+  let context;
+  f.feature.registerDetector({ async start(value) { context = value; } });
+  await f.feature.start();
+  context.onMetrics({ lastMs: 410, averageMs: 380, captureMaxSide: 512 });
+  assert.match(f.feature.state.performance, /410 ms.*380 ms.*512 px/);
+  context.onMetrics({ lastMs: NaN, averageMs: 1, captureMaxSide: 1 });
+  assert.match(f.feature.state.performance, /410 ms/, 'Invalid measurements never overwrite a real one');
+  f.feature.stop();
+  assert.equal(f.feature.state.performance, 'No measurements yet.');
+});
