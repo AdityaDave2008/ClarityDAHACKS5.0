@@ -1,0 +1,355 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		D20000000000000000000001 /* ClarityUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000002; };
+		B10000000000000000000001 /* MyEyesApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000001 /* MyEyesApp.swift */; };
+		B10000000000000000000002 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000002 /* APIClient.swift */; };
+		B10000000000000000000003 /* CameraCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000003 /* CameraCapture.swift */; };
+		B10000000000000000000004 /* AlertPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000004 /* AlertPlayer.swift */; };
+		B10000000000000000000005 /* ScanModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000005 /* ScanModel.swift */; };
+		B10000000000000000000006 /* ScannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000006 /* ScannerView.swift */; };
+		B10000000000000000000009 /* PictureInPicture.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000009 /* PictureInPicture.swift */; };
+        B10000000000000000000010 /* OfflineDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000010; };
+        B10000000000000000000011 /* OfflineDetector in Resources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000011; };
+		B10000000000000000000012 = {isa = PBXBuildFile; fileRef = F10000000000000000000012; };
+		B10000000000000000000013 = {isa = PBXBuildFile; fileRef = F10000000000000000000013; };
+		B10000000000000000000014 = {isa = PBXBuildFile; fileRef = F10000000000000000000014; };
+        B10000000000000000000015 = {isa = PBXBuildFile; fileRef = F10000000000000000000015; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		D20000000000000000000002 /* ClarityUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClarityUITests.swift; sourceTree = "<group>"; };
+		D20000000000000000000003 /* ClarityUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ClarityUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		F10000000000000000000001 /* MyEyesApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MyEyesApp.swift; sourceTree = "<group>"; };
+		F10000000000000000000002 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
+		F10000000000000000000003 /* CameraCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraCapture.swift; sourceTree = "<group>"; };
+		F10000000000000000000004 /* AlertPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlertPlayer.swift; sourceTree = "<group>"; };
+		F10000000000000000000005 /* ScanModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanModel.swift; sourceTree = "<group>"; };
+		F10000000000000000000006 /* ScannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScannerView.swift; sourceTree = "<group>"; };
+		F10000000000000000000007 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		F10000000000000000000008 /* Clarity.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Clarity.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F10000000000000000000009 /* PictureInPicture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PictureInPicture.swift; sourceTree = "<group>"; };
+        F10000000000000000000010 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineDetector.swift; sourceTree = "<group>"; };
+        F10000000000000000000011 = {isa = PBXFileReference; lastKnownFileType = folder; path = OfflineDetector; sourceTree = "<group>"; };
+		F10000000000000000000012 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiPDiagnostics.swift; sourceTree = "<group>"; };
+		F10000000000000000000013 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DepthEstimate.swift; sourceTree = "<group>"; };
+		F10000000000000000000014 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiDARCapture.swift; sourceTree = "<group>"; };
+        F10000000000000000000015 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		D20000000000000000000007 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		A10000000000000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		D20000000000000000000004 /* ClarityUITests */ = {isa = PBXGroup; children = (D20000000000000000000002,); path = ClarityUITests; sourceTree = "<group>"; };
+		A10000000000000000000002 = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000003 /* Clarity */,
+				D20000000000000000000004 /* ClarityUITests */,
+				A10000000000000000000004 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A10000000000000000000003 /* Clarity */ = {
+			isa = PBXGroup;
+			children = (
+				F10000000000000000000001 /* MyEyesApp.swift */,
+				F10000000000000000000002 /* APIClient.swift */,
+				F10000000000000000000003 /* CameraCapture.swift */,
+				F10000000000000000000004 /* AlertPlayer.swift */,
+				F10000000000000000000005 /* ScanModel.swift */,
+				F10000000000000000000006 /* ScannerView.swift */,
+				F10000000000000000000009 /* PictureInPicture.swift */,
+                F10000000000000000000015,
+                F10000000000000000000012,
+                F10000000000000000000014,
+                F10000000000000000000013,
+				F10000000000000000000007 /* Info.plist */,
+                F10000000000000000000010,
+                F10000000000000000000011,
+			);
+			path = MyEyes;
+			sourceTree = "<group>";
+		};
+		A10000000000000000000004 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				F10000000000000000000008 /* Clarity.app */,
+				D20000000000000000000003 /* ClarityUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		D20000000000000000000005 /* ClarityUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D20000000000000000000009;
+			buildPhases = (D20000000000000000000006, D20000000000000000000007, D20000000000000000000008,);
+			buildRules = ();
+			dependencies = (D20000000000000000000013,);
+			name = ClarityUITests;
+			productName = ClarityUITests;
+			productReference = D20000000000000000000003;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+		A10000000000000000000005 /* Clarity */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A10000000000000000000010 /* Build configuration list for PBXNativeTarget "Clarity" */;
+			buildPhases = (
+				A10000000000000000000006 /* Sources */,
+				A10000000000000000000001 /* Frameworks */,
+				A10000000000000000000007 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Clarity;
+			productName = Clarity;
+			productReference = F10000000000000000000008 /* Clarity.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A10000000000000000000008 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					D20000000000000000000005 = {
+						CreatedOnToolsVersion = 16.0;
+						TestTargetID = A10000000000000000000005;
+					};
+					A10000000000000000000005 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+				};
+			};
+			buildConfigurationList = A10000000000000000000009 /* Build configuration list for PBXProject "Clarity" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = A10000000000000000000002;
+			productRefGroup = A10000000000000000000004 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				D20000000000000000000005 /* ClarityUITests */,
+				A10000000000000000000005 /* Clarity */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		D20000000000000000000008 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		A10000000000000000000007 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+                B10000000000000000000011,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		D20000000000000000000006 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (D20000000000000000000001,); runOnlyForDeploymentPostprocessing = 0; };
+		A10000000000000000000006 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B10000000000000000000001 /* MyEyesApp.swift in Sources */,
+				B10000000000000000000002 /* APIClient.swift in Sources */,
+				B10000000000000000000003 /* CameraCapture.swift in Sources */,
+				B10000000000000000000004 /* AlertPlayer.swift in Sources */,
+				B10000000000000000000005 /* ScanModel.swift in Sources */,
+				B10000000000000000000006 /* ScannerView.swift in Sources */,
+				B10000000000000000000009 /* PictureInPicture.swift in Sources */,
+                B10000000000000000000015,
+                B10000000000000000000012,
+                B10000000000000000000014,
+                B10000000000000000000013,
+                B10000000000000000000010,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		D20000000000000000000010 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGNING_REQUIRED = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@loader_path/Frameworks",);
+				PRODUCT_BUNDLE_IDENTIFIER = com.dahacks.clarity.v2testing.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_TARGET_NAME = Clarity;
+			};
+			name = Debug;
+		};
+		D20000000000000000000011 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGNING_REQUIRED = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@loader_path/Frameworks",);
+				PRODUCT_BUNDLE_IDENTIFIER = com.dahacks.clarity.v2testing.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_TARGET_NAME = Clarity;
+			};
+			name = Release;
+		};
+		C10000000000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		C10000000000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		C10000000000000000000003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = MyEyes/Clarity.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = MB3Z8QW8ML;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = MyEyes/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dahacks.clarity.v2testing;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_STRICT_CONCURRENCY = minimal;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		C10000000000000000000004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = MyEyes/Clarity.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = MB3Z8QW8ML;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = MyEyes/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dahacks.clarity.v2testing;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_STRICT_CONCURRENCY = minimal;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin PBXContainerItemProxy section */
+		D20000000000000000000012 = {isa = PBXContainerItemProxy; containerPortal = A10000000000000000000008; proxyType = 1; remoteGlobalIDString = A10000000000000000000005; remoteInfo = Clarity; };
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXTargetDependency section */
+		D20000000000000000000013 = {isa = PBXTargetDependency; target = A10000000000000000000005; targetProxy = D20000000000000000000012; };
+/* End PBXTargetDependency section */
+
+/* Begin XCConfigurationList section */
+		D20000000000000000000009 = {isa = XCConfigurationList; buildConfigurations = (D20000000000000000000010, D20000000000000000000011,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		A10000000000000000000009 /* Build configuration list for PBXProject "Clarity" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C10000000000000000000001 /* Debug */,
+				C10000000000000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A10000000000000000000010 /* Build configuration list for PBXNativeTarget "Clarity" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C10000000000000000000003 /* Debug */,
+				C10000000000000000000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = A10000000000000000000008 /* Project object */;
+}

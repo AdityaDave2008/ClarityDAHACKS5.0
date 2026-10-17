@@ -1,0 +1,51 @@
+{
+  "model": "YOLOX-Nano fine-tuned candidate",
+  "onnxRuntimeVersion": "1.20.1",
+  "confidenceThreshold": 0.7874982953071594,
+  "files": {
+    "candidate.onnx": {
+      "bytes": 3815640,
+      "sha256": "516617114420ce3c2bac545869ee91bac8ff7a63e148a73afdb12f126433fab4"
+    },
+    "ort.wasm.min.js": {
+      "bytes": 49026,
+      "sha256": "e66568724f8848e57cc2a56e4bea3a5b86ce3ff81b2da11eac8ed7ab02b27bd4"
+    },
+    "ort-wasm-simd-threaded.mjs": {
+      "bytes": 24618,
+      "sha256": "745eb7c0ce6f18a6aa521971b2877babc7ffb27eecb58ab3bc6e5ef4692672e8"
+    },
+    "ort-wasm-simd-threaded.wasm": {
+      "bytes": 11246032,
+      "sha256": "207d02be4591c156b0a98f024f3d58005b5b04c92274d759fb390338c63559ea"
+    },
+    "model-contract.json": {
+      "bytes": 8013,
+      "sha256": "f3e8999876857070886110f5bfc1cea1a399b64600967dd178bc77798249523e"
+    },
+    "yolox.js": {
+      "bytes": 3522,
+      "sha256": "e1c7825e0ce783fe273ffddfae5ea502617fa8682a755a53910dac8b4700fb8c"
+    },
+    "policy.js": {
+      "bytes": 3640,
+      "sha256": "a62bd2032c7f3d1ce1a294ae735536543ce6cc96ed11e89840d538c70c5b15f3"
+    },
+    "detector.js": {
+      "bytes": 3217,
+      "sha256": "eac68744a2779e1013f8de37af97603e78aa41c49d5c718b6f42f8c63d196915"
+    },
+    "index.html": {
+      "bytes": 525,
+      "sha256": "20008fd8facb74f09773f073decefdd3f4a6844aa3d2de0c2f8dcb2f214c9fcd"
+    },
+    "bootstrap.js": {
+      "bytes": 601,
+      "sha256": "988cdbcf32fecb6815f86b6004384a7425bb6ae8a6d059dea241f165a2fe4a7e"
+    },
+    "ONNX-RUNTIME-LICENSE.txt": {
+      "bytes": 1073,
+      "sha256": "2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c"
+    }
+  }
+}
