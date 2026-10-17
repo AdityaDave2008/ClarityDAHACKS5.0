@@ -9,6 +9,7 @@ struct CapturedFrame: @unchecked Sendable {
     let size: CGSize
     let capturedAt: TimeInterval
     let depth: DepthSnapshot?
+    let depthDiagnostic: String
 }
 
 struct CameraDiagnostics: Sendable {
@@ -53,6 +54,26 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
     private var interrupted = false
     // Accessed only on frameQueue.
     private var diagnosticFrames = 0
+    private var depthCounters: [String: Int] = [:]
+    private var lastDepthLog: TimeInterval = 0
+    private var lastCenterLog: TimeInterval = 0
+    private var syncReason = "waiting for synchronized depth"
+    private var previousRGBTime: CMTime?
+    // Strong Swift reference retains exactly one SDK sample until the next callback.
+    private var previousRGBSampleBuffer: CMSampleBuffer?
+    private func clearDepthPairing() {
+        previousRGBTime = nil
+        previousRGBSampleBuffer = nil
+    }
+    private var lastSyncMetadataLog: TimeInterval = 0
+    private func depthEvent(_ reason: String) {
+        depthCounters[reason, default: 0] += 1
+        let now = ProcessInfo.processInfo.systemUptime
+        if now - lastDepthLog >= 3 {
+            lastDepthLog = now
+            PiPDiagnostics.log("lidar.counters", depthCounters.keys.sorted().map { "\($0)=\(depthCounters[$0]!)" }.joined(separator: " | "))
+        }
+    }
     /// Reports recoverable pauses and resumptions separately from fatal failures.
     private var interruptionHandler: (@Sendable (Bool, String) -> Void)?
 
@@ -104,6 +125,7 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
         let handler = interruptionHandler
         lock.unlock()
         guard shouldReport else { return }
+        frameQueue.async { [self] in clearDepthPairing() }
         handler?(true, message)
     }
 
@@ -128,6 +150,7 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
 
     /// Runtime errors stop capture outright, so retry a few times before giving up.
     private func restartAfterRuntimeError() {
+        frameQueue.async { [self] in clearDepthPairing() }
         lock.lock()
         let stillActive = active
         lock.unlock()
@@ -215,6 +238,7 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
         clearHandlers()
         sessionQueue.async { [self] in
             if session.isRunning { session.stopRunning() }
+            frameQueue.sync { clearDepthPairing() }
             onStopped()
         }
     }
@@ -240,6 +264,11 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
             synchronizer = nil
             synchronizedVideo = nil
             synchronizedDepth = nil
+            depthCounters = [:]
+            lastDepthLog = 0
+            syncReason = "waiting for synchronized depth"
+            clearDepthPairing()
+            lastSyncMetadataLog = 0
         }
         session.beginConfiguration()
         defer { session.commitConfiguration() }
@@ -262,6 +291,9 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
                 configured = true
                 return
             } catch {
+                let reason = (error as? LiDARCapture.ConfigurationFailure)?.stage ?? "configuration error \((error as NSError).code)"
+                depthStatus = "RGB fallback · " + reason
+                PiPDiagnostics.log("lidar.fallback", "reason=\(reason)")
                 // A missing LiDAR camera/format/connection never removes ordinary detection.
                 for output in session.outputs { session.removeOutput(output) }
                 for input in session.inputs { session.removeInput(input) }
@@ -305,21 +337,55 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
 
     func dataOutputSynchronizer(_ synchronizer: AVCaptureDataOutputSynchronizer,
                                 didOutput collection: AVCaptureSynchronizedDataCollection) {
+        guard lock.withLock({ active && !interrupted }) else { clearDepthPairing(); return }
         guard synchronizer === self.synchronizer, let video = synchronizedVideo,
               let rgb = collection.synchronizedData(for: video) as? AVCaptureSynchronizedSampleBufferData,
-              !rgb.sampleBufferWasDropped else { return }
+              !rgb.sampleBufferWasDropped else { clearDepthPairing(); depthEvent("RGB missing/dropped"); return }
+        defer {
+            previousRGBTime = rgb.timestamp
+            previousRGBSampleBuffer = rgb.sampleBuffer
+        }
         var depthData: AVDepthData?
+        var analysisSampleBuffer: CMSampleBuffer?
+        var analysisTime = rgb.timestamp
+        syncReason = "depth missing/dropped"
         if let output = synchronizedDepth,
            let depth = collection.synchronizedData(for: output) as? AVCaptureSynchronizedDepthData,
            !depth.depthDataWasDropped {
             let difference = CMTimeGetSeconds(CMTimeSubtract(depth.timestamp, rgb.timestamp))
-            if difference.isFinite, abs(difference) <= 0.001 { depthData = depth.depthData }
+            let match = DepthFrameMatch.select(depthTime: CMTimeGetSeconds(depth.timestamp),
+                                               currentRGBTime: CMTimeGetSeconds(rgb.timestamp),
+                                               previousRGBTime: previousRGBTime.map(CMTimeGetSeconds))
+            switch match {
+            case .current:
+                depthData = depth.depthData
+                analysisTime = CMTimeMinimum(rgb.timestamp, depth.timestamp)
+                syncReason = "matched current RGB"
+            case .previous where previousRGBSampleBuffer != nil:
+                depthData = depth.depthData
+                analysisSampleBuffer = previousRGBSampleBuffer
+                analysisTime = CMTimeMinimum(previousRGBTime!, depth.timestamp)
+                syncReason = "matched previous RGB"
+            default:
+                syncReason = "timestamp mismatch"
+            }
+            let metadataNow = ProcessInfo.processInfo.systemUptime
+            if metadataNow - lastSyncMetadataLog >= 3 {
+                lastSyncMetadataLog = metadataNow
+                let pts = CMSampleBufferGetPresentationTimeStamp(rgb.sampleBuffer)
+                let ptsDelta = CMTimeGetSeconds(CMTimeSubtract(depth.timestamp, pts)) * 1000
+                let previousDelta = previousRGBTime.map { CMTimeGetSeconds(CMTimeSubtract(depth.timestamp, $0)) * 1000 } ?? .nan
+                PiPDiagnostics.log("lidar.syncMetadata", "deltaMs=\(difference * 1000) depthToRGBptsMs=\(ptsDelta) depthToPreviousRGBms=\(previousDelta) rgbTime=\(CMTimeGetSeconds(rgb.timestamp)) pts=\(CMTimeGetSeconds(pts)) depthTime=\(CMTimeGetSeconds(depth.timestamp)) accuracy=\(depth.depthData.depthDataAccuracy.rawValue) quality=\(depth.depthData.depthDataQuality.rawValue) filtered=\(depth.depthData.isDepthDataFiltered) calibration=\(depth.depthData.cameraCalibrationData != nil)")
+            }
         }
+        depthEvent(syncReason)
         // Even a dropped/invalid depth frame still feeds ordinary detection and PiP.
-        process(rgb.sampleBuffer, depthData: depthData, synchronizedTime: rgb.timestamp)
+        process(rgb.sampleBuffer, depthData: depthData, synchronizedTime: analysisTime,
+                analysisSampleBuffer: analysisSampleBuffer)
     }
 
-    private func process(_ sampleBuffer: CMSampleBuffer, depthData: AVDepthData?, synchronizedTime: CMTime?) {
+    private func process(_ sampleBuffer: CMSampleBuffer, depthData: AVDepthData?, synchronizedTime: CMTime?,
+                         analysisSampleBuffer: CMSampleBuffer? = nil) {
         lock.lock()
         guard active, !interrupted else { lock.unlock(); return }
         let preview = previewHandler
@@ -348,15 +414,26 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
         }
         let capturedAt = depthCapturedAt ?? now
 
-        guard let buffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
+        // PiP above always receives current RGB immediately. Only inference uses the
+        // retained RGB whose capture timestamp actually matches this depth map.
+        guard let buffer = CMSampleBufferGetImageBuffer(analysisSampleBuffer ?? sampleBuffer) else {
             reportFailure(CameraFailure.encoding.localizedDescription)
             return
         }
         let depth: DepthSnapshot?
+        var reason = depthData == nil ? syncReason : "capture clock missing/stale"
         if let depthData, let depthCapturedAt {
-            depth = LiDARCapture.snapshot(depthData, rgb: buffer, capturedAt: depthCapturedAt)
+            depth = LiDARCapture.snapshot(depthData, rgb: buffer, capturedAt: depthCapturedAt) { reason = $0 }
+            if depth != nil { reason = "snapshot accepted" }
         } else {
             depth = nil
+        }
+        if configuredLiDAR, synchronizedDepth != nil { depthEvent(reason) }
+        let diagnostic = synchronizedDepth == nil ? depthStatus : "LiDAR · " + reason
+        if now - lastCenterLog >= 3, synchronizedDepth != nil {
+            lastCenterLog = now
+            let center = depth?.centerSurface(now: now)
+            PiPDiagnostics.log("lidar.center", "meters=\(center.map { String(format: "%.3f", $0) } ?? "unavailable") ageMs=\(depthCapturedAt.map { Int((now - $0) * 1000) } ?? -1) snapshot=\(reason)")
         }
         let source = CIImage(cvPixelBuffer: buffer)
         let scale = min(1, 640 / max(source.extent.width, source.extent.height))
@@ -367,7 +444,7 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
             reportFailure(CameraFailure.encoding.localizedDescription)
             return
         }
-        handler(CapturedFrame(jpeg: jpeg, size: CGSize(width: cgImage.width, height: cgImage.height), capturedAt: capturedAt, depth: depth))
+        handler(CapturedFrame(jpeg: jpeg, size: CGSize(width: cgImage.width, height: cgImage.height), capturedAt: capturedAt, depth: depth, depthDiagnostic: diagnostic))
     }
 
     private func reportFailure(_ message: String) {

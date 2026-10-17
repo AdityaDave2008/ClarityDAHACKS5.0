@@ -3,17 +3,49 @@ import Foundation
 @main
 struct DepthEstimateTests {
     static func main() throws {
+        // Observed physical iPhone timestamps: depth belongs to previous RGB, not current.
+        precondition(DepthFrameMatch.select(depthTime: 11593.424980083, currentRGBTime: 11593.4583165, previousRGBTime: 11593.424980083) == .previous)
+        precondition(DepthFrameMatch.select(depthTime: 10, currentRGBTime: 10, previousRGBTime: 9.97) == .current)
+        precondition(DepthFrameMatch.select(depthTime: 10, currentRGBTime: 10.033, previousRGBTime: nil) == nil)
+        precondition(DepthFrameMatch.select(depthTime: 10, currentRGBTime: 10.033, previousRGBTime: 9.998) == nil, "do not widen 1ms tolerance")
+        precondition(DepthFrameMatch.select(depthTime: 10, currentRGBTime: 11, previousRGBTime: 10) == nil, "do not retain stale RGB")
+        precondition(DepthFrameMatch.select(depthTime: 11, currentRGBTime: 10, previousRGBTime: 11) == nil, "reject future prior frame")
+        for bad in [Double.nan, .infinity, -.infinity] {
+            precondition(DepthFrameMatch.select(depthTime: bad, currentRGBTime: 10, previousRGBTime: 9.97) == nil)
+            precondition(DepthFrameMatch.select(depthTime: 9.97, currentRGBTime: bad, previousRGBTime: 9.97) == nil)
+        }
         let full = NormalizedBox(x: 0, y: 0, width: 1, height: 1)
         func snapshot(_ values: [Float], width: Int = 20, height: Int = 20) -> DepthSnapshot {
             DepthSnapshot(width: width, height: height, meters: values, capturedAt: 10)
         }
         precondition(ScanPreferences(confidenceThreshold: 0.4).confidenceThreshold == 0.4)
         let good = snapshot(Array(repeating: 2, count: 400))
+        precondition(good.centerSurface(now: 10.1) == 2)
+        precondition(good.centerSurface(now: 10.75) == nil, "center test expires")
+        precondition(good.centerSurface(now: 9) == nil, "center test rejects future capture")
+        precondition(snapshot([2]).centerSurface(now: 10) == nil, "malformed center map")
+        for value: Float in [.nan, .infinity, -.infinity, 0, -1, 0.19, 5.01] {
+            precondition(snapshot(Array(repeating: value, count: 400)).centerSurface(now: 10) == nil)
+        }
+        var centerOnly = Array(repeating: Float.nan, count: 400)
+        centerOnly[10 * 20 + 10] = 1.25
+        precondition(snapshot(centerOnly).centerSurface(now: 10) == 1.25, "raw center does not claim object ROI validity")
+        var rejection = ""
+        precondition(good.estimate(in: full, now: 11, onRejection: { rejection = $0 }) == nil)
+        precondition(rejection == "stale/invalid time")
+        _ = snapshot(Array(repeating: Float.nan, count: 400)).estimate(in: full, now: 10, onRejection: { rejection = $0 })
+        precondition(rejection == "insufficient valid coverage")
+        _ = snapshot((0..<400).map { Float($0 % 20 < 10 ? 1 : 4) }).estimate(in: full, now: 10, onRejection: { rejection = $0 })
+        precondition(rejection == "mixed-depth spread")
         precondition(good.estimate(in: full, now: 10.1) == 2, "valid absolute depth")
         precondition(good.estimate(in: full, now: 10.749) == 2, "fresh before boundary")
         precondition(good.estimate(in: full, now: 10.75) == nil, "expiry boundary")
         for now in [9.99, 11, Double.nan, Double.infinity] {
             precondition(good.estimate(in: full, now: now) == nil, "invalid/stale time")
+        }
+        for (value, reason): (Float, String) in [(.infinity, "nonfinite surface"), (0, "surface below 0.2 m"), (6, "surface beyond 5 m")] {
+            _ = snapshot(Array(repeating: value, count: 400)).estimate(in: full, now: 10, onRejection: { rejection = $0 })
+            precondition(rejection == reason, "show exact range rejection")
         }
         let invalidValues: [Float] = [.nan, .infinity, -.infinity, 0, -1, 0.19, 5.01]
         for value in invalidValues {

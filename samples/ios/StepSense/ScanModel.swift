@@ -29,6 +29,14 @@ final class ScanModel: ObservableObject {
     @Published private(set) var alertCount = 0
     @Published private(set) var checkedFrames = 0
     @Published private(set) var depthStatus = "Not started"
+    @Published private(set) var centerSurfaceMeasurement: (meters: Double, capturedAt: TimeInterval)?
+    var centerSurfaceText: String {
+        guard preferences.isLidarEnabled, cameraRunning, !cameraPaused,
+              let measurement = centerSurfaceMeasurement else { return "unavailable" }
+        let age = ProcessInfo.processInfo.systemUptime - measurement.capturedAt
+        guard age >= 0, age < DepthSnapshot.maximumAge else { return "unavailable · stale" }
+        return String(format: "≈%.2f m axial", measurement.meters)
+    }
 
     private var generation = UUID()
     private var sequence = 0
@@ -231,6 +239,10 @@ final class ScanModel: ObservableObject {
 
     private func analyze(_ frame: CapturedFrame, generation current: UUID) {
         guard phase == .scanning, !cameraPaused, generation == current, frameTask == nil else { return }
+        depthStatus = frame.depthDiagnostic
+        if let snapshot = frame.depth, let value = snapshot.centerSurface(now: ProcessInfo.processInfo.systemUptime) {
+            centerSurfaceMeasurement = (value, snapshot.capturedAt)
+        } else { centerSurfaceMeasurement = nil }
         sequence += 1
         let frameSequence = sequence
         let revision = preferencesRevision
@@ -261,9 +273,20 @@ final class ScanModel: ObservableObject {
                 } else {
                     let matchingFrame = result.frame.sequence == frameSequence
                         && result.frame.width == Int(frame.size.width) && result.frame.height == Int(frame.size.height)
+                    var depthRejections: [String: Int] = [:]
                     detections = result.detections.map { detection in
                         detection.addingDepth(from: frame.depth, enabled: self.preferences.isLidarEnabled,
-                                              matchingFrame: matchingFrame, now: ProcessInfo.processInfo.systemUptime)
+                                              matchingFrame: matchingFrame, now: ProcessInfo.processInfo.systemUptime) { reason in
+                            depthRejections[reason, default: 0] += 1
+                        }
+                    }
+                    if preferences.isLidarEnabled, frame.depth != nil {
+                        let accepted = detections.filter { $0.depthMeters != nil }.count
+                        let reasons = depthRejections.keys.sorted().map { "\($0): \(depthRejections[$0]!)" }.joined(separator: ", ")
+                        depthStatus = "LiDAR · \(accepted) object estimates" + (reasons.isEmpty ? "" : " · " + reasons)
+                        if checkedFrames == 1 || checkedFrames % 30 == 0 {
+                            PiPDiagnostics.log("lidar.roi", "accepted=\(accepted) rejected=\(reasons) matchingFrame=\(matchingFrame)")
+                        }
                     }
                     expireDepth(sequence: frameSequence, capturedAt: frame.capturedAt, generation: current)
                     expireDisplayedResult(sequence: frameSequence, capturedAt: frame.capturedAt, generation: current)
@@ -357,6 +380,7 @@ final class ScanModel: ObservableObject {
     }
 
     private func clearDisplayedResult() {
+        centerSurfaceMeasurement = nil
         depthExpirationTask?.cancel()
         depthExpirationTask = nil
         overlayExpirationTask?.cancel()

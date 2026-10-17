@@ -43,6 +43,19 @@ struct ScannerView: View {
 
                 cameraCard
 
+                if model.preferences.isLidarEnabled {
+                    VStack(alignment: .leading, spacing: 5) {
+                        TimelineView(.periodic(from: .now, by: 0.1)) { _ in
+                            Text("Center-surface LiDAR test: \(model.centerSurfaceText)")
+                                .font(.subheadline.monospacedDigit())
+                        }
+                        Text("Raw center pixel. Not object distance or a safety indication.")
+                            .font(.caption)
+                        Text(model.depthStatus).font(.caption)
+                    }
+                    .foregroundStyle(Color.senseMuted)
+                }
+
                 pictureInPictureCard
 
                 VStack(alignment: .leading, spacing: 9) {
@@ -344,6 +357,11 @@ private struct SettingsView: View {
                     Toggle("LiDAR depth estimates", isOn: $preferences.isLidarEnabled)
                         .disabled(model.isBusy || model.cameraRunning || model.cameraStopping || saving)
                     LabeledContent("Capture status", value: model.depthStatus)
+                    TimelineView(.periodic(from: .now, by: 0.1)) { _ in
+                        LabeledContent("Center-surface test", value: model.centerSurfaceText)
+                    }
+                    Text("Raw center pixel, not object distance. Requires fresh absolute LiDAR depth.")
+                        .font(.caption).foregroundStyle(.secondary)
                 } header: { Text("Optional LiDAR") } footer: {
                     Text("Off by default. Stop scanning to change LiDAR, then tap Apply. On supported rear cameras, labels show approximate axial depth in meters along the camera's forward axis, not radial distance to an object. Missing, mixed, unreliable, or stale depth is unavailable. Detection continues without LiDAR. Depth does not establish a clear or safe path.")
                 }

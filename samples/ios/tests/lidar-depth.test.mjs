@@ -59,3 +59,22 @@ test('stop transition blocks capture mode edits and restart until camera release
   assert.ok(read('ScannerView.swift').includes('model.cameraStopping'), 'UI disables capture controls during stop');
   assert.ok(read('CameraCapture.swift').includes('onStopped()'), 'stop completion follows stopRunning on session queue');
 });
+
+test('LiDAR failure stages are visible and metadata telemetry is rate limited', () => {
+  const camera = read('CameraCapture.swift');
+  const lidar = read('LiDARCapture.swift');
+  assert.match(lidar, /lidar\.formats/);
+  assert.match(lidar, /onRejection/);
+  assert.match(camera, /lidar\.fallback/);
+  assert.match(camera, /lidar\.counters/);
+  assert.match(camera, /depthDiagnostic/);
+  assert.match(read('ScanModel.swift'), /depthStatus = frame\.depthDiagnostic/);
+});
+
+
+test('retained RGB pairing is cleared on runtime errors and dropped video', () => {
+  const camera = read('CameraCapture.swift');
+  const restart = camera.slice(camera.indexOf('private func restartAfterRuntimeError()'), camera.indexOf('/// May be requested'));
+  assert.match(restart, /clearDepthPairing/);
+  assert.match(camera, /!rgb.sampleBufferWasDropped else \{ clearDepthPairing\(\)/);
+});
