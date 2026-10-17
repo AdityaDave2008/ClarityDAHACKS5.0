@@ -53,7 +53,9 @@ Use the [judge guide](JUDGES.md) and [native guide](../samples/ios/JUDGES.md). K
 | Physical LiDAR distance is accurate | Independent reference distances on the exact phone | Build success or nonzero sensor values |
 | Accessibility helps intended users | Representative user evaluation | A list of toggles or colors |
 
-## Two-minute pitch / six-slide outline
+## Historical two-minute pitch / six-slide outline
+
+**Current judging format:** use the [four-minute presentation and two-minute Q&A pack](PRESENTATION_4_MINUTES.md), with the [verified architecture/stack](ARCHITECTURE_PRESENTATION.md). The shorter outline below is retained as historical fallback.
 
 1. **0:00–0:20 · Problem and theme.** “People experience the same shared spaces differently. We explored how a phone can turn selected objects in its camera view into customizable awareness cues.” Connect this explicitly to Modern Life.
 2. **0:20–0:45 · Start and understand the state.** Start the camera, identify the actual detector/build, and explain preview versus inference readiness.
