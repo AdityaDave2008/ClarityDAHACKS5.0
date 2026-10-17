@@ -65,7 +65,7 @@ test('camera orchestration never constructs or calls the legacy network client',
   const source = readFileSync(new URL('../MyEyes/ScanModel.swift', import.meta.url), 'utf8');
   assert.doesNotMatch(source, /BackendClient\(|URLSession|\.createSession\(|\.metadata\(|\.checkReady\(/);
   assert.match(source, /try await detector\.analyze/);
-  assert.match(source, /detector\.stop\(\)/);
+  assert.match(source, /detector\.stop\(keepingReadyModel: nextPhase != \.failed\)/);
 });
 
 test('analysis failure immediately clears the floating-window overlay too', () => {

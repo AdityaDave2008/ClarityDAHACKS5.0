@@ -22,6 +22,7 @@
 		B10000000000000000000015 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000015 /* Assets.xcassets */; };
 		B10000000000000000000016 /* CenterDepthSensor.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000016 /* CenterDepthSensor.swift */; };
 		B10000000000000000000017 /* DetectorRecovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000017 /* DetectorRecovery.swift */; };
+		B10000000000000000000018 /* ModelFirstStartup.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000018 /* ModelFirstStartup.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -42,6 +43,7 @@
 		F10000000000000000000015 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		F10000000000000000000016 /* CenterDepthSensor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CenterDepthSensor.swift; sourceTree = "<group>"; };
 		F10000000000000000000017 /* DetectorRecovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetectorRecovery.swift; sourceTree = "<group>"; };
+		F10000000000000000000018 /* ModelFirstStartup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelFirstStartup.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -79,6 +81,7 @@
 				F10000000000000000000015 /* Assets.xcassets */,
 				F10000000000000000000016 /* CenterDepthSensor.swift */,
 				F10000000000000000000017 /* DetectorRecovery.swift */,
+				F10000000000000000000018 /* ModelFirstStartup.swift */,
 				F10000000000000000000007 /* Info.plist */,
                 F10000000000000000000010,
                 F10000000000000000000011,
@@ -165,6 +168,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				B10000000000000000000017 /* DetectorRecovery.swift in Sources */,
+				B10000000000000000000018 /* ModelFirstStartup.swift in Sources */,
 				B10000000000000000000016 /* CenterDepthSensor.swift in Sources */,
 				B10000000000000000000001 /* MyEyesApp.swift in Sources */,
 				B10000000000000000000002 /* APIClient.swift in Sources */,

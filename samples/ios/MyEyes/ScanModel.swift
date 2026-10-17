@@ -6,7 +6,8 @@ import SwiftUI
 final class ScanModel: ObservableObject {
     enum Phase: Equatable { case idle, connecting, previewing, scanning, paused, failed }
 
-    let camera = CameraCapture()
+    lazy var camera = CameraCapture()
+    private var cameraInitialized = false
     let pip = PictureInPictureController()
     private let alerts = AlertPlayer()
     @Published private(set) var cameraRunning = false
@@ -69,12 +70,12 @@ final class ScanModel: ObservableObject {
 
     func start() {
         PiPDiagnostics.log("scan.start", "phase=\(phase)")
-        guard !isBusy, !cameraStopping else { return }
+        guard !isBusy, !cameraStopping, appInForeground else { return }
         generation = UUID()
         let current = generation
         clearCenterDepth()
         phase = .connecting
-        detail = "Checking camera permission…"
+        detail = "Loading the bundled detection model. Camera is off…"
         detections = []
         processingMs = nil
         roundTripMs = nil
@@ -87,70 +88,62 @@ final class ScanModel: ObservableObject {
         startTask = Task { [weak self] in
             guard let self else { return }
             do {
-                // Permission must not depend on a reachable model server.
-                // Local preview must also work when the detector cannot be reached.
-                try await camera.requestAuthorization()
-                try Task.checkCancellation()
-                guard generation == current else { return }
-                detail = "Starting the rear camera…"
-                let diagnostics = try await camera.start(lidarEnabled: preferences.isLidarEnabled, onFrame: { [weak self] frame in
-                    Task { @MainActor in self?.analyze(frame, generation: current) }
-                }, onPreview: { [weak self] preview in
-                    Task { @MainActor in
-                        guard let self, self.generation == current else { return }
-                        self.pip.enqueue(preview)
-                    }
-                }, onDepthSample: { [weak self] sample in
-                    await MainActor.run {
-                        guard let self, self.generation == current, self.cameraRunning,
-                              !self.cameraPaused, self.preferences.isLidarEnabled else { return }
-                        self.centerSurfaceMeasurement = sample.measurement(now: ProcessInfo.processInfo.systemUptime,
-                                                                           notBefore: self.centerDepthNotBefore)
-                        self.centerSurfaceUnavailableReason = self.centerSurfaceMeasurement == nil && sample.meters != nil
-                            ? "stale or interrupted sensor delivery" : sample.diagnostic
-                    }
-                }, onInterruption: { [weak self] paused, message in
-                    Task { @MainActor in
-                        guard let self, self.generation == current else { return }
-                        self.handleCameraInterruption(paused: paused, message: message, generation: current)
-                    }
-                }, onFailure: { [weak self] message in
-                    Task { @MainActor in
-                        guard let self, self.generation == current else { return }
-                        self.stop(nextPhase: .failed, message: message)
-                    }
-                })
-                guard generation == current, !Task.isCancelled else { return }
-                depthStatus = diagnostics.depthStatus
-                multitaskingSupported = diagnostics.multitaskingSupported
-                multitaskingEnabled = diagnostics.multitaskingEnabled
-                cameraRunning = true
-                PiPDiagnostics.log("camera.started", "multitaskingSupported=\(diagnostics.multitaskingSupported) multitaskingEnabled=\(diagnostics.multitaskingEnabled)")
-                detail = "Camera preview only. Loading the bundled offline detector…"
-                // The floating window can show the camera before the local model is ready.
-                pip.setEnabled(true)
-                refreshPiPOverlay()
-                zone = try await detector.start()
-                try Task.checkCancellation()
-                guard generation == current else { return }
-                modelStatus = "Experimental YOLOX-Nano · offline \(detector.backend.uppercased())"
-                sequence = 0
-                phase = .scanning
-                detail = "Scanning the marked image zone offline."
-                refreshPiPOverlay()
-                camera.requestFrame()
-                startFrameWatchdog(generation: current)
+                try await ModelFirstStartup.run(loadModel: {
+                    let loadedZone = try await detector.start()
+                    try Task.checkCancellation()
+                    guard generation == current, appInForeground else { throw CancellationError() }
+                    zone = loadedZone
+                }, authorizeCamera: {
+                    detail = "Model ready. Checking camera permission…"
+                    cameraInitialized = true
+                    try await camera.requestAuthorization()
+                }, startCamera: {
+                    detail = "Starting the rear camera…"
+                    let diagnostics = try await camera.start(lidarEnabled: preferences.isLidarEnabled, onFrame: { [weak self] frame in
+                        Task { @MainActor in self?.analyze(frame, generation: current) }
+                    }, onPreview: { [weak self] preview in
+                        Task { @MainActor in
+                            guard let self, self.generation == current else { return }
+                            self.pip.enqueue(preview)
+                        }
+                    }, onDepthSample: { [weak self] sample in
+                        await MainActor.run {
+                            guard let self, self.generation == current, self.cameraRunning,
+                                  !self.cameraPaused, self.preferences.isLidarEnabled else { return }
+                            self.centerSurfaceMeasurement = sample.measurement(now: ProcessInfo.processInfo.systemUptime,
+                                                                               notBefore: self.centerDepthNotBefore)
+                            self.centerSurfaceUnavailableReason = self.centerSurfaceMeasurement == nil && sample.meters != nil
+                                ? "stale or interrupted sensor delivery" : sample.diagnostic
+                        }
+                    }, onInterruption: { [weak self] paused, message in
+                        Task { @MainActor in
+                            guard let self, self.generation == current else { return }
+                            self.handleCameraInterruption(paused: paused, message: message, generation: current)
+                        }
+                    }, onFailure: { [weak self] message in
+                        Task { @MainActor in
+                            guard let self, self.generation == current else { return }
+                            self.stop(nextPhase: .failed, message: message)
+                        }
+                    })
+                    guard generation == current, !Task.isCancelled else { return }
+                    depthStatus = diagnostics.depthStatus
+                    multitaskingSupported = diagnostics.multitaskingSupported
+                    multitaskingEnabled = diagnostics.multitaskingEnabled
+                    cameraRunning = true
+                    PiPDiagnostics.log("camera.started", "multitaskingSupported=\(diagnostics.multitaskingSupported) multitaskingEnabled=\(diagnostics.multitaskingEnabled)")
+                    pip.setEnabled(true)
+                    modelStatus = "Experimental YOLOX-Nano · offline \(detector.backend.uppercased())"
+                    sequence = 0
+                    phase = .scanning
+                    detail = "Scanning the marked image zone offline."
+                    refreshPiPOverlay()
+                    camera.requestFrame()
+                    startFrameWatchdog(generation: current)
+                }, isCurrent: { self.generation == current && self.appInForeground })
             } catch {
                 guard generation == current else { return }
-                if cameraRunning {
-                    phase = .previewing
-                    alertReason = "unavailable"
-                    modelStatus = "Detection unavailable"
-                    detail = "Preview only. No detection or obstacle alerts. \(readable(error)) Stop and Start to retry."
-                    refreshPiPOverlay()
-                } else {
-                    stop(nextPhase: .failed, message: readable(error))
-                }
+                stop(nextPhase: .failed, message: readable(error))
             }
         }
     }
@@ -479,19 +472,21 @@ final class ScanModel: ObservableObject {
         frameTask = nil
         watchdogTask = nil
         detectorRecoveryDeferred = false
-        cameraStopping = true
+        cameraStopping = cameraInitialized
         let stoppedGeneration = generation
-        camera.stop { [weak self] in
-            Task { @MainActor in
-                guard let self, self.generation == stoppedGeneration else { return }
-                self.cameraStopping = false
+        if cameraInitialized {
+            camera.stop { [weak self] in
+                Task { @MainActor in
+                    guard let self, self.generation == stoppedGeneration else { return }
+                    self.cameraStopping = false
+                }
             }
         }
         cameraRunning = false
         cameraPaused = false
         alerts.stop()
         pip.setEnabled(false)
-        detector.stop()
+        detector.stop(keepingReadyModel: nextPhase != .failed)
         clearCenterDepth()
         clearDisplayedResult()
         alertReason = "idle"

@@ -29,6 +29,41 @@ struct ScannerView: View {
     }
 
     var body: some View {
+        Group {
+            if model.phase == .connecting && !model.cameraRunning {
+                modelLoadingScreen
+            } else {
+                scannerContent
+            }
+        }
+    }
+
+    private var modelLoadingScreen: some View {
+        VStack(spacing: 24) {
+            Spacer()
+            ProgressView().tint(.senseTeal).scaleEffect(1.4)
+                .accessibilityLabel("Preparing scanner")
+            Text("Preparing your scanner")
+                .font(.title2.weight(.semibold))
+                .accessibilityAddTraits(.isHeader)
+            Text(model.detail)
+                .multilineTextAlignment(.center)
+                .accessibilityAddTraits(.updatesFrequently)
+            Text("Camera stays off until the model is ready.")
+                .font(.subheadline)
+                .foregroundStyle(Color.senseMuted)
+            Button("Cancel") { model.stop() }
+                .buttonStyle(.bordered)
+                .tint(.senseTeal)
+                .accessibilityHint("Cancel loading without starting the camera")
+            Spacer()
+        }
+        .padding(28)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.black.ignoresSafeArea())
+    }
+
+    private var scannerContent: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 header
@@ -88,7 +123,7 @@ struct ScannerView: View {
                     Button {
                         if model.isBusy { model.stop() } else { model.start() }
                     } label: {
-                        Label(model.isBusy ? "Stop scanning" : "Start scanning", systemImage: model.isBusy ? "stop.fill" : "viewfinder")
+                        Label(model.isBusy ? "Stop scanning" : (model.phase == .failed ? "Retry" : "Start scanning"), systemImage: model.isBusy ? "stop.fill" : "viewfinder")
                             .font(.system(size: 16, weight: .semibold))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
@@ -106,6 +141,12 @@ struct ScannerView: View {
                     .buttonStyle(.bordered)
                     .tint(.senseTeal)
                     .accessibilityLabel("Test selected alert modes")
+                }
+
+                if model.phase == .failed {
+                    Button("Cancel") { model.stop() }
+                        .buttonStyle(.bordered)
+                        .tint(.senseTeal)
                 }
 
                 HStack(spacing: 14) {
@@ -224,8 +265,8 @@ struct ScannerView: View {
 
     private var cameraCard: some View {
         ZStack {
-            CameraPreview(session: model.camera.session)
             if model.cameraRunning {
+                CameraPreview(session: model.camera.session)
                 DetectionOverlay(zone: model.zone, detections: model.detections, imageSize: model.imageSize)
                     .allowsHitTesting(false)
                     .accessibilityHidden(true)
