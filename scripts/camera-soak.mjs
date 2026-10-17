@@ -45,8 +45,8 @@ try {
   }
   // Observe the actual cached model and camera APIs without replacing inference/media.
   await page.evaluate(async faultAfter => {
-    const { loadCandidateModel } = await import('/candidate-model.js');
-    const model = await loadCandidateModel();
+    const { loadModel } = await import('/local-detector.js');
+    const model = await loadModel();
     const original = model.detect.bind(model);
     const evidence = window.soakEvidence = { calls: 0, completed: 0, failed: 0, active: 0, maxActive: 0, cameraRequests: 0, tracks: [] };
     model.detect = async (...args) => {

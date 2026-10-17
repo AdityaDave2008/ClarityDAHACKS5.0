@@ -12,7 +12,7 @@ Requires **Node.js 24+**. From the repository root:
 npm --prefix frontend start
 ```
 
-Open **http://127.0.0.1:5180/**, select **Camera**, then **Start** and allow camera access. No frontend install, build, account, or backend is needed for the default object detector. It loads the bundled experimental **YOLOX-Nano ONNX** candidate and WebAssembly runtime, then analyzes frames locally. Initial asset loading and device speed affect startup and responsiveness. The candidate currently underperforms its baseline and can return sparse results. See [experimental model evidence and limitations](docs/v2-testing/README.md).
+Open **http://127.0.0.1:5180/**, select **Camera**, then **Start** and allow camera access. No frontend install, build, account, or backend is needed for the default object detector. It loads bundled **COCO-SSD** through TensorFlow.js/WebAssembly and analyzes frames locally. Initial asset loading and device speed affect startup and responsiveness. The browser baseline is distinct from the experimental native YOLOX candidate. See [experimental model evidence and limitations](docs/v2-testing/README.md).
 
 A phone needs trusted HTTPS, not the laptop's plain HTTP LAN address. See [phone launch](docs/PHONE_LAUNCH.md). The [judge guide](docs/JUDGES.md) separates the hosted preview, local source, optional API paths, and simulated walkthrough.
 
@@ -22,12 +22,12 @@ A phone needs trusted HTTPS, not the laptop's plain HTTP LAN address. See [phone
 
 | Entry point | Actual detection path |
 | --- | --- |
-| Browser `/` (default) | `frontend/standalone.js` → `local-detector.js` → `candidate-model.js`. Bundled experimental YOLOX-Nano via ONNX Runtime Web/WASM. Frames stay in the browser for this detector. |
+| Browser `/` (default) | `frontend/standalone.js` → `local-detector.js`. Bundled COCO-SSD via TensorFlow.js/WASM. Frames stay in the browser for this detector. |
 | Browser `/?detector=backend` | Explicit opt-in to `backend-detector.js`. Uploads frames to same-origin `/api/v1/...`, proxied by the local frontend server to Node on port 3001. |
 | Browser `/camera.html` | Retained walkthrough with **simulated** detections, or a separately selected **Live camera** mode that uploads frames to the API. Not the default local-model app. |
-| Node `backend/server.js` | Fastify API with COCO-SSD, plus optional SegFormer surface model. Distinct from the browser/native YOLOX candidate. Model startup can require downloads. |
+| Node `backend/server.js` | Fastify API with COCO-SSD, plus optional SegFormer surface model. Separate API runtime from browser-local COCO-SSD and native YOLOX. Model startup can require downloads. |
 | Worker `worker/src/index.js` | Cloudflare Workers AI classifier + vision model, Durable Object sessions and frontend assets. Different model, coarse regions, **no bounding boxes**. Not the preferred live-demo inference path. |
-| Preview Worker `worker/src/preview.js` | Serves browser assets and optional depth-model assets. **No remote inference API**. Configured separately in `worker/preview.wrangler.toml`. |
+| Preview Worker `worker/src/judges-preview.js` | Serves browser assets and optional depth-model assets. **No remote inference API**. Configured separately in `worker/judges-preview.wrangler.toml`. |
 | iPhone `samples/ios/MyEyes.xcodeproj` | SwiftUI app, packaged experimental YOLOX-Nano via offline WebKit/WASM, optional LiDAR depth on supported devices. See the [native judge guide](samples/ios/JUDGES.md). |
 | Android `samples/android/` | Separate native sample. Its build/device acceptance is not established by the browser or iPhone checks. |
 

@@ -30,7 +30,7 @@ for (const project of projects) {
   child.on('exit', (code, signal) => { if (!shuttingDown) { console.error(`${project} stopped${signal ? ` (${signal})` : ''}.`); stop(code || 1); } });
 }
 console.log('Starting the combined Clarity website at http://localhost:5180');
-console.log('Open Camera, then Start. The default detector runs the experimental YOLOX model locally in your browser.');
+console.log('Open Camera, then Start. The default detector runs bundled COCO-SSD through TensorFlow.js/WASM locally in your browser.');
 console.log('For optional Node backend detection, open /?detector=backend, or /camera.html and choose Live camera. Wait for backend readiness. Walkthrough mode uses simulated detections.');
 if (lan) {
   if (reuseBackend) console.log('An existing API is being reused. Native phones can reach it only if it was started with HOST=0.0.0.0.');

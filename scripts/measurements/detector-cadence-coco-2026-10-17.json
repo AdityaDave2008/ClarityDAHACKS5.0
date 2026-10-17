@@ -1,0 +1,311 @@
+{
+  "baselineCommit": "7be09a5",
+  "fixtureSource": "https://github.com/tensorflow/tfjs-models/blob/master/coco-ssd/demo/cat.jpg",
+  "fixturePreparation": "Existing OpenCV-decoded lossless224x224 PNG, not bundled.",
+  "measurement": {
+    "date": "2026-10-17T08:33:14.341Z",
+    "browser": "131.0.6778.33",
+    "node": "v24.16.0",
+    "host": {
+      "platform": "darwin",
+      "arch": "arm64",
+      "cpu": "Apple M4"
+    },
+    "fixtureSha256": "216d581e709e29c03197a9f30f5656676dfe91672f3f873b91ceef64ca6d14d0",
+    "baselineSourceSha256": "5b58e11c6e00f8d1893f4754669167f291754db84222b00b647fc8434d587677",
+    "currentSourceSha256": "74db3eb2d8d845c8476c6bb14871c457988e459ab9c369c05084d5d173d2044b",
+    "limitations": [
+      "Static fixture at sourceSize resolution, not live physical camera or PiP",
+      "Headless Chromium rAF gaps proxy main-thread responsiveness, not displayed frames",
+      "Short warm-run ABBA sample, not phone thermal/battery or accuracy validation"
+    ],
+    "loader": "local-detector.js#loadModel",
+    "runtimeVersion": "4.22.0",
+    "backend": "wasm",
+    "assets": [
+      {
+        "path": "/vendor/tf.min.js",
+        "bytes": 1469843,
+        "sha256": "300dfae273d20b4046f46a06d735688f03675a807561e9bcb5f664eb2f3d2831"
+      },
+      {
+        "path": "/vendor/tf-backend-wasm.min.js",
+        "bytes": 149861,
+        "sha256": "691bbec0ef8b5a7f17f212e9c5d85832030f90d030b46e99acb4dea1fb16f009"
+      },
+      {
+        "path": "/vendor/coco-ssd.min.js",
+        "bytes": 9299,
+        "sha256": "8875b8c1bb57723990c9d6506226e0e51cd21b8b6943eb53201086096de52df5"
+      },
+      {
+        "path": "/vendor/tfjs-backend-wasm-simd.wasm",
+        "bytes": 424594,
+        "sha256": "77ebb28a6d34f371dbbf2086b7f2de8994acd8ea5a3cf1fa24d2c26c840cac7b"
+      },
+      {
+        "path": "/vendor/model/model.json",
+        "bytes": 527315,
+        "sha256": "3770b2528339b1e3340cb74360e1e40401816b009779aeb8d0cce3a4353ea3a9"
+      },
+      {
+        "path": "/vendor/model/group1-shard1of5",
+        "bytes": 4194304,
+        "sha256": "0e7af0f713e98521252321f7f84892c31cefccccec3ac64c84e5065b75ed5646"
+      },
+      {
+        "path": "/vendor/model/group1-shard2of5",
+        "bytes": 4194304,
+        "sha256": "74cc6cfc2c4510c9cd81b8ad4cebf6f6a8f305119bb365ce0eb96276da38519a"
+      },
+      {
+        "path": "/vendor/model/group1-shard3of5",
+        "bytes": 4194304,
+        "sha256": "50383033f893eae136392a403e8f70ade5efd90867df5695c4ca5ac640e14f38"
+      },
+      {
+        "path": "/vendor/model/group1-shard5of5",
+        "bytes": 1257312,
+        "sha256": "3d356f1fb6dfca6af78c56db34d9326706d0196e303f9de6b04f236ca79ed309"
+      },
+      {
+        "path": "/vendor/model/group1-shard4of5",
+        "bytes": 4194304,
+        "sha256": "d856dc534c780068bbf6c666ce1516df2c8433d87578aa31fcdf197de7058cc2"
+      }
+    ],
+    "sourceSize": [
+      224,
+      224
+    ],
+    "warmups": [
+      60.5,
+      44.29999999701977,
+      40.29999999701977,
+      40.70000000298023,
+      39.5
+    ],
+    "runs": [
+      {
+        "variant": "before",
+        "frames": 80,
+        "captureIntervalMs": {
+          "count": 79,
+          "mean": 139.872151898621,
+          "p50": 140.59999999403954,
+          "p95": 142.3999999910593,
+          "max": 144.70000000298023
+        },
+        "inferenceMs": {
+          "count": 80,
+          "mean": 47.96375000029802,
+          "p50": 48.70000000298023,
+          "p95": 50.69999998807907,
+          "max": 52.5
+        },
+        "scheduledDelayMs": {
+          "count": 79,
+          "mean": 90,
+          "p50": 90,
+          "p95": 90,
+          "max": 90
+        },
+        "rafGapMs": {
+          "count": 584,
+          "mean": 19.291609589041098,
+          "p50": 16.699999999999818,
+          "p95": 33.399999999999636,
+          "max": 266.7
+        },
+        "rafGapsOver50Ms": 1,
+        "maxPendingTimers": 1,
+        "firstTwoResultsMs": 177.5,
+        "thresholds": [
+          0.6
+        ],
+        "detections": [
+          {
+            "label": "cat",
+            "confidence": 0.927932858467102,
+            "bbox": {
+              "x": 0.005540132522583008,
+              "y": 0.09317773580551147,
+              "width": 0.869370698928833,
+              "height": 0.8996932506561279
+            },
+            "anchor": {
+              "x": 0.4402254819869995,
+              "y": 0.9928709864616394
+            },
+            "inZone": true
+          }
+        ]
+      },
+      {
+        "variant": "after",
+        "frames": 80,
+        "captureIntervalMs": {
+          "count": 79,
+          "mean": 91.43417721515215,
+          "p50": 91.30000001192093,
+          "p95": 92.20000000298023,
+          "max": 92.5
+        },
+        "inferenceMs": {
+          "count": 80,
+          "mean": 38.836249999515715,
+          "p50": 39.5,
+          "p95": 40.5,
+          "max": 41.400000005960464
+        },
+        "scheduledDelayMs": {
+          "count": 79,
+          "mean": 51.10126582297343,
+          "p50": 50.5,
+          "p95": 54.599999994039536,
+          "max": 54.79999999701977
+        },
+        "rafGapMs": {
+          "count": 401,
+          "mean": 18.120698254364083,
+          "p50": 16.69999999999891,
+          "p95": 33.29999999999927,
+          "max": 83.39999999999964
+        },
+        "rafGapsOver50Ms": 1,
+        "maxPendingTimers": 1,
+        "firstTwoResultsMs": 130.59999999403954,
+        "thresholds": [
+          0.6
+        ],
+        "detections": [
+          {
+            "label": "cat",
+            "confidence": 0.927932858467102,
+            "bbox": {
+              "x": 0.005540132522583008,
+              "y": 0.09317773580551147,
+              "width": 0.869370698928833,
+              "height": 0.8996932506561279
+            },
+            "anchor": {
+              "x": 0.4402254819869995,
+              "y": 0.9928709864616394
+            },
+            "inZone": true
+          }
+        ]
+      },
+      {
+        "variant": "after",
+        "frames": 80,
+        "captureIntervalMs": {
+          "count": 79,
+          "mean": 91.61012658231621,
+          "p50": 91.70000000298023,
+          "p95": 92.3999999910593,
+          "max": 92.5
+        },
+        "inferenceMs": {
+          "count": 80,
+          "mean": 35.68250000029802,
+          "p50": 35.5,
+          "p95": 36.20000000298023,
+          "max": 45.20000000298023
+        },
+        "scheduledDelayMs": {
+          "count": 79,
+          "mean": 54.29999999947186,
+          "p50": 54.5,
+          "p95": 54.70000000298023,
+          "max": 54.900000005960464
+        },
+        "rafGapMs": {
+          "count": 411,
+          "mean": 17.63917274939173,
+          "p50": 16.700000000000728,
+          "p95": 33.29999999999927,
+          "max": 49.900000000001455
+        },
+        "rafGapsOver50Ms": 0,
+        "maxPendingTimers": 1,
+        "firstTwoResultsMs": 128.6000000089407,
+        "thresholds": [
+          0.6
+        ],
+        "detections": [
+          {
+            "label": "cat",
+            "confidence": 0.927932858467102,
+            "bbox": {
+              "x": 0.005540132522583008,
+              "y": 0.09317773580551147,
+              "width": 0.869370698928833,
+              "height": 0.8996932506561279
+            },
+            "anchor": {
+              "x": 0.4402254819869995,
+              "y": 0.9928709864616394
+            },
+            "inZone": true
+          }
+        ]
+      },
+      {
+        "variant": "before",
+        "frames": 80,
+        "captureIntervalMs": {
+          "count": 79,
+          "mean": 136.17088607594937,
+          "p50": 139.29999999701977,
+          "p95": 141.59999999403954,
+          "max": 143.20000000298023
+        },
+        "inferenceMs": {
+          "count": 80,
+          "mean": 44.35500000026077,
+          "p50": 48.20000000298023,
+          "p95": 49.599999994039536,
+          "max": 50.6000000089407
+        },
+        "scheduledDelayMs": {
+          "count": 79,
+          "mean": 90,
+          "p50": 90,
+          "p95": 90,
+          "max": 90
+        },
+        "rafGapMs": {
+          "count": 588,
+          "mean": 18.338095238095235,
+          "p50": 16.69999999999709,
+          "p95": 33.30000000000291,
+          "max": 66.59999999999854
+        },
+        "rafGapsOver50Ms": 1,
+        "maxPendingTimers": 1,
+        "firstTwoResultsMs": 169.20000000298023,
+        "thresholds": [
+          0.6
+        ],
+        "detections": [
+          {
+            "label": "cat",
+            "confidence": 0.927932858467102,
+            "bbox": {
+              "x": 0.005540132522583008,
+              "y": 0.09317773580551147,
+              "width": 0.869370698928833,
+              "height": 0.8996932506561279
+            },
+            "anchor": {
+              "x": 0.4402254819869995,
+              "y": 0.9928709864616394
+            },
+            "inZone": true
+          }
+        ]
+      }
+    ]
+  }
+}

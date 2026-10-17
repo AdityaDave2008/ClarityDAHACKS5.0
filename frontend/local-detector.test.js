@@ -211,14 +211,14 @@ test('optional synchronous frame hook receives exact canvas and sequence without
   assert.equal(run.events.results.length, 1);
 });
 
-test('candidate uses tuned threshold rather than baseline and no intermediate resize', async () => {
-  const stub = harness({ predictions: [prediction({ score: .78 })] });
+test('COCO default threshold and 640px capture cap remain unchanged', async () => {
+  const stub = harness({ predictions: [prediction({ score: .59 }), prediction({ score: .6 })] });
   const run = session({video: {videoWidth: 1280, videoHeight: 720}});
   const stop = await createLocalDetector(stub.options).start(run.context);
   await new Promise(resolve => setImmediate(resolve));
-  assert.deepEqual(run.events.results[0].detections, []);
-  assert.equal(stub.canvas.width, 1280);
-  assert.equal(stub.canvas.height, 720);
+  assert.deepEqual(run.events.results[0].detections.map(item => item.confidence), [.6]);
+  assert.equal(stub.canvas.width, 640);
+  assert.equal(stub.canvas.height, 360);
   stop();
 });
 

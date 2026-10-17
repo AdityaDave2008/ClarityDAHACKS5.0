@@ -4,7 +4,7 @@
 
 | Option | Access and limits |
 | --- | --- |
-| Public source | [Verified native source at `6f811f2`](https://github.com/AdityaDave2008/DAHacks26-AD-BW-YT-NQ-DK/tree/6f811f2ed7d964d07b1b0281ae49f054321c8088/samples/ios). Open `MyEyes.xcodeproj`, scheme **Clarity**. No missing native source or bundled model files were found in this revision. |
+| Public source | [Initial audited native source at `6f811f2`](https://github.com/AdityaDave2008/DAHacks26-AD-BW-YT-NQ-DK/tree/6f811f2ed7d964d07b1b0281ae49f054321c8088/samples/ios). Open `MyEyes.xcodeproj`, scheme **Clarity**. No missing native source or bundled model files were found in this revision. |
 | Browser demo | [Open the HTTPS browser app](https://stepsense-detection.stepsense-dahacks.workers.dev/). This is a separate browser implementation, not the native app streamed to the web. Camera access requires browser permission. Browser depth is not iPhone LiDAR, and native PiP behavior does not transfer to the browser. |
 | Native physical demonstration | Ask the team to demonstrate its already-installed app on its own iPhone. Identify the actual app/version before the demo, because the older StepSense baseline and **Clarity V2 Test** are different builds. No new phone installation or settings changes were performed for this audit. |
 | Video fallback | A short team-recorded walkthrough is a useful backup, but no public native demo recording was verified in this audit. Record only with consent and avoid capturing bystanders or private material. A video illustrates the observed run, not general safety or accuracy. |
@@ -45,6 +45,12 @@ These command-line signing overrides do not edit project signing settings. Build
 - Both builds emitted only the observed AppIntents metadata-extraction warning about the absent AppIntents framework dependency. Both ended with `BUILD SUCCEEDED`.
 - The public browser entry returned its page and `/ready` returned `{"ready":true,"modelState":"ready"}`. These HTTP checks alone do not prove live browser camera or detection behavior.
 - No signing changes, installation, permission reset, app/settings overwrite, or physical acceptance run was performed. The original checkout remained clean.
+
+## Integrated upstream follow-up, October 17 at 08:31 UTC
+
+The native source merged from upstream `7be09a5`, including its explicit `ScanPreferences` initializer and depth-preference regression assertions, passed a fresh **unsigned generic-iOS Debug build** and **56/56 native tests** on this Mac using Node.js 24. Build inputs were copied from tracked working-tree files to an external snapshot, fingerprinted, and confirmed unchanged after the build. No original checkout, signing setting, installed app or phone was modified. This is fresh compilation/regression evidence, not physical-device acceptance. The initial revision results above remain historical rather than being relabeled as this run.
+
+[Current public native source](https://github.com/AdityaDave2008/DAHacks26-AD-BW-YT-NQ-DK/tree/main/samples/ios) may advance after this check. The browser currently uses a separate COCO-SSD runtime. The native experimental YOLOX model and its limitations remain unchanged.
 
 ## Suggested on-site demonstration
 

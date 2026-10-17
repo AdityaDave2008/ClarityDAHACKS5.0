@@ -27,7 +27,7 @@ Describe only features that are present in the exact build being demonstrated. A
 
 ## How we built it
 
-The shared browser experience uses HTML, CSS and JavaScript. Its current experimental YOLOX-Nano candidate runs through bundled ONNX Runtime Web/WASM. The native iPhone app uses SwiftUI, AVFoundation and a packaged local inference bridge. A separate Node.js/Fastify API retains a COCO-SSD comparison flow. An optional Cloudflare Worker API uses different hosted models and is not equivalent to either local detector.
+The shared browser experience uses HTML, CSS and JavaScript. Its browser-local COCO-SSD model runs through bundled TensorFlow.js/WASM. The native iPhone app uses SwiftUI, AVFoundation and a packaged experimental YOLOX-Nano ONNX inference bridge. A separate Node.js/Fastify API retains a COCO-SSD comparison flow. An optional Cloudflare Worker API uses different hosted models and is not equivalent to either local detector.
 
 The project integrates existing models and open-source runtimes. It does not claim to invent YOLOX, COCO-SSD or ONNX Runtime. See [attribution](../ATTRIBUTION.md), [model provenance](../samples/ios/MyEyes/OfflineDetector/PROVENANCE.md), [runtime map](../README.md#which-runtime-am-i-using), and [training results](../training/RESULTS.md).
 
@@ -35,8 +35,8 @@ The project integrates existing models and open-source runtimes. It does not cla
 
 1. **Camera preview is not detection.** Permission, preview, model readiness, fresh results and alerts are separate states. We preserve a useful preview without pretending inference is running when it is not.
 2. **Background behavior is platform-dependent.** Web PiP can keep a supported video preview visible, but it does not grant reliable background inference or universal camera access. Lifecycle tests cover pausing detection, clearing stale results and releasing camera tracks.
-3. **More confidence is not more accuracy.** A real fine-tuning pilot underperformed its pretrained baseline. We retained the evidence and label the packaged candidate experimental rather than claiming an improvement. A high threshold can hide missed objects.
-4. **Scheduling matters.** Removing an unnecessary full delay after each successful inference improved measured result cadence on the test Mac, without changing model scores. Those measurements do not establish phone latency, battery life or smoother preview. See [reproduction and limitations](DETECTOR_RESPONSIVENESS.md).
+3. **More confidence is not more accuracy.** A real fine-tuning pilot underperformed its pretrained baseline. We retained the evidence and label the native packaged candidate experimental rather than claiming an improvement. A high threshold can hide missed objects.
+4. **Scheduling matters.** On the current COCO browser runtime, a shared-model before/after test of 320 static-fixture inferences measured capture-start intervals of 138.0 ms versus 91.5 ms on the test Mac, with identical outputs and unchanged thresholds. This measures scheduling cadence, not faster model computation, improved accuracy, phone latency, battery life or smoother preview. Historical YOLOX results are recorded separately. See [reproduction and limitations](DETECTOR_RESPONSIVENESS.md).
 5. **Integration can break working components.** A duplicate service-worker cache declaration in the merged source prevented registration. Regression checks and real-browser cache/offline tests caught and verified the correction.
 
 ## What we can demonstrate honestly
@@ -49,7 +49,7 @@ Use the [judge guide](JUDGES.md) and [native guide](../samples/ios/JUDGES.md). K
 | Browser model executes | Packaged-model inference and visible fresh camera result | Camera preview alone |
 | Supported browser PiP works | Real native PiP entry and advancing video while hidden | A CSS floating box or unit mock |
 | Restart does not overlap model calls | Deferred-inference regression plus lifecycle checks | Successful single startup |
-| Detection cadence improved on test host | Same-model before/after timings and unchanged output | Higher displayed confidence |
+| Current COCO cadence improved on test host | 320 shared-model before/after fixture inferences, unchanged scores and 0.6 threshold | Higher displayed confidence, phone performance or attributing historical YOLOX timings to current COCO |
 | Physical LiDAR distance is accurate | Independent reference distances on the exact phone | Build success or nonzero sensor values |
 | Accessibility helps intended users | Representative user evaluation | A list of toggles or colors |
 

@@ -1,4 +1,4 @@
-const CACHE = 'myeyes-pwa-v9-pip-yolox-51661711';
+const CACHE = 'myeyes-pwa-v10-pip-depth-assets';
 const ASSETS = [
   '/',
   '/index.html',
@@ -14,13 +14,6 @@ const ASSETS = [
   '/phone-notifications.js',
   '/backend-detector.js',
   '/local-detector.js',
-  '/candidate-model.js',
-  '/yolox.js',
-  '/tracking.js',
-  '/vendor/yolox-51661711/candidate.onnx',
-  '/vendor/yolox-51661711/ort.wasm.min.js',
-  '/vendor/yolox-51661711/ort-wasm-simd-threaded.mjs',
-  '/vendor/yolox-51661711/ort-wasm-simd-threaded.wasm',
   '/depth-controller.js',
   '/depth-ui.js',
   '/depth-sensors.js',

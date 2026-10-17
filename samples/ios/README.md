@@ -52,6 +52,22 @@ On launch the scanner is stopped and the floating window is closed. The PiP cont
 
 The records below preserve earlier baseline work. Their COCO-SSD smoke results, old bundle identifiers, installation commands and device observations are historical evidence, not instructions to deploy current main. Use the current build commands above and the [V2 guide](../../docs/v2-testing/README.md) for the candidate. No physical acceptance is established by the October 17 read-only audit.
 
+**October 17 follow-up Mac verification:** the integrated native source from upstream `7be09a5`, including the explicit `ScanPreferences` initializer, passed a fresh unsigned generic-iOS Debug build at 08:31 UTC and all 56 native regression tests under Node.js 24. The build used an external snapshot and DerivedData, with signing disabled and no installation or settings changes. This supersedes the earlier Windows-only check for compilation, not physical camera/LiDAR/PiP acceptance. The GitHub Actions workflow itself must still be checked on the published revision.
+
+Windows checks for the integrated update: JavaScript syntax checks passed, and the browser/native-source regression suite passed 231 tests with zero failures. Two tests that compile and execute Swift were skipped because they require macOS. These results do not replace the Mac/Xcode checks below.
+
+On a Mac with Node.js 24+ and Xcode, run:
+
+```sh
+node --test samples/ios/tests/*.test.mjs
+xcodebuild -project samples/ios/MyEyes.xcodeproj -scheme Clarity \
+  -configuration Debug -destination 'generic/platform=iOS Simulator' \
+  -derivedDataPath /tmp/clarity-simulator-validation \
+  CODE_SIGNING_ALLOWED=NO build
+```
+
+Confirm both commands pass, or confirm the `iPhone PiP build` workflow passes for the new commit, before marking these fixes verified. An earlier failure email describes an earlier run.
+
 ### PiP runtime diagnostics
 
 After installing a Debug build, launch with opt-in diagnostics and keep this command running:

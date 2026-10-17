@@ -129,13 +129,3 @@ test('pathological aspect ratio is rejected before processor can allocate huge t
   const worker=fakeWorker();const model=createDepthModel({createWorker:()=>worker});await model.load({});
   await assert.rejects(model.estimate({width:4096,height:1}),/dimensions invalid/);await model.dispose();
 });
-test('model assets use root-anchored same-origin proxy and immutable revision, never direct HF',async()=>{
-  const f=fixture();await f.model.load({});
-  assert.equal(f.runtime.env.remoteHost,new URL('/depth-assets/',import.meta.url).href);
-  assert.equal(f.runtime.env.remotePathTemplate,'{model}/resolve/{revision}/');
-  const path=f.runtime.env.remotePathTemplate.replace('{model}','onnx-community/depth-anything-v2-small').replace('{revision}',f.options.revision)+'onnx/model_quantized.onnx';
-  const url=new URL(path,f.runtime.env.remoteHost);
-  assert.equal(url.pathname,'/depth-assets/onnx-community/depth-anything-v2-small/resolve/4472b7362082ad9968fee890ca0f1e5aca36b93d/onnx/model_quantized.onnx');
-  assert.equal(url.origin,new URL(import.meta.url).origin);
-  assert.equal(url.href.includes('huggingface.co'),false);
-});

@@ -1,8 +1,10 @@
-# Isolated browser-local preview only. Never deploy this under stepsense-detection.
+# Reuse the existing isolated preview. Its historical URL is not a model identity.
+# Never substitute the production stepsense-detection name here.
 name = "stepsense-yolox-v2-preview"
-main = "src/preview.js"
+main = "src/judges-preview.js"
 compatibility_date = "2026-10-17"
 workers_dev = true
+
 [assets]
 directory = "../frontend"
 binding = "ASSETS"
