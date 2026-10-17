@@ -1,0 +1,12 @@
+READY backend=ONNX WASM · experimental YOLOX-Nano zoneVertices=4 seconds=0.9822577916638693
+PASS native default 0.7874982953071594 suppresses known below-threshold cat
+PASS default positive lossless fixture and independent reference geometry: 0.7931427443873815
+FRAME 1 size=224x224 ms=158 alert=confirming
+DETECTION cat confidence=0.7431903383972909 box=NormalizedBox(x: 0.0, y: 0.12493603046123798, width: 0.9015107154846191, height: 0.8489024088932917) zone=true
+FRAME 2 size=224x224 ms=141 alert=triggered
+DETECTION cat confidence=0.7431903383972909 box=NormalizedBox(x: 0.0, y: 0.12493603046123798, width: 0.9015107154846191, height: 0.8489024088932917) zone=true
+FRAME 3 size=224x224 ms=120 alert=cooldown
+DETECTION cat confidence=0.7431903383972909 box=NormalizedBox(x: 0.0, y: 0.12493603046123798, width: 0.9015107154846191, height: 0.8489024088932917) zone=true
+PASS lifecycle cancellation/restart, malformed-image recovery, single-flight, 15-second timeout, remote fetch blocked
+PASS actual WKWebView offline inference, normalized boxes, confidence, two-frame confirmation, cooldown, stale suppression
+8698074fa025e7d86c86dd19144d03ce23bc54a1a70f8808b4a91fcd16716959  /Users/yashthakur/.jcode/scratch/detection-baseline/cat.jpg

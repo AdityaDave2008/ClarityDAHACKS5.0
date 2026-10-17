@@ -8,13 +8,12 @@ const reply = payload => window.webkit.messageHandlers.detector.postMessage(payl
 
 async function initialize() {
   try {
-    // Single-threaded WASM works in an offscreen view and needs neither a CDN nor SharedArrayBuffer.
-    tf.wasm.setThreadsCount(1);
-    tf.wasm.setWasmPaths('stepsense://offline/');
-    if (!await tf.setBackend('wasm')) throw new Error('Offline WASM backend unavailable: ' + window.offlineDiagnostics.join(' | '));
-    await tf.ready();
-    detector = await cocoSsd.load({ base: 'lite_mobilenet_v2', modelUrl: 'stepsense://offline/model/model.json' });
-    reply({ id: 'ready', value: { backend: tf.getBackend(), zone: ZONE } });
+    ort.env.wasm.numThreads = 1;
+    ort.env.wasm.proxy = false;
+    ort.env.wasm.wasmPaths = 'stepsense://offline/';
+    detector = await ort.InferenceSession.create('stepsense://offline/candidate.onnx', { executionProviders: ['wasm'], graphOptimizationLevel: 'all' });
+    if (detector.inputNames[0] !== 'images' || detector.outputNames[0] !== 'predictions') throw new Error('Unexpected model contract');
+    reply({ id: 'ready', value: { backend: 'ONNX WASM · experimental YOLOX-Nano', zone: ZONE } });
   } catch (error) { reply({ id: 'ready', error: String(error) }); }
 }
 
@@ -32,7 +31,18 @@ window.analyzeOffline = async function (id, jpeg, sequence, preferences, ageMs) 
     const image = new Image();
     image.src = 'data:image/jpeg;base64,' + jpeg;
     await image.decode();
-    const predictions = await detector.detect(image, 20, preferences.confidenceThreshold);
+    const canvas = document.createElement('canvas');
+    canvas.width = image.naturalWidth; canvas.height = image.naturalHeight;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(image, 0, 0);
+    const input = preprocessRGBA(ctx.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height);
+    const outputs = await detector.run({ images: new ort.Tensor('float32', input.data, [1, 3, 416, 416]) });
+    let predictions;
+    try {
+      const output = outputs.predictions;
+      if (JSON.stringify(output.dims) !== '[1,3549,85]') throw new Error('Unexpected output shape');
+      predictions = decodeYOLOX(output.data, canvas.width, canvas.height, preferences.confidenceThreshold);
+    } finally { for (const output of Object.values(outputs)) output.dispose(); }
     const elapsed = performance.now() - start;
     const stale = ageMs + elapsed > 2500;
     const detections = stale ? [] : assessDetections(predictions, image.naturalWidth, image.naturalHeight, preferences.confidenceThreshold);

@@ -21,7 +21,7 @@ enum AlertMode: String, Codable, CaseIterable, Identifiable {
 
 struct ScanPreferences: Codable, Equatable {
     var alertModes: [AlertMode] = [.sound]
-    var confidenceThreshold: Double = 0.6
+    var confidenceThreshold: Double = 0.7874982953071594
     var cooldownMs: Int = 3000
     // Missing storage enables automatic hardware depth; explicit saved choices are preserved.
     private var lidarEnabled: Bool? = nil

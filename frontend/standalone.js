@@ -26,7 +26,7 @@ window.addEventListener('storage', (event) => {
   if (event.key === 'clearpath-alert-repeat-count') window.myEyesCamera?.setRepeatCount(Number(event.newValue));
 });
 
-// Always use the bundled v1 model unless backend testing is explicitly requested.
+// Always use the bundled experimental YOLOX candidate unless backend testing is explicitly requested.
 async function chooseDetector() {
   return new URLSearchParams(location.search).get('detector') === 'backend'
     ? createBackendDetector()
