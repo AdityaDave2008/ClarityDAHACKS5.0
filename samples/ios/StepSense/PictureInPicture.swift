@@ -45,6 +45,7 @@ final class PiPContentView: UIView {
     private let bannerText = CATextLayer()
     private var state = PiPOverlayState()
     private var needsFlush = false
+    private var notReady = 0
     private var shown = 0
     private var received = 0
 
@@ -81,6 +82,12 @@ final class PiPContentView: UIView {
         needsFlush = true
     }
 
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        // Becoming visible again must rebuild the decoder before the next frame arrives.
+        if window != nil { needsFlush = true }
+    }
+
     override func layoutSubviews() {
         super.layoutSubviews()
         bannerText.contentsScale = UIScreen.main.scale
@@ -105,7 +112,18 @@ final class PiPContentView: UIView {
             displayLayer.flush()
             needsFlush = false
         }
-        guard displayLayer.isReadyForMoreMediaData else { return }
+        guard displayLayer.isReadyForMoreMediaData else {
+            // A layer that stays unready is wedged, which a flush clears. Without this the feed
+            // never recovers after a long spell off screen.
+            notReady += 1
+            if notReady >= 10 {
+                PiPDiagnostics.log("display.unwedge", "notReady=\(notReady) status=\(displayLayer.status.rawValue)")
+                displayLayer.flush()
+                notReady = 0
+            }
+            return
+        }
+        notReady = 0
         if let attachments = CMSampleBufferGetSampleAttachmentsArray(sampleBuffer, createIfNecessary: true),
            CFArrayGetCount(attachments) > 0 {
             let raw = CFArrayGetValueAtIndex(attachments, 0)

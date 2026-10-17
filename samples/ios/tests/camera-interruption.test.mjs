@@ -56,3 +56,45 @@ test('stopping cancels the watchdog', () => {
   const stop = model.slice(model.indexOf('private func stop(nextPhase:'));
   assert.match(stop, /watchdogTask\?\.cancel\(\)/);
 });
+
+test('recovery does not depend on an interruptionEnded notification arriving', () => {
+  // A long stay off screen can leave the session stopped with no end notification, which froze
+  // the feed until the user stopped and started again.
+  const interruption = camera.slice(camera.indexOf('private func handleInterruption(_ note: Notification)'), camera.indexOf('private func scheduleRecoveryCheck('));
+  assert.match(interruption, /scheduleRecoveryCheck\(\)/);
+});
+
+test('recovery keeps retrying for as long as the scan is active', () => {
+  const recovery = camera.slice(camera.indexOf('private func scheduleRecoveryCheck('), camera.indexOf('private func startLivenessTimer()'));
+  assert.match(recovery, /scheduleRecoveryCheck\(attempt: attempt \+ 1\)/, 'Retries must not be capped');
+  assert.match(recovery, /guard stillActive else \{ return \}/, 'Retries must stop when the scan ends');
+  assert.match(recovery, /session\.startRunning\(\)/);
+});
+
+test('a silently stalled feed is detected without any notification', () => {
+  const liveness = camera.slice(camera.indexOf('private func startLivenessTimer()'), camera.indexOf('private func handleInterruptionEnded()'));
+  assert.match(liveness, /repeating:/, 'Liveness must be polled, not one-shot');
+  assert.match(liveness, /session\.startRunning\(\)/);
+  assert.match(liveness, /lastFrameAt/, 'Staleness must be measured from real delivered frames');
+});
+
+test('the liveness timer runs only while capture is active', () => {
+  const clear = camera.slice(camera.indexOf('private func clearHandlers('));
+  assert.match(clear, /livenessTimer\?\.cancel\(\)/);
+  const start = camera.slice(camera.indexOf('func start(lidarEnabled:'), camera.indexOf('func requestFrame()'));
+  assert.match(start, /startLivenessTimer\(\)/);
+});
+
+test('a wedged display layer is flushed instead of freezing forever', () => {
+  const pip = readFileSync(new URL('../StepSense/PictureInPicture.swift', import.meta.url), 'utf8');
+  const enqueue = pip.slice(pip.indexOf('func enqueue(_ sampleBuffer:'), pip.indexOf('func markNeedsFlush()'));
+  assert.match(enqueue, /notReady/, 'A persistently unready layer must be recovered');
+  assert.match(enqueue, /displayLayer\.flush\(\)[\s\S]{0,80}notReady = 0/);
+});
+
+test('becoming visible again rebuilds the decoder', () => {
+  const pip = readFileSync(new URL('../StepSense/PictureInPicture.swift', import.meta.url), 'utf8');
+  assert.match(pip, /override func didMoveToWindow\(\)/);
+  const moved = pip.slice(pip.indexOf('override func didMoveToWindow()'), pip.indexOf('override func layoutSubviews()'));
+  assert.match(moved, /needsFlush = true/);
+});

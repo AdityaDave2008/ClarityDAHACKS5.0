@@ -52,6 +52,9 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
     private var failureHandler: (@Sendable (String) -> Void)?
     private var observers: [NSObjectProtocol] = []
     private var interrupted = false
+    /// Monotonic time of the most recent delivered frame, used to detect a silent stall.
+    private var lastFrameAt: TimeInterval = 0
+    private var livenessTimer: DispatchSourceTimer?
     // Accessed only on frameQueue.
     private var diagnosticFrames = 0
     private var depthCounters: [String: Int] = [:]
@@ -127,6 +130,84 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
         guard shouldReport else { return }
         frameQueue.async { [self] in clearDepthPairing() }
         handler?(true, message)
+        // Do not rely on interruptionEnded arriving. After a long stay off screen the system
+        // may leave the session stopped without that notification, which froze the feed until
+        // the user stopped and started again.
+        scheduleRecoveryCheck()
+    }
+
+    /// Repeatedly tries to bring capture back for as long as a scan is active.
+    ///
+    /// Each attempt is cheap and self-cancelling: it stops as soon as capture is running again
+    /// or the scan ends, so an arbitrarily long interruption still recovers on its own.
+    private func scheduleRecoveryCheck(attempt: Int = 0) {
+        lock.lock()
+        let stillActive = active
+        lock.unlock()
+        guard stillActive else { return }
+        // Back off from a quarter second up to two seconds, then keep retrying indefinitely.
+        let delay = min(2.0, 0.25 * pow(1.5, Double(min(attempt, 6))))
+        sessionQueue.asyncAfter(deadline: .now() + delay) { [self] in
+            lock.lock()
+            let active = self.active
+            let wasInterrupted = interrupted
+            lock.unlock()
+            guard active else { return }
+            if session.isRunning, !wasInterrupted {
+                return
+            }
+            if !session.isRunning, !session.isInterrupted {
+                PiPDiagnostics.log("camera.recovery.restart attempt=\(attempt)")
+                session.startRunning()
+            }
+            if session.isRunning, !session.isInterrupted {
+                lock.lock()
+                let shouldReport = self.active && interrupted
+                interrupted = false
+                let handler = interruptionHandler
+                lock.unlock()
+                if shouldReport {
+                    PiPDiagnostics.log("camera.recovery.resumed attempt=\(attempt)")
+                    handler?(false, "Camera resumed.")
+                }
+                return
+            }
+            scheduleRecoveryCheck(attempt: attempt + 1)
+        }
+    }
+
+    /// Watches for a feed that stopped without any interruption notification.
+    ///
+    /// Staying off screen long enough can leave the session stopped silently, so polling the
+    /// session state is the only way to notice and recover. The timer is cheap and runs only
+    /// while a scan is active.
+    private func startLivenessTimer() {
+        livenessTimer?.cancel()
+        let timer = DispatchSource.makeTimerSource(queue: sessionQueue)
+        timer.schedule(deadline: .now() + 2, repeating: 2)
+        timer.setEventHandler { [weak self] in
+            guard let self else { return }
+            lock.lock()
+            let active = self.active
+            let interrupted = self.interrupted
+            let since = ProcessInfo.processInfo.systemUptime - lastFrameAt
+            lock.unlock()
+            guard active, !interrupted, since > 3 else { return }
+            guard !session.isInterrupted else { return }
+            PiPDiagnostics.log("camera.liveness.stalled", "since=\(String(format: "%.1f", since))s running=\(session.isRunning)")
+            if !session.isRunning {
+                session.startRunning()
+            }
+            if session.isRunning {
+                lock.lock()
+                lastFrameAt = ProcessInfo.processInfo.systemUptime
+                let handler = interruptionHandler
+                lock.unlock()
+                handler?(false, "Camera resumed.")
+            }
+        }
+        timer.resume()
+        livenessTimer = timer
     }
 
     private func handleInterruptionEnded() {
@@ -211,6 +292,7 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
                     active = true
                     frameRequested = false
                     interrupted = false
+                    lastFrameAt = ProcessInfo.processInfo.systemUptime
                     frameHandler = onFrame
                     previewHandler = onPreview
                     interruptionHandler = onInterruption
@@ -218,6 +300,7 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
                     lock.unlock()
                     session.startRunning()
                     guard session.isRunning else { throw CameraFailure.configuration }
+                    startLivenessTimer()
                     continuation.resume(returning: CameraDiagnostics(multitaskingSupported: supported,
                                                                      multitaskingEnabled: enabledAccess, depthStatus: depthStatus))
                 } catch {
@@ -255,6 +338,8 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
         interruptionHandler = nil
         failureHandler = nil
         lock.unlock()
+        livenessTimer?.cancel()
+        livenessTimer = nil
     }
 
     private func configure(lidarEnabled: Bool) throws {
@@ -396,6 +481,9 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
 
         // Every frame feeds the Picture in Picture window; only requested frames are uploaded.
         diagnosticFrames += 1
+        lock.lock()
+        lastFrameAt = ProcessInfo.processInfo.systemUptime
+        lock.unlock()
         if diagnosticFrames == 1 || diagnosticFrames % 150 == 0 {
             PiPDiagnostics.log("camera.frames", "captured=\(diagnosticFrames) previewHandler=\(preview != nil)")
         }
