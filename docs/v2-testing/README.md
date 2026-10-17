@@ -20,7 +20,7 @@ Testing bundle `com.dahacks.clarity.v2testing`, icon **Clarity V2 Test**. Origin
 
 ```sh
 node --test samples/ios/tests/*.test.mjs
-swiftc -parse-as-library samples/ios/MyEyes/{APIClient,DepthEstimate,OfflineDetector}.swift samples/ios/tests/OfflineInferenceSmoke.swift -o "$SCRATCH/smoke"
+swiftc -parse-as-library samples/ios/MyEyes/{APIClient,DepthEstimate,OfflineDetector,DetectorRecovery}.swift samples/ios/tests/OfflineInferenceSmoke.swift -o "$SCRATCH/smoke"
 # cat.jpg is the existing known 224x224 cat fixture. Optional positive PNG is cv2-decoded cat re-encoded losslessly.
 "$SCRATCH/smoke" "$PWD/samples/ios/MyEyes/OfflineDetector" "$CAT_JPEG" "$CAT_LOSSLESS_PNG"
 swiftc -parse-as-library samples/ios/MyEyes/{APIClient,DepthEstimate,OfflineDetector}.swift samples/ios/tests/RuntimeParity.swift -o "$SCRATCH/parity"

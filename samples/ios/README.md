@@ -116,14 +116,16 @@ Run actual offline inference using the production Swift bridge, WKWebView, JS ru
 ```sh
 swiftc -parse-as-library \
   samples/ios/MyEyes/APIClient.swift \
+  samples/ios/MyEyes/DepthEstimate.swift \
   samples/ios/MyEyes/OfflineDetector.swift \
+  samples/ios/MyEyes/DetectorRecovery.swift \
   samples/ios/tests/OfflineInferenceSmoke.swift \
   -o "$JCODE_SCRATCH_DIR/offline-inference-smoke"
 "$JCODE_SCRATCH_DIR/offline-inference-smoke" \
   "$PWD/samples/ios/MyEyes/OfflineDetector" /absolute/path/to/cat.jpg
 ```
 
-The smoke asserts a high-confidence cat and normalized box, confirming → triggered → cooldown, stale suppression, stale/error streak breaking, canceled startup replacement, malformed-image recovery, blocked remote fetch, single-flight rejection, a real 15-second hung-frame timeout, and shutdown. This exercises real production WebKit inference, not mocked detections. It is a macOS runtime test, not proof of iPhone camera/thermal/background behavior.
+The smoke asserts a high-confidence cat and normalized box, confirming → triggered → cooldown, stale suppression, stale/error streak breaking, canceled startup replacement, malformed-image recovery, blocked remote fetch, single-flight rejection, a real 15-second hung-frame timeout, bounded recovery followed by 120 fresh model inferences, and shutdown. This exercises real production WebKit inference, not mocked detections. It is a macOS runtime test, not proof of iPhone camera/thermal/background behavior.
 
 Signed iPhone build:
 

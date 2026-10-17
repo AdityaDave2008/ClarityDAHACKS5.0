@@ -77,7 +77,18 @@ struct OfflineInferenceSmoke {
                     guard error.localizedDescription.contains("timed out") else { throw error }
                 }
                 guard detector.webView == nil else { throw OfflineDetectorError.unavailable("Timed-out WebKit was retained") }
-                _ = try await detector.start()
+                let recovery = DetectorRecovery()
+                try await recovery.reload { _ = try await detector.start() }
+                for sequence in 10..<130 {
+                    let resumed = try await detector.analyze(jpeg: jpeg, sequence: sequence,
+                        preferences: ScanPreferences(confidenceThreshold: 0.4), capturedAt: ProcessInfo.processInfo.systemUptime)
+                    guard resumed.frame.sequence == sequence,
+                          resumed.detections.contains(where: { $0.label == "cat" }), resumed.alert.reason != "stale"
+                    else { throw OfflineDetectorError.unavailable("Recovered runtime failed sustained fresh inference") }
+                    recovery.recordHealthyFrame()
+                    if sequence % 30 == 0 { print("RECOVERY SOAK frame=\(sequence) ms=\(resumed.processingMs)") }
+                }
+                print("PASS actual timed-out runtime recovered and completed 120 fresh model inferences")
                 let network = try await detector.webView!.callAsyncJavaScript("try { await fetch('https://example.com/'); return 'unexpected'; } catch (_) { return 'blocked'; }", arguments: [:], in: nil, contentWorld: .page)
                 guard network as? String == "blocked" else { throw OfflineDetectorError.unavailable("CSP allowed remote fetch") }
                 detector.stop()

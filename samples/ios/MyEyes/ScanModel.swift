@@ -40,8 +40,12 @@ final class ScanModel: ObservableObject {
     }
 
     private var generation = UUID()
+    private var centerDepthNotBefore = ProcessInfo.processInfo.systemUptime
     private var sequence = 0
     private let detector = OfflineDetector()
+    private let detectorRecovery = DetectorRecovery()
+    private var detectorRecoveryDeferred = false
+    private var appInForeground = true
     private var preferencesRevision = UUID()
     private var startTask: Task<Void, Never>?
     private var frameTask: Task<Void, Never>?
@@ -68,6 +72,7 @@ final class ScanModel: ObservableObject {
         guard !isBusy, !cameraStopping else { return }
         generation = UUID()
         let current = generation
+        clearCenterDepth()
         phase = .connecting
         detail = "Checking camera permission…"
         detections = []
@@ -76,6 +81,8 @@ final class ScanModel: ObservableObject {
         alertReason = "idle"
         alertCount = 0
         checkedFrames = 0
+        detectorRecovery.reset()
+        detectorRecoveryDeferred = false
 
         startTask = Task { [weak self] in
             guard let self else { return }
@@ -92,6 +99,15 @@ final class ScanModel: ObservableObject {
                     Task { @MainActor in
                         guard let self, self.generation == current else { return }
                         self.pip.enqueue(preview)
+                    }
+                }, onDepthSample: { [weak self] sample in
+                    await MainActor.run {
+                        guard let self, self.generation == current, self.cameraRunning,
+                              !self.cameraPaused, self.preferences.isLidarEnabled else { return }
+                        self.centerSurfaceMeasurement = sample.measurement(now: ProcessInfo.processInfo.systemUptime,
+                                                                           notBefore: self.centerDepthNotBefore)
+                        self.centerSurfaceUnavailableReason = self.centerSurfaceMeasurement == nil && sample.meters != nil
+                            ? "stale or interrupted sensor delivery" : sample.diagnostic
                     }
                 }, onInterruption: { [weak self] paused, message in
                     Task { @MainActor in
@@ -123,6 +139,7 @@ final class ScanModel: ObservableObject {
                 detail = "Scanning the marked image zone offline."
                 refreshPiPOverlay()
                 camera.requestFrame()
+                startFrameWatchdog(generation: current)
             } catch {
                 guard generation == current else { return }
                 if cameraRunning {
@@ -148,6 +165,7 @@ final class ScanModel: ObservableObject {
     /// scanning continues and the floating window keeps showing live detections. Otherwise the
     /// previous behavior applies: release the camera and require an explicit restart.
     func pauseForBackground() {
+        appInForeground = false
         PiPDiagnostics.log("scan.background", "phase=\(phase) camera=\(cameraRunning) pipActive=\(pip.isActive) multitasking=\(multitaskingEnabled == true) checked=\(checkedFrames)")
         guard isBusy else { alerts.stop(); return }
         // Preview-only sessions keep the window too: the camera is what the window shows.
@@ -164,10 +182,30 @@ final class ScanModel: ObservableObject {
     }
 
     func returnedToForeground() {
+        appInForeground = true
         PiPDiagnostics.log("scan.foreground", "camera=\(cameraRunning) checked=\(checkedFrames)")
         // The display layer's decoder does not survive backgrounding.
         pip.resetDisplay()
         if cameraRunning { refreshPiPOverlay() }
+        resumeDeferredDetection()
+    }
+
+    private func resumeDeferredDetection() {
+        guard detectorRecoveryDeferred, appInForeground, cameraRunning, !cameraPaused,
+              !cameraStopping, frameTask == nil else { return }
+        detectorRecoveryDeferred = false
+        let current = generation
+        phase = .scanning
+        frameTask = Task { [weak self] in
+            guard let self else { return }
+            let recovered = await reloadDetector(generation: current)
+            guard generation == current, !Task.isCancelled else { return }
+            frameTask = nil
+            if recovered, !cameraPaused {
+                camera.requestFrame()
+                startFrameWatchdog(generation: current)
+            }
+        }
     }
 
     func startPictureInPicture() {
@@ -183,6 +221,7 @@ final class ScanModel: ObservableObject {
     private func handleCameraInterruption(paused: Bool, message: String, generation current: UUID) {
         guard cameraRunning else { return }
         cameraPaused = paused
+        clearCenterDepth()
         if paused {
             preferencesRevision = UUID() // In-flight pre-interruption depth cannot reappear.
             clearDisplayedResult()
@@ -200,6 +239,7 @@ final class ScanModel: ObservableObject {
         // the loop with no pending frame to continue from.
         if phase == .scanning, frameTask == nil { camera.requestFrame() }
         if phase == .scanning { startFrameWatchdog(generation: current) }
+        resumeDeferredDetection()
     }
 
     private func refreshPiPOverlay() {
@@ -230,6 +270,7 @@ final class ScanModel: ObservableObject {
         preferences = updated
         if !isBusy { depthStatus = updated.isLidarEnabled ? "Enabled · starts with next scan" : "Off" }
         preferencesRevision = UUID()
+        if !updated.isLidarEnabled { clearCenterDepth() }
         clearDisplayedResult()
         refreshPiPOverlay()
         if let encoded = try? JSONEncoder().encode(preferences) {
@@ -241,10 +282,6 @@ final class ScanModel: ObservableObject {
     private func analyze(_ frame: CapturedFrame, generation current: UUID) {
         guard phase == .scanning, !cameraPaused, generation == current, frameTask == nil else { return }
         depthStatus = frame.depthDiagnostic
-        centerSurfaceUnavailableReason = frame.depthDiagnostic
-        if let snapshot = frame.depth, let value = snapshot.centerSurface(now: ProcessInfo.processInfo.systemUptime, onRejection: { centerSurfaceUnavailableReason = $0 }) {
-            centerSurfaceMeasurement = (value, snapshot.capturedAt)
-        } else { centerSurfaceMeasurement = nil }
         sequence += 1
         let frameSequence = sequence
         let revision = preferencesRevision
@@ -273,6 +310,7 @@ final class ScanModel: ObservableObject {
                     alertReason = "stale"
                     detail = "Result arrived late. Alert skipped; checking a fresh frame."
                 } else {
+                    detectorRecovery.recordHealthyFrame()
                     let matchingFrame = result.frame.sequence == frameSequence
                         && result.frame.width == Int(frame.size.width) && result.frame.height == Int(frame.size.height)
                     var depthRejections: [String: Int] = [:]
@@ -313,12 +351,11 @@ final class ScanModel: ObservableObject {
                 detail = "Analysis unavailable. \(readable(error))"
                 refreshPiPOverlay()
                 if detector.webView == nil {
-                    phase = .previewing
-                    modelStatus = "Detection unavailable"
-                    detail = "Preview only. No detection or obstacle alerts. Stop and Start to retry."
-                    frameTask = nil
-                    refreshPiPOverlay()
-                    return
+                    guard await reloadDetector(generation: current) else {
+                        guard generation == current, !Task.isCancelled else { return }
+                        frameTask = nil
+                        return
+                    }
                 }
                 retryDelay = 1
             }
@@ -345,6 +382,42 @@ final class ScanModel: ObservableObject {
                   frameTask == nil, sequence == waitingFor, !cameraPaused else { return }
             camera.requestFrame()
             startFrameWatchdog(generation: current)
+        }
+    }
+
+    private func reloadDetector(generation current: UUID) async -> Bool {
+        func deferRecovery() {
+            detectorRecoveryDeferred = true
+            phase = .previewing
+            modelStatus = "Detection paused"
+            detail = "Preview only. Detection will recover when this app and camera are active. No obstacle alerts while paused."
+            refreshPiPOverlay()
+        }
+        guard appInForeground else { deferRecovery(); return false }
+        guard !cameraPaused else { deferRecovery(); return false }
+        detail = "Camera preview active. Recovering the offline detector…"
+        modelStatus = "Restarting offline detector"
+        refreshPiPOverlay()
+        do {
+            try await detectorRecovery.reload(canLoad: { self.appInForeground && !self.cameraPaused }) {
+                let recoveredZone = try await self.detector.start()
+                try Task.checkCancellation()
+                guard self.generation == current else { throw CancellationError() }
+                self.zone = recoveredZone
+            }
+            guard generation == current, !Task.isCancelled else { return false }
+            guard appInForeground, !cameraPaused else { deferRecovery(); return false }
+            modelStatus = "Experimental YOLOX-Nano · offline \(detector.backend.uppercased())"
+            detail = "Detector recovered. Checking a fresh frame…"
+            return true
+        } catch {
+            guard generation == current, !Task.isCancelled else { return false }
+            if case DetectorRecoveryError.deferred = error { deferRecovery(); return false }
+            phase = .previewing
+            modelStatus = "Detection unavailable"
+            detail = "Preview only. Automatic recovery failed. No obstacle alerts. Stop and Start to retry."
+            refreshPiPOverlay()
+            return false
         }
     }
 
@@ -381,9 +454,13 @@ final class ScanModel: ObservableObject {
         }
     }
 
-    private func clearDisplayedResult() {
+    private func clearCenterDepth() {
+        centerDepthNotBefore = ProcessInfo.processInfo.systemUptime
         centerSurfaceMeasurement = nil
         centerSurfaceUnavailableReason = "waiting for depth"
+    }
+
+    private func clearDisplayedResult() {
         depthExpirationTask?.cancel()
         depthExpirationTask = nil
         overlayExpirationTask?.cancel()
@@ -401,6 +478,7 @@ final class ScanModel: ObservableObject {
         startTask = nil
         frameTask = nil
         watchdogTask = nil
+        detectorRecoveryDeferred = false
         cameraStopping = true
         let stoppedGeneration = generation
         camera.stop { [weak self] in
@@ -414,6 +492,7 @@ final class ScanModel: ObservableObject {
         alerts.stop()
         pip.setEnabled(false)
         detector.stop()
+        clearCenterDepth()
         clearDisplayedResult()
         alertReason = "idle"
         phase = nextPhase
