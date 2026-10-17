@@ -1,15 +1,5 @@
 # Attribution and provenance
 
-## On-device perception additions
-
-- **MediaPipe Tasks Vision 0.10.32**: Apache-2.0, Google. Runtime and WebAssembly files served from the pinned npm dependency. [Source and license](https://github.com/google-ai-edge/mediapipe). Uses EfficientDet-Lite0 int8 model revision 1, [official model download](https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/int8/1/efficientdet_lite0.tflite), under the MediaPipe model documentation's Apache-2.0 terms. This model recognizes COCO categories, not all trip hazards.
-- **ByteTrack algorithm adaptation**: class-aware browser tracking with two-stage association, Kalman prediction and Hungarian assignment. This is a local JavaScript adaptation, not the upstream Python package or a benchmark-equivalent port. The upstream MIT notice and implementation differences are retained in [tracking documentation](docs/TRACKING.md).
-- **Depth Anything V2 Small**: optional on-device relative-depth snapshot. See [depth documentation](docs/DEPTH.md) for the exact runtime, ONNX conversion, license and model restrictions. Depth does not supply measured meters and does not control alerts.
-- **Playwright**: Apache-2.0, Microsoft; development-only browser verification. [Source/license](https://github.com/microsoft/playwright).
-- Browser validation downloads Google's [cat-and-dog example](https://storage.googleapis.com/mediapipe-tasks/object_detector/cat_and_dog.jpg) into the ignored local cache. It is not a project asset, training dataset or evidence of outdoor hazard accuracy.
-
-The MediaPipe runtime/model are served by this computer. The optional depth runtime/weights download from external providers; camera images remain on the device in local mode. Backend mode continues to upload frames as documented below.
-
 - **Fastify**: HTTP server, MIT. [Source/license](https://github.com/fastify/fastify).
 - **@fastify/cors**: CORS integration, MIT. [Source/license](https://github.com/fastify/fastify-cors).
 - **sharp**: bounded image decoding and resizing, Apache-2.0. sharp and libvips have separate included third-party notices. [Source/license](https://github.com/lovell/sharp).
