@@ -139,23 +139,10 @@
         <p class="eyebrow">Make it yours</p>
         <h1>Your way<br>to move.</h1>
         <p class="intro">
-          Choose a profile and alerts that feel comfortable for you.
+          Change any setting whenever you need.
         </p>
 
         <div class="card">
-          <h2 class="section-title">How are you using ClearPath?</h2>
-
-          <div class="profile-row">
-            <button class="choice selected" data-profile>
-              <b>Everyday walker</b>
-              <small>For staying aware on busy streets</small>
-            </button>
-            <button class="choice" data-profile>
-              <b>Accessibility</b>
-              <small>Customize alerts for your needs</small>
-            </button>
-          </div>
-
           <h2 class="section-title">Walking mode</h2>
           <div class="mode-switch" role="group" aria-label="Choose walking mode">
             <button
@@ -463,16 +450,6 @@
           toast.classList.remove("show");
         }, 2300);
       }
-
-document.querySelectorAll("[data-profile]").forEach((button) => {
-        button.addEventListener("click", () => {
-          document.querySelectorAll("[data-profile]").forEach((profile) => {
-            profile.classList.toggle("selected", profile === button);
-          });
-
-          showToast("Profile selected");
-        });
-      });
 
       const modeButtons = [...document.querySelectorAll("[data-mode]")];
 
