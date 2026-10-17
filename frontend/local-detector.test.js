@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { assessDetections, createAlertPolicy, createLocalDetector, pointInZone } from './local-detector.js';
+import { CameraFeature } from './camera.js';
 
 // The detector is exercised through its real start() contract with a stubbed model, so the
 // frame loop, staleness rule, and alert behavior are covered. Actual COCO-SSD accuracy and
@@ -191,9 +192,10 @@ test('only supported categories reach the overlay', () => {
   const detections = assessDetections([
     prediction({ label: 'backpack', score: 0.9 }),
     prediction({ label: 'toothbrush', score: 0.99 }),
+    prediction({ label: 'unknown-object', score: 0.99 }),
     prediction({ label: 'chair', score: 0.2 }),
   ], 640, 480, 0.6);
-  assert.deepEqual(detections.map((item) => item.label), ['backpack'], 'Unsupported and low-confidence results must be dropped');
+  assert.deepEqual(detections.map((item) => item.label), ['backpack', 'toothbrush'], 'Valid COCO categories pass; unknown and low-confidence results are dropped');
 });
 
 test('boxes are clamped to the frame', () => {
@@ -232,3 +234,200 @@ test('optional synchronous frame hook receives exact canvas and sequence without
   assert.equal(run.events.errors.length, 0);
   assert.equal(run.events.results.length, 1);
 });
+
+test('COCO uses the team-selected 0.45 threshold and a 640px capture cap', async () => {
+  const stub = harness({ predictions: [prediction({ score: .44 }), prediction({ score: .45 })] });
+  const run = session({video: {videoWidth: 1280, videoHeight: 720}});
+  const stop = await createLocalDetector(stub.options).start(run.context);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(run.events.results[0].detections.map(item => item.confidence), [.45]);
+  assert.equal(stub.canvas.width, 640);
+  assert.equal(stub.canvas.height, 360);
+  stop();
+});
+
+test('returned stop suppresses in-flight results without requiring abort', async () => {
+  let resolve;
+  const stub = harness({detectImpl: () => new Promise(r => {resolve = r;})});
+  const run = session();
+  const stop = await createLocalDetector(stub.options).start(run.context);
+  stop(); resolve([prediction()]);
+  await new Promise(r => setImmediate(r));
+  assert.equal(run.events.results.length, 0);
+  assert.equal(stub.scheduled(), 0);
+});
+
+test('abort during load suppresses late load errors', async () => {
+  let reject;
+  const stub = harness();
+  const run = session();
+  const pending = createLocalDetector({...stub.options, loader: () => new Promise((_, r) => {reject=r;})}).start(run.context);
+  run.controller.abort(); reject(Error('late network failure'));
+  await pending;
+  assert.deepEqual(run.events.errors, []);
+});
+
+test('aborted loading cannot overwrite the next camera session status', async () => {
+  let resume;
+  const stub = harness(); const run = session();
+  const pending = createLocalDetector({...stub.options,loader: ({onStatus}) => new Promise(resolve => {
+    resume=()=>{onStatus('late ready');resolve({detect:async()=>[]});};
+  })}).start(run.context);
+  run.controller.abort(); resume(); await pending;
+  assert.deepEqual(run.events.statuses, []);
+});
+
+// These exercise the real loop. A fixed post-inference sleep unnecessarily adds
+// model latency to the target interval. Timers and inference are controlled here
+// to make cadence and backpressure assertions independent of machine speed.
+for (const [inferenceMs, expectedDelay] of [[20, 70], [80, 16], [150, 16]]) {
+  test(`successful ${inferenceMs}ms inference targets start-to-start cadence with a UI yield`, async () => {
+    const stub = harness();
+    const delays = [];
+    const stop = await createLocalDetector({
+      ...stub.options,
+      loader: async () => ({ detect: async () => { stub.advance(inferenceMs); return [prediction()]; } }),
+      schedule: (_callback, delay) => { delays.push(delay); },
+    }).start(session().context);
+    await new Promise(resolve => setImmediate(resolve));
+    assert.deepEqual(delays, [expectedDelay]);
+    stop();
+  });
+}
+
+test('slow failed and stale frames retain full retry delay instead of spinning', async () => {
+  for (const failure of [true, false]) {
+    const stub = harness();
+    const delays = [];
+    const run = session();
+    const stop = await createLocalDetector({
+      ...stub.options,
+      loader: async () => ({ detect: async () => {
+        stub.advance(3000);
+        if (failure) throw Error('inference failed');
+        return [prediction()];
+      } }),
+      schedule: (_callback, delay) => { delays.push(delay); },
+    }).start(run.context);
+    await new Promise(resolve => setImmediate(resolve));
+    assert.deepEqual(delays, [90]);
+    assert.equal(run.events.results.length, 0);
+    stop();
+  }
+});
+
+test('in-flight inference never queues captures and the next tick captures the latest video', async () => {
+  let finish;
+  const stub = harness({ detectImpl: () => new Promise(resolve => { finish = resolve; }) });
+  const captured = [];
+  const video = { videoWidth: 640, videoHeight: 480, frameId: 1 };
+  stub.canvas.getContext = () => ({ drawImage: source => captured.push(source.frameId) });
+  const run = session({ video });
+  const stop = await createLocalDetector(stub.options).start(run.context);
+  assert.deepEqual(captured, [1]);
+  assert.equal(stub.scheduled(), 0);
+  video.frameId = 2;
+  stub.advance(150);
+  stub.runScheduled();
+  assert.deepEqual(captured, [1], 'No capture while inference is pending');
+  finish([prediction()]);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(stub.scheduled(), 1);
+  video.frameId = 3;
+  stub.runScheduled();
+  assert.deepEqual(captured, [1, 3], 'Intermediate video frames must not be queued');
+  assert.equal(stub.scheduled(), 0);
+  stop();
+  finish([prediction()]);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(run.events.results.length, 1, 'Stopping discards the last in-flight result');
+  assert.equal(stub.scheduled(), 0);
+});
+
+for (const rejectOld of [false, true]) {
+  test(`restart waits before fresh capture and releases the gate on ${rejectOld ? 'rejection' : 'success'}`, async () => {
+    const pending = [], captured = [];
+    let active = 0, maximum = 0;
+    const stub = harness({ detectImpl: () => {
+      active++;
+      maximum = Math.max(maximum, active);
+      return new Promise((resolve, reject) => pending.push({
+        finish() { active--; resolve([prediction()]); },
+        fail() { active--; reject(Error('old inference failed')); },
+      }));
+    } });
+    stub.canvas.getContext = () => ({ drawImage: video => captured.push(video.frameId) });
+    const detector = createLocalDetector(stub.options);
+    const old = session({ video: { videoWidth: 640, videoHeight: 480, frameId: 'old' } });
+    const cancelled = session({ video: { videoWidth: 640, videoHeight: 480, frameId: 'cancelled' } });
+    const video = { videoWidth: 640, videoHeight: 480, frameId: 'before-wait' };
+    const latest = session({ video });
+    const frames = [];
+    latest.context.onFrame = frame => frames.push(frame);
+    await detector.start(old.context);
+    old.controller.abort();
+    const stopCancelled = await detector.start(cancelled.context);
+    stopCancelled(); // Returned stop must fence waiting work even without abort.
+    await detector.start(latest.context);
+    assert.deepEqual(captured, ['old'], 'Waiting starts must not capture stale frames');
+    assert.equal(maximum, 1, 'All starts share a single inference slot');
+    video.frameId = 'latest-after-wait';
+    stub.advance(3000);
+    if (rejectOld) pending[0].fail(); else pending[0].finish();
+    await new Promise(resolve => setImmediate(resolve));
+    assert.deepEqual(captured, ['old', 'latest-after-wait']);
+    assert.equal(maximum, 1);
+    assert.equal(pending.length, 2, 'Cancelled waiting start must never invoke the model');
+    pending[1].finish();
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(latest.events.results.length, 1, 'Waiting time must not age a newly captured result');
+    assert.equal(latest.events.results[0].ageMs, 0);
+    assert.equal(frames[0].capturedAt, 3000);
+    assert.equal(old.events.results.length, 0);
+    assert.equal(old.events.errors.length, 0, 'Aborted old rejection must not affect the new session');
+    assert.equal(cancelled.events.results.length, 0);
+    latest.controller.abort();
+  });
+}
+
+for (const lifecycle of ['PiP hide/show', 'Stop/Start']) {
+  test(`rapid ${lifecycle} never overlaps inference or captures aborted waiting runs`, async () => {
+    let active = 0, maximum = 0, captures = 0, visible = true;
+    const pending = [];
+    const feature = new CameraFeature({
+      video: { videoWidth: 640, videoHeight: 480, async play() {}, pause() {} },
+      mediaDevices: { async getUserMedia() { return { getTracks: () => [{ stop() {}, addEventListener() {} }] }; } },
+      schedule: () => 0, unschedule() {}, isVisible: () => visible,
+    });
+    feature.registerDetector(createLocalDetector({
+      loader: async () => ({ detect: () => {
+        active++; maximum = Math.max(maximum, active);
+        return new Promise(resolve => pending.push(() => { active--; resolve([prediction()]); }));
+      } }),
+      createCanvas: () => ({ getContext: () => ({ drawImage() { captures++; } }) }),
+      schedule: () => 0, unschedule() {},
+    }));
+    try {
+      await feature.start();
+      await new Promise(resolve => setImmediate(resolve));
+      for (let i = 0; i < 5; i++) {
+        if (lifecycle === 'PiP hide/show') {
+          visible = false; feature.pauseForPictureInPicture();
+          visible = true; feature.resumeFromPictureInPicture();
+        } else { feature.stop(); await feature.start(); }
+        await new Promise(resolve => setImmediate(resolve));
+      }
+      assert.equal(maximum, 1, 'Restart must wait for the old inference without blocking Stop');
+      assert.equal(captures, 1, 'No capture queue for hidden/stopped sessions');
+      pending[0]();
+      await new Promise(resolve => setImmediate(resolve));
+      assert.equal(pending.length, 2, 'Only the latest non-aborted run invokes the model');
+      assert.equal(captures, 2);
+      assert.equal(feature.state.result, null, 'Old model result remains fenced after resume');
+      pending[1]();
+      await new Promise(resolve => setImmediate(resolve));
+      assert.equal(feature.state.result.sequence, 1);
+      assert.equal(maximum, 1);
+    } finally { feature.destroy(); }
+  });
+}

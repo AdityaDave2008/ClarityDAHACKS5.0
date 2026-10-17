@@ -94,6 +94,15 @@ report or independently verified hardware notification/vibration result has
 been collected. Confirmed object alerts now have a separate output adapter;
 see the main README for the Safari notification and vibration restrictions.
 
+The team merge retains the upstream preview-only lifecycle at `/?pip=preview`
+and its acceptance runner as `scripts/pip-preview-smoke.mjs`. The default
+scanner retains the Safari PiP/alert behavior observed by the user. In this
+Windows checkout, 270 frontend/Worker tests and the integrated browser runner
+passed after merging. The separate preview runner could not execute because
+the installed Playwright build does not expose the private CDP owner it uses
+for real visibility checks. This is a test-tool compatibility limitation, not
+physical-device acceptance. No iOS compilation was performed on Windows.
+
 ## Local automated observation
 
 An isolated headless Chrome 155.0.8059.39 run on Windows loaded the real bundled

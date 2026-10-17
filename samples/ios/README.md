@@ -1,18 +1,34 @@
 # Clarity native iPhone sample
 
-The SwiftUI camera app now runs **fully offline object detection** using the same pretrained COCO-SSD `lite_mobilenet_v2` graph as the backend. It bundles TensorFlow.js 4.22.0, its single-threaded WebAssembly backend, COCO-SSD 2.2.3, and all five weight shards. No server, Wi-Fi, mobile data, or runtime model download is required. This is not a custom-trained model or a different Core ML detector.
+**Judges: [start with the native demo and source guide](JUDGES.md).** The current `main` contains **Clarity V2 Test**, an experimental offline YOLOX-Nano candidate, not the older StepSense/COCO-SSD build. The directory is `MyEyes`, the Xcode project is `MyEyes.xcodeproj`, and the target, scheme and built product are **Clarity**. These historical names do not identify different build targets.
 
-**Model path:** `samples/ios/MyEyes/OfflineDetector/model/model.json`, with `group1-shard1of5` through `group1-shard5of5` alongside it. See [exact provenance, SHA-256 manifest, and Apache-2.0 notices](MyEyes/OfflineDetector/PROVENANCE.md).
+## Current model and identity
+
+- Display name: **Clarity V2 Test**. Bundle identifier: `com.dahacks.clarity.v2testing`.
+- Packaged model: `MyEyes/OfflineDetector/candidate.onnx`, with ONNX Runtime Web **1.20.1** and its bundled WASM runtime. No model-download, Node server or Swift package step is required for the native app.
+- [Model provenance](MyEyes/OfflineDetector/PROVENANCE.md), [asset hashes](MyEyes/OfflineDetector/ASSETS.json), and [V2 verification and limitations](../../docs/v2-testing/README.md) describe this candidate. Earlier COCO-SSD model paths, confidence measurements and bundle identifiers in historical records below do **not** describe current main.
+- Candidate mAP is worse than baseline. The default confidence threshold is approximately **0.7875** and may yield sparse detections. JPEG preprocessing parity is not established. This is experimental testing, not an accuracy improvement or a safety device.
+- Native images and LiDAR data stay on-device. Optional hardware depth is approximate axial depth, not collision prediction or clearance.
 
 ## Build and run
 
-1. Open `samples/ios/MyEyes.xcodeproj` in Xcode. Select your development team and connected iPhone. The minimum deployment target remains iOS 16.
-2. Build/run the **Clarity** scheme. No Swift package installation, Node server, or model-download step is necessary for the checked-in app.
-3. Tap **Start scanning** and allow camera access if iOS requests it. Existing permission is reused. Denied permission must be changed in iOS Settings; do not reset permissions to test this app.
-4. The camera preview starts before model initialization. If initialization fails, the app explicitly remains **Preview only**, with no object alerts. Stop then Start retries.
-5. Configure confidence, cooldown, and sound/haptics/speech in Scan settings. No backend address is required.
+1. Open `samples/ios/MyEyes.xcodeproj` in Xcode and select the **Clarity** scheme. Minimum deployment target is iOS 16. A leftover `StepSense.xcodeproj/project.xcworkspace/xcuserdata` directory is not a buildable project and must not be submitted as source.
+2. For a compilation check without signing or touching a phone, run the unsigned build below. For a physical demonstration, prefer the team's already-installed app. Installing a new build requires compatible hardware, appropriate signing and explicit device-owner consent. Do not overwrite an existing app or change its preferences merely to try this sample.
+3. Tap **Start scanning** and allow camera access if requested. Denied permission must be changed by the device owner in Settings. Do not reset permissions or uninstall the app as a test step.
+4. The preview starts before model initialization. Initialization failure remains **Preview only**, with no object alerts. Stop then Start retries.
+5. Configure confidence, cooldown and sound/haptics/speech in Scan settings. No backend address is required. The app is portrait-only and uses the rear camera.
 
-The app is portrait-only. It uses the rear camera and shows aspect-fit normalized boxes with class and confidence. Yellow means the object's bottom-center lies in the image zone; teal means outside it. Supported labels match `backend/alerts.js`.
+From the repository root on a Mac with Xcode and the iPhoneOS SDK:
+
+```sh
+xcodebuild -project samples/ios/MyEyes.xcodeproj -scheme Clarity \
+  -configuration Debug -destination 'generic/platform=iOS' \
+  -derivedDataPath "${JCODE_SCRATCH_DIR:-$HOME/Library/Caches}/clarity-unsigned" \
+  CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build
+node --test samples/ios/tests/*.test.mjs
+```
+
+An unsigned `.app` proves compilation only. It is not an installable judge distribution, an IPA, TestFlight access, or physical camera acceptance. See [the judge guide](JUDGES.md) for the verified source revision and results.
 
 ## Frame and alert behavior
 
@@ -32,7 +48,25 @@ The existing video-call Picture in Picture camera implementation is retained. It
 
 On launch the scanner is stopped and the floating window is closed. The PiP controller is prepared automatically, without a toggle or a saved opt-out preference. Tapping **Start scanning** arms automatic PiP entry once the camera starts, even if the model fails. Leaving the app can then open PiP when iOS permits. **Open floating window now** remains the explicit fallback (and can open an empty window before scanning). **Stop scanning** releases the camera and closes PiP. Dismissing PiP disarms automatic entry until a new scan or an explicit Open request, so returning to the app or finishing model loading does not force it open again. WebKit may suspend offline analysis while the app is backgrounded, even when the camera continues in PiP. Old boxes expire and the UI warns about this limitation. Background object alerts are **not guaranteed or verified**. The `voip` mode remains a hackathon prototype choice, not an assertion of App Store eligibility.
 
-## Verification
+## Historical verification and implementation notes
+
+The records below preserve earlier baseline work. Their COCO-SSD smoke results, old bundle identifiers, installation commands and device observations are historical evidence, not instructions to deploy current main. Use the current build commands above and the [V2 guide](../../docs/v2-testing/README.md) for the candidate. No physical acceptance is established by the October 17 read-only audit.
+
+**October 17 follow-up Mac verification:** the integrated native source from upstream `7be09a5`, including the explicit `ScanPreferences` initializer, passed a fresh unsigned generic-iOS Debug build at 08:31 UTC and all 56 native regression tests under Node.js 24. The build used an external snapshot and DerivedData, with signing disabled and no installation or settings changes. This supersedes the earlier Windows-only check for compilation, not physical camera/LiDAR/PiP acceptance. The GitHub Actions workflow itself must still be checked on the published revision.
+
+Windows checks for the integrated update: JavaScript syntax checks passed, and the browser/native-source regression suite passed 231 tests with zero failures. Two tests that compile and execute Swift were skipped because they require macOS. These results do not replace the Mac/Xcode checks below.
+
+On a Mac with Node.js 24+ and Xcode, run:
+
+```sh
+node --test samples/ios/tests/*.test.mjs
+xcodebuild -project samples/ios/MyEyes.xcodeproj -scheme Clarity \
+  -configuration Debug -destination 'generic/platform=iOS Simulator' \
+  -derivedDataPath /tmp/clarity-simulator-validation \
+  CODE_SIGNING_ALLOWED=NO build
+```
+
+Confirm both commands pass, or confirm the `iPhone PiP build` workflow passes for the new commit, before marking these fixes verified. An earlier failure email describes an earlier run.
 
 ### PiP runtime diagnostics
 

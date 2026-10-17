@@ -34,13 +34,12 @@ test('bundled policy preserves boxes, supported labels, confirmation, cooldown a
   assert.equal(localPolicy.update(local, 4800).reason, 'triggered');
   assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(ZONE)', context)), ZONE);
 });
-test('all exact pretrained graph shards and runtime assets are bundled', () => {
-  const manifest = JSON.parse(read('model/model.json'));
-  assert.ok(manifest.modelTopology.node.length > 0);
-  for (const group of manifest.weightsManifest) for (const path of group.paths) {
-    assert.ok(readFileSync(new URL('model/' + path, root)).length > 0);
-  }
-  for (const name of ['tf.min.js', 'coco-ssd.min.js', 'tf-backend-wasm.min.js', 'tfjs-backend-wasm.wasm', 'tfjs-backend-wasm-simd.wasm']) assert.ok(existsSync(new URL(name, root)));
+test('only ONNX runtime and actual candidate are loaded by the page', () => {
+  const html = read('index.html');
+  assert.match(html, /ort.wasm.min.js/);
+  assert.match(html, /yolox.js/);
+  assert.doesNotMatch(html, /tf.min.js|coco-ssd/);
+  for (const name of ['candidate.onnx', 'ort.wasm.min.js', 'ort-wasm-simd-threaded.mjs', 'ort-wasm-simd-threaded.wasm']) assert.ok(existsSync(new URL(name, root)));
 });
 test('offline page has a restrictive content policy and no remote script URLs', () => {
   const html = read('index.html');
@@ -52,9 +51,9 @@ test('offline page has a restrictive content policy and no remote script URLs', 
 test('pinned model/runtime byte sizes and SHA-256 hashes match the checked-in artifacts', async () => {
   const { createHash } = await import('node:crypto');
   const manifest = JSON.parse(read('ASSETS.json'));
-  assert.equal(manifest.model, 'COCO-SSD lite_mobilenet_v2');
-  assert.equal(manifest.adapterVersion, '2.2.3');
-  assert.equal(manifest.tensorflowjsVersion, '4.22.0');
+  assert.equal(manifest.model, 'YOLOX-Nano fine-tuned candidate');
+  assert.equal(manifest.onnxRuntimeVersion, '1.20.1');
+  assert.equal(manifest.files['candidate.onnx'].sha256, '516617114420ce3c2bac545869ee91bac8ff7a63e148a73afdb12f126433fab4');
   for (const [name, expected] of Object.entries(manifest.files)) {
     const data = readFileSync(new URL(name, root));
     assert.equal(data.length, expected.bytes, name);

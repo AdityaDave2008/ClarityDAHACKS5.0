@@ -27,6 +27,11 @@ test('renderer clears old boxes, scales to DPR, and draws readable labels', () =
   logic.drawDetectionOverlay(canvas, video, detections, 2);
   assert.equal(canvas.width, 800);
   assert.equal(canvas.height, 400);
+  assert.ok(calls.some(call => call[0] === 'fillText' && call[1] === 'NEAR - person 91%'));
+  assert.equal(context.strokeStyle, '#ffd43b');
+  calls.length = 0;
+  logic.drawDetectionOverlay(canvas, video,
+    [{ label: 'person', confidence: .91, bbox: { x: .25, y: .1, width: .1, height: .1 } }], 2);
   assert.ok(calls.some(call => call[0] === 'fillText' && call[1] === 'person 91%'));
   calls.length = 0;
   logic.drawDetectionOverlay(canvas, video, [], 1);

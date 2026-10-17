@@ -87,12 +87,37 @@ function failure(error, request, env) {
   });
 }
 
+async function readBoundedBody(request) {
+  if (!request.body) return new ArrayBuffer(0);
+  const reader = request.body.getReader();
+  const chunks = [];
+  let length = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      length += value.byteLength;
+      if (length > LIMITS.maxFrameBytes) {
+        await reader.cancel().catch(() => {});
+        throw new ApiError(413, 'FRAME_TOO_LARGE', 'The request exceeds the 1 MiB limit.');
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const bytes = new Uint8Array(length);
+  let offset = 0;
+  for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+  return bytes.buffer;
+}
+
 async function readJson(request) {
   const type = request.headers.get('Content-Type')?.split(';')[0].trim().toLowerCase();
   if (request.method !== 'GET' && type && type !== 'application/json') {
     throw new ApiError(415, 'UNSUPPORTED_MEDIA_TYPE', 'Use application/json for preferences.');
   }
-  const text = await request.text();
+  const text = new TextDecoder().decode(await readBoundedBody(request));
   if (!text) return {};
   try {
     return JSON.parse(text);
@@ -118,26 +143,22 @@ async function handleFrame(request, env, sessionId) {
   const session = await sessions.call(sessionId, 'read');
   const sequence = Number(rawSequence);
 
-  const bytes = await request.arrayBuffer();
+  const bytes = await readBoundedBody(request);
   if (bytes.byteLength === 0) {
     throw new ApiError(400, 'INVALID_IMAGE', 'Send a non-empty JPEG or PNG image.');
-  }
-  if (bytes.byteLength > LIMITS.maxFrameBytes) {
-    throw new ApiError(413, 'FRAME_TOO_LARGE', 'Frame exceeds the 1 MiB limit.');
   }
 
   const started = Date.now();
   let detections;
   try {
     ({ detections } = await detectFrame(env.AI, bytes, session.preferences.confidenceThreshold));
-  } catch (error) {
+  } catch {
     // A failed frame breaks the confirmation streak: a gap is not evidence of a stable object.
     await sessions.call(sessionId, 'break-streak').catch(() => {});
-    // Carry the upstream reason: a generic failure hides unbound accounts, model names
-    // that changed, and rate limits, all of which need different fixes.
-    const detail = String(error?.message || error).slice(0, 300);
-    console.error('inference_failed', detail);
-    throw new ApiError(503, 'INFERENCE_FAILED', `Frame analysis failed. ${detail}`);
+    // Provider errors can contain request data or credentials. Keep only a stable
+    // operational event, not raw text, in both the public response and logs.
+    console.error('inference_failed');
+    throw new ApiError(503, 'INFERENCE_FAILED', 'Frame analysis is temporarily unavailable. Retry shortly.');
   }
 
   const { alert } = await sessions.call(sessionId, 'frame', { sequence, detections });

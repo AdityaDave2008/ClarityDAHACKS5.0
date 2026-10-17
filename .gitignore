@@ -37,3 +37,7 @@ local.properties
 DerivedData/
 xcuserdata/
 *.xcuserstate
+
+# Local Cloudflare Worker cache and emulated storage (not source)
+/.wrangler/
+/worker/.wrangler/

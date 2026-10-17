@@ -1,4 +1,4 @@
-const CACHE = 'myeyes-pwa-v10-object-alerts';
+const CACHE = 'myeyes-pwa-v11-pip-object-alerts';
 const ASSETS = [
   '/',
   '/index.html',
@@ -41,7 +41,7 @@ self.addEventListener('fetch', (event) => {
   if (!ASSETS.includes(url.pathname) && !isRuntime(url.pathname)) return;
   // Model files are immutable and large, so a cache hit is served without a network round trip.
   if (isRuntime(url.pathname)) {
-    event.respondWith(caches.match(event.request).then((hit) => hit || fetch(event.request).then((response) => {
+    event.respondWith(caches.open(CACHE).then(cache => cache.match(event.request)).then((hit) => hit || fetch(event.request).then((response) => {
       if (response.ok) { const copy = response.clone(); event.waitUntil(caches.open(CACHE).then((cache) => cache.put(event.request, copy))); }
       return response;
     })));
@@ -50,7 +50,7 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(fetch(event.request).then((response) => {
     if (response.ok) { const copy = response.clone(); event.waitUntil(caches.open(CACHE).then((cache) => cache.put(event.request, copy))); }
     return response;
-  }).catch(async () => (await caches.match(event.request)) || Response.error()));
+  }).catch(async () => (await caches.open(CACHE).then(cache => cache.match(event.request))) || Response.error()));
 });
 
 self.addEventListener('notificationclick', (event) => {

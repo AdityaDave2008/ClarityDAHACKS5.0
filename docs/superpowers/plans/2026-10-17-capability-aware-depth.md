@@ -84,8 +84,8 @@ assert.equal(formatDepth({kind:'relative',value:3}).includes(' m'), false);
 
 Files: docs/DEPTH_ACCEPTANCE.md and automated public-interface/browser smoke checks as appropriate.
 
-- [ ] Run `node --test frontend/*.test.js worker/tests/*.test.mjs samples/ios/tests/*.test.mjs` and inspect failures instead of relying only on aggregate counts.
-- [ ] Review source/model license pinning, calibration assumptions, source labels, freshness rules and concurrency with an independent reviewer. Fix material issues and rerun affected checks.
-- [ ] Exercise actual browser enable/load/error/start/stop/calibration controls through available browser automation. Attempt real model inference on a real image. Record unavailable hardware/permissions explicitly.
-- [ ] Deploy from worker with `npx --yes wrangler@4 deploy`; verify live Clarity HTML, scripts, model dependencies, v1 default and cache version. Push branch commits.
-- [ ] Record requirement-to-check table with observed pass/fail/blocked outcomes. Physical trials at measured 0.5/1/2/3 m remain unverified until actual device observations exist; no numerical accuracy claim substitutes for them.
+- [x] Run `node --test frontend/*.test.js worker/tests/*.test.mjs samples/ios/tests/*.test.mjs` and inspect failures instead of relying only on aggregate counts.
+- [x] Review source/model license pinning, calibration assumptions, source labels, freshness rules and concurrency with an independent reviewer. Fix material issues and rerun affected checks.
+- [x] Exercise actual browser enable/load/error/start/stop/calibration controls through available browser automation. Attempt real model inference on a real image. Record unavailable hardware/permissions explicitly.
+- [x] Deploy from worker with `npx --yes wrangler@4 deploy`; verify live Clarity HTML, scripts, model dependencies, v1 default and cache version. Push branch commits.
+- [x] Record requirement-to-check table with observed pass/fail/blocked outcomes. Physical trials at measured 0.5/1/2/3 m remain unverified until actual device observations exist; no numerical accuracy claim substitutes for them.

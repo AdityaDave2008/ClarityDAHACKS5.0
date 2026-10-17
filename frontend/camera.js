@@ -8,7 +8,7 @@ export class CameraFeature {
     now = () => performance.now(), schedule = (callback, ms) => setTimeout(callback, ms),
     unschedule = timer => clearTimeout(timer), development = false, isVisible = () => true, onStop = () => {} }) {
     Object.assign(this, { video, mediaDevices, secure, speech, Utterance, emit, render, now, schedule, unschedule, development, isVisible, onStop });
-    this.state = { phase: 'off', camera: 'Camera off. Tap Start when ready.', detection: 'Detection not connected.',
+    this.state = { phase: 'off', previewOnly: false, camera: 'Camera off. Tap Start when ready.', detection: 'Detection not connected.',
       distance: 'Not available', detections: [], result: null, obstacle: '', speechEnabled: false, announcements: 'screen-reader',
       speechStatus: 'Spoken alerts off.', performance: 'No measurements yet.' };
     this.generation = 0;
@@ -105,6 +105,7 @@ export class CameraFeature {
   stop(message = 'Camera off. Tap Start to restart.') {
     const runId = this.generation;
     this.generation++;
+    this.state.previewOnly = false;
     this.unschedule(this.stallTimer);
     this.stallTimer = null;
     this.stopDetection();
@@ -121,6 +122,26 @@ export class CameraFeature {
     this.cancelSpeech();
     this.update(this.state.camera);
     this.emit('camera:stopped', { video: this.video, runId, reason: message });
+  }
+
+  pauseForPictureInPicture() {
+    if (this.state.phase !== 'active' || this.state.previewOnly) return;
+    this.state.previewOnly = true;
+    this.unschedule(this.stallTimer);
+    this.stallTimer = null;
+    this.stopDetection();
+    this.state.camera = 'Picture in picture preview only. The browser may pause the camera.';
+    this.state.detection = 'Detection paused while this page is hidden. Return to resume scanning.';
+    this.update();
+  }
+
+  resumeFromPictureInPicture() {
+    if (!this.state.previewOnly || this.state.phase !== 'active' || !this.isVisible()) return;
+    this.state.previewOnly = false;
+    this.state.camera = 'Camera active. Resuming foreground detection.';
+    this.update();
+    this.watchForStall(this.generation);
+    void this.startDetection(this.generation);
   }
 
   // The preview can freeze after prolonged use or an OS interruption while the
@@ -181,7 +202,7 @@ export class CameraFeature {
         onResult: result => {
           if (run === this.generation && !controller.signal.aborted && this.state.phase === 'active' && this.isVisible()) this.acceptResult(result);
         },
-        onDistance: meters => { if (run === this.generation) this.distance(meters); },
+        onDistance: meters => { if (run === this.generation && !controller.signal.aborted && this.isVisible()) this.distance(meters); },
         onMetrics: metrics => { if (run === this.generation && !controller.signal.aborted) this.performance(metrics); },
         onStatus: message => {
           if (run === this.generation && this.detectionRunning && !controller.signal.aborted) {
@@ -379,6 +400,7 @@ export function mountCamera(root, platform = window, { onState = () => {} } = {}
   const announcer = find('announcer');
   let permissionState = 'prompt';
   let announceTimer;
+  const previewOnlyPiP = new URLSearchParams(platform.location.search).get('pip') === 'preview';
   let feature;
   const pip = createPictureInPicture({ video: find('video'), doc: root.ownerDocument, platform,
     onChange() { feature?.update(); },
@@ -391,7 +413,9 @@ export function mountCamera(root, platform = window, { onState = () => {} } = {}
     else if (/permission denied/i.test(state.camera)) permissionState = 'denied';
     const granted = permissionState === 'granted';
     const cameraLabel = granted
-      ? state.phase === 'active' ? 'Camera permission allowed — scanning is active' : 'Camera permission allowed'
+      ? state.phase === 'active'
+        ? state.previewOnly ? 'Camera permission allowed — preview only, detection paused' : 'Camera permission allowed — scanning is active'
+        : 'Camera permission allowed'
       : permissionState === 'denied'
         ? 'Camera permission denied — allow it in browser settings, then tap Start'
         : state.phase === 'requesting'
@@ -446,7 +470,7 @@ export function mountCamera(root, platform = window, { onState = () => {} } = {}
         pipButton.setAttribute('aria-pressed', String(pipState.active));
       }
       const pipStatus = find('pip-status');
-      if (pipStatus) pipStatus.textContent = pipState.message;
+      if (pipStatus) pipStatus.textContent = `${previewOnlyPiP ? 'Preview only: detection pauses while this page is hidden. ' : ''}${pipState.message}`;
       const resumeButton = find('pip-resume');
       if (resumeButton) resumeButton.hidden = !pipState.canResume;
       find('speech').disabled = !state.speechSupported;
@@ -482,10 +506,21 @@ export function mountCamera(root, platform = window, { onState = () => {} } = {}
   });
   find('simulate').hidden = !feature.development;
   find('simulate').addEventListener('click', () => feature.obstacle(true));
-  root.ownerDocument.addEventListener('visibilitychange', () => {
+  const visibilityChanged = () => {
     if (root.ownerDocument.hidden && !pip.isActive()) feature.stop('Camera off because this page was hidden without a floating camera. Tap Start when you return.');
-  });
-  platform.addEventListener('pagehide', () => feature.stop('Camera off because you left the page. Tap Start to restart.'));
+    else if (previewOnlyPiP && root.ownerDocument.hidden) feature.pauseForPictureInPicture();
+    else if (previewOnlyPiP) feature.resumeFromPictureInPicture();
+  };
+  const pageHidden = () => feature.stop('Camera off because you left the page. Tap Start to restart.');
+  root.ownerDocument.addEventListener('visibilitychange', visibilityChanged);
+  platform.addEventListener('pagehide', pageHidden);
+  const destroy = feature.destroy.bind(feature);
+  feature.destroy = () => {
+    root.ownerDocument.removeEventListener?.('visibilitychange', visibilityChanged);
+    platform.removeEventListener?.('pagehide', pageHidden);
+    destroy();
+    pip.destroy();
+  };
   platform.addEventListener('myeyes:permissionchange', event => {
     if (event.detail?.kind === 'camera') {
       permissionState = event.detail.state;

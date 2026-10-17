@@ -374,7 +374,7 @@ test('preview serves integrated camera assets and preserves the file allowlist',
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const origin = `http://127.0.0.1:${server.address().port}`;
   try {
-    for (const path of ['/camera.js', '/backend-detector.js', '/standalone.js', '/', '/app.js',
+    for (const path of ['/camera.js', '/picture-in-picture.js', '/backend-detector.js', '/standalone.js', '/', '/app.js',
       '/main.html', '/camera.html', '/homePage.css', '/integration.css', '/site.js']) {
       const response = await fetch(origin + path);
       assert.equal(response.status, 200, path);
@@ -385,6 +385,70 @@ test('preview serves integrated camera assets and preserves the file allowlist',
     assert.match(await (await fetch(origin + '/')).text(), /id="camera-feature"/);
     assert.match(await (await fetch(origin + '/camera.html')).text(), /id="demo-tab"/);
   } finally { await new Promise(resolve => server.close(resolve)); }
+});
+
+test('owned PiP retains hidden preview but aborts inference, clears results, and resumes only on foreground', async () => {
+  const dom = fakeDOM();
+  dom.platform.location.search = '?pip=preview';
+  const doc = dom.root.ownerDocument;
+  const video = dom.root.querySelector('#camera-video');
+  const track = { stops: 0, stop() { this.stops++; }, addEventListener() {} };
+  let requests = 0;
+  dom.platform.navigator.mediaDevices = { async getUserMedia() { requests++; return { getTracks: () => [track] }; } };
+  Object.assign(video, { readyState: 2, videoWidth: 640 });
+  doc.pictureInPictureEnabled = true;
+  video.requestPictureInPicture = async () => {
+    doc.pictureInPictureElement = video;
+    video.listeners.enterpictureinpicture();
+  };
+  doc.exitPictureInPicture = async () => {
+    doc.pictureInPictureElement = null;
+    video.listeners.leavepictureinpicture();
+  };
+  const contexts = [];
+  const feature = mountCamera(dom.root, dom.platform);
+  feature.registerDetector({ async start(context) { contexts.push(context); } });
+  try {
+    await feature.start();
+    dom.nodes.get('#camera-pip').listeners.click();
+    await Promise.resolve();
+    doc.hidden = true;
+    dom.documentListeners.visibilitychange();
+    assert.equal(feature.state.phase, 'active');
+    assert.equal(track.stops, 0);
+    assert.equal(contexts[0].signal.aborted, true);
+    assert.equal(feature.detectionRunning, false);
+    assert.equal(feature.state.result, null);
+    assert.match(feature.state.detection, /paused/i);
+    assert.match(dom.nodes.get('#camera-permission-label').textContent, /paused/i);
+    assert.equal(feature.stallTimer, null);
+    contexts[0].onObstacle();
+    assert.equal(feature.state.obstacle, '');
+    contexts[0].onDistance(1.5);
+    assert.equal(feature.state.distance, 'Not available');
+    doc.hidden = false;
+    dom.documentListeners.visibilitychange();
+    await Promise.resolve();
+    assert.equal(contexts.length, 2);
+    assert.equal(contexts[1].signal.aborted, false);
+    assert.equal(requests, 1);
+    doc.hidden = true;
+    dom.documentListeners.visibilitychange();
+    await doc.exitPictureInPicture();
+    assert.equal(feature.state.phase, 'off');
+    assert.equal(track.stops, 1);
+    assert.equal(contexts[1].signal.aborted, true);
+    doc.hidden = false;
+    dom.documentListeners.visibilitychange();
+    assert.equal(feature.state.phase, 'off');
+    await feature.start();
+    dom.nodes.get('#camera-pip').listeners.click();
+    await Promise.resolve();
+    assert.equal(doc.pictureInPictureElement, video);
+    dom.windowListeners.pagehide();
+    assert.equal(feature.state.phase, 'off');
+    assert.equal(doc.pictureInPictureElement, null);
+  } finally { feature.destroy(); }
 });
 
 test('fresh detections expire, reject old sequences and clear on error and stop', async () => {

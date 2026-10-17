@@ -93,6 +93,21 @@ function sendFrame(environment, sessionId, sequence, { body = JPEG, contentType 
   }), environment);
 }
 
+test('upstream inference errors do not expose provider details to clients or logs', async (t) => {
+  const privateDetail = 'synthetic-private-provider-detail';
+  const logged = [];
+  t.mock.method(console, 'error', (...args) => logged.push(args.join(' ')));
+  const environment = env({ AI: { async run() { throw new Error(privateDetail); } } });
+  const session = await createSession(environment);
+  const response = await sendFrame(environment, session.sessionId, 1);
+  const body = await response.json();
+  assert.equal(response.status, 503);
+  assert.equal(body.error.code, 'INFERENCE_FAILED');
+  assert.ok(!JSON.stringify(body).includes(privateDetail), 'Untrusted provider messages must not reach public clients');
+  assert.ok(!logged.join('\n').includes(privateDetail), 'Provider messages may contain request data or credentials');
+  assert.ok(logged.some(line => line.includes('inference_failed')), 'Retain a safe operational failure event');
+});
+
 test('health and readiness reflect whether inference is actually available', async () => {
   const ready = await worker.fetch(request('/ready'), env());
   assert.equal(ready.status, 200);
@@ -171,6 +186,77 @@ test('frames are rejected when they break the documented contract', async () => 
 
   const missing = await sendFrame(environment, 'does-not-exist', 1);
   assert.equal(missing.status, 404);
+});
+
+test('oversized frame streams are cancelled before the full upload is buffered', async () => {
+  const environment = env();
+  const session = await createSession(environment);
+  let pulled = 0;
+  let cancelled = false;
+  const body = new ReadableStream({
+    pull(controller) {
+      pulled++;
+      controller.enqueue(new Uint8Array(64 * 1024));
+      if (pulled === 64) controller.close();
+    },
+    cancel() { cancelled = true; },
+  });
+  const response = await worker.fetch(new Request(`https://worker.test/api/v1/sessions/${session.sessionId}/frames`, {
+    method: 'POST', body, duplex: 'half',
+    headers: { 'Content-Type': 'image/jpeg', 'X-Frame-Sequence': '1' },
+  }), environment);
+  assert.equal(response.status, 413);
+  assert.equal(cancelled, true, 'The reader must cancel once the byte limit is crossed');
+  assert.ok(pulled <= 18, 'Do not consume the complete oversized upload; allow one prefetched chunk');
+  assert.equal(environment.AI.calls.length, 0);
+});
+
+test('session JSON uses the same bounded request-body limit as frames', async () => {
+  const response = await worker.fetch(request('/api/v1/sessions', {
+    method: 'POST', body: '{}' + ' '.repeat(LIMITS.maxFrameBytes),
+    headers: { 'Content-Type': 'application/json' },
+  }), env());
+  assert.equal(response.status, 413);
+  assert.equal((await response.json()).error.code, 'FRAME_TOO_LARGE');
+});
+
+test('the request body limit permits exactly 1 MiB and rejects one extra byte', async () => {
+  for (const extra of [0, 1]) {
+    const response = await worker.fetch(request('/api/v1/sessions', {
+      method: 'POST', body: '{}' + ' '.repeat(LIMITS.maxFrameBytes - 2 + extra),
+      headers: { 'Content-Type': 'application/json' },
+    }), env());
+    assert.equal(response.status, extra ? 413 : 201);
+  }
+});
+
+test('streamed frame chunks preserve byte order and view offsets', async () => {
+  const environment = env();
+  const session = await createSession(environment);
+  const padded = new Uint8Array([123, ...JPEG, 124]);
+  const body = new ReadableStream({ start(controller) {
+    controller.enqueue(padded.subarray(1, 4));
+    controller.enqueue(padded.subarray(4, padded.length - 1));
+    controller.close();
+  } });
+  const response = await worker.fetch(new Request(`https://worker.test/api/v1/sessions/${session.sessionId}/frames`, {
+    method: 'POST', body, duplex: 'half',
+    headers: { 'Content-Type': 'image/jpeg', 'X-Frame-Sequence': '1' },
+  }), environment);
+  assert.equal(response.status, 200);
+  assert.deepEqual(environment.AI.calls[0].input.image, [...JPEG]);
+});
+
+test('a rejected upload cancellation does not replace the size-limit response', async () => {
+  const body = new ReadableStream({
+    start(controller) { controller.enqueue(new Uint8Array(LIMITS.maxFrameBytes + 1)); },
+    cancel() { throw new Error('synthetic cancellation detail'); },
+  });
+  const response = await worker.fetch(new Request('https://worker.test/api/v1/sessions', {
+    method: 'POST', body, duplex: 'half', headers: { 'Content-Type': 'application/json' },
+  }), env());
+  assert.equal(response.status, 413);
+  assert.equal((await response.json()).error.code, 'FRAME_TOO_LARGE');
 });
 
 test('preferences are validated and applied to later alerts', async () => {
@@ -340,7 +426,10 @@ test('a failed inference breaks the confirmation streak', async () => {
   assert.equal((await (await sendFrame(environment, session.sessionId, 1)).json()).alert.reason, 'confirming');
   const failed = await sendFrame(environment, session.sessionId, 2);
   assert.equal(failed.status, 503);
-  assert.match((await failed.json()).error.message, /upstream unavailable/, 'The real reason must reach the client');
+  assert.deepEqual((await failed.json()).error, {
+    code: 'INFERENCE_FAILED',
+    message: 'Frame analysis is temporarily unavailable. Retry shortly.',
+  }, 'Clients receive a stable retryable failure without raw provider details');
 
   const resumed = await (await sendFrame(environment, session.sessionId, 3)).json();
   assert.equal(resumed.alert.reason, 'confirming', 'The streak must restart after a failure');
