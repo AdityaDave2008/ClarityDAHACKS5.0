@@ -93,6 +93,21 @@ function sendFrame(environment, sessionId, sequence, { body = JPEG, contentType 
   }), environment);
 }
 
+test('upstream inference errors do not expose provider details to clients or logs', async (t) => {
+  const privateDetail = 'synthetic-private-provider-detail';
+  const logged = [];
+  t.mock.method(console, 'error', (...args) => logged.push(args.join(' ')));
+  const environment = env({ AI: { async run() { throw new Error(privateDetail); } } });
+  const session = await createSession(environment);
+  const response = await sendFrame(environment, session.sessionId, 1);
+  const body = await response.json();
+  assert.equal(response.status, 503);
+  assert.equal(body.error.code, 'INFERENCE_FAILED');
+  assert.ok(!JSON.stringify(body).includes(privateDetail), 'Untrusted provider messages must not reach public clients');
+  assert.ok(!logged.join('\n').includes(privateDetail), 'Provider messages may contain request data or credentials');
+  assert.ok(logged.some(line => line.includes('inference_failed')), 'Retain a safe operational failure event');
+});
+
 test('health and readiness reflect whether inference is actually available', async () => {
   const ready = await worker.fetch(request('/ready'), env());
   assert.equal(ready.status, 200);
@@ -340,7 +355,10 @@ test('a failed inference breaks the confirmation streak', async () => {
   assert.equal((await (await sendFrame(environment, session.sessionId, 1)).json()).alert.reason, 'confirming');
   const failed = await sendFrame(environment, session.sessionId, 2);
   assert.equal(failed.status, 503);
-  assert.match((await failed.json()).error.message, /upstream unavailable/, 'The real reason must reach the client');
+  assert.deepEqual((await failed.json()).error, {
+    code: 'INFERENCE_FAILED',
+    message: 'Frame analysis is temporarily unavailable. Retry shortly.',
+  }, 'Clients receive a stable retryable failure without raw provider details');
 
   const resumed = await (await sendFrame(environment, session.sessionId, 3)).json();
   assert.equal(resumed.alert.reason, 'confirming', 'The streak must restart after a failure');

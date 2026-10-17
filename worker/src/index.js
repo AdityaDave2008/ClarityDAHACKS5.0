@@ -130,14 +130,13 @@ async function handleFrame(request, env, sessionId) {
   let detections;
   try {
     ({ detections } = await detectFrame(env.AI, bytes, session.preferences.confidenceThreshold));
-  } catch (error) {
+  } catch {
     // A failed frame breaks the confirmation streak: a gap is not evidence of a stable object.
     await sessions.call(sessionId, 'break-streak').catch(() => {});
-    // Carry the upstream reason: a generic failure hides unbound accounts, model names
-    // that changed, and rate limits, all of which need different fixes.
-    const detail = String(error?.message || error).slice(0, 300);
-    console.error('inference_failed', detail);
-    throw new ApiError(503, 'INFERENCE_FAILED', `Frame analysis failed. ${detail}`);
+    // Provider errors can contain request data or credentials. Keep only a stable
+    // operational event, not raw text, in both the public response and logs.
+    console.error('inference_failed');
+    throw new ApiError(503, 'INFERENCE_FAILED', 'Frame analysis is temporarily unavailable. Retry shortly.');
   }
 
   const { alert } = await sessions.call(sessionId, 'frame', { sequence, detections });
