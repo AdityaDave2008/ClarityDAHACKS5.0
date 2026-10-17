@@ -60,6 +60,12 @@ function depthOnly(action) { try { action(); } catch { /* Never enter v1 error h
 // resolves, instead of leaving the Start button wired to nothing.
 const detectorChoice = chooseDetector();
 feature.registerDetector({
+  async prepare(context) {
+    const detector = await detectorChoice;
+    context.signal.throwIfAborted();
+    await detector.prepare?.(context);
+    context.signal.throwIfAborted();
+  },
   async start(context) {
     const detector = await detectorChoice;
     if (context.signal.aborted) return () => {};

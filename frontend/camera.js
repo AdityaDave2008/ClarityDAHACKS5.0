@@ -50,13 +50,38 @@ export class CameraFeature {
     }
     const run = ++this.generation;
     // Keep this lock until the browser settles permission, even after Cancel.
-    const request = {};
+    const request = { kind: 'loading' };
+    const controller = new AbortController();
+    this.startupController = controller;
+    this.state.startupError = false;
     this.pending = request;
-    this.state.phase = 'requesting';
-    this.state.camera = 'Requesting camera permission. Choose Allow in the browser prompt, or Cancel camera request below.';
-    this.update(this.state.camera);
     let stream;
+    let loadingTimer;
     try {
+      if (this.detector?.prepare) {
+        this.state.phase = 'loading';
+        this.state.camera = 'Loading detection model. Camera stays off until it is ready. You can Cancel.';
+        this.update(this.state.camera);
+        await Promise.race([
+          this.detector.prepare({ signal: controller.signal, onStatus: message => {
+            if (run === this.generation && !controller.signal.aborted) {
+              this.state.detection = message;
+              this.update(message);
+            }
+          } }),
+          new Promise((_, reject) => {
+            loadingTimer = this.schedule(() => reject(new Error('Model loading timed out.')), 120000);
+            controller.signal.addEventListener('abort', () => reject(controller.signal.reason), { once: true });
+          }),
+        ]);
+        this.unschedule(loadingTimer);
+        if (run !== this.generation || controller.signal.aborted) return;
+        if (!this.isVisible()) { this.stop('Camera off because this page is hidden. Tap Start when you return.'); return; }
+      }
+      request.kind = 'permission';
+      this.state.phase = 'requesting';
+      this.state.camera = 'Requesting camera permission. Choose Allow in the browser prompt, or Cancel camera request below.';
+      this.update(this.state.camera);
       try {
         stream = await this.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' } } });
       } catch (error) {
@@ -87,6 +112,12 @@ export class CameraFeature {
     } catch (error) {
       if (run !== this.generation) return;
       if (this.pending === request) this.pending = null;
+      if (request.kind === 'loading') {
+        this.stop('Model could not load. Camera is off. Retry loading or Cancel.');
+        this.state.startupError = true;
+        this.update(this.state.camera);
+        return;
+      }
       const messages = {
         NotAllowedError: 'Camera permission denied. Allow camera access in this site’s browser permissions, then tap Start.',
         SecurityError: 'Camera access is blocked. Open this page directly over HTTPS and check browser camera permissions.',
@@ -97,6 +128,8 @@ export class CameraFeature {
       };
       this.stop(messages[error.name] || 'Camera could not start. Check camera access and close other camera apps, then tap Start.');
     } finally {
+      this.unschedule(loadingTimer);
+      if (this.startupController === controller) this.startupController = null;
       if (this.pending === request) this.pending = null;
       this.update();
     }
@@ -105,6 +138,10 @@ export class CameraFeature {
   stop(message = 'Camera off. Tap Start to restart.') {
     const runId = this.generation;
     this.generation++;
+    this.startupController?.abort();
+    this.startupController = null;
+    if (this.pending?.kind === 'loading') this.pending = null;
+    this.state.startupError = false;
     this.state.previewOnly = false;
     this.unschedule(this.stallTimer);
     this.stallTimer = null;
@@ -446,6 +483,7 @@ export function mountCamera(root, platform = window, { onState = () => {} } = {}
     render: (state, message) => {
       renderPermission(state);
       find('status').textContent = state.camera;
+      find('status').setAttribute('aria-busy', String(state.phase === 'loading'));
       const performanceNode = find('performance');
       if (performanceNode) performanceNode.textContent = state.performance;
       root.querySelector('#detection-status').textContent = state.detection;
@@ -460,8 +498,9 @@ export function mountCamera(root, platform = window, { onState = () => {} } = {}
       const obstacle = find('obstacle');
       if (obstacle) obstacle.textContent = state.obstacle || 'No alert. Keep watching your path.';
       find('start').disabled = state.pending || state.phase !== 'off';
-      find('stop').disabled = state.phase === 'off';
-      find('stop').textContent = state.phase === 'requesting' ? 'Cancel camera request' : 'Stop camera';
+      find('start').textContent = state.startupError ? 'Retry' : 'Start scanning';
+      find('stop').disabled = state.phase === 'off' && !state.startupError;
+      find('stop').textContent = state.phase === 'loading' || state.startupError ? 'Cancel' : state.phase === 'requesting' ? 'Cancel camera request' : 'Stop camera';
       const pipButton = find('pip');
       const pipState = pip.snapshot();
       if (pipButton) {

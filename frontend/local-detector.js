@@ -171,7 +171,28 @@ export function createLocalDetector({
   // Abort suppresses delivery, but cannot cancel an already-running model. Keep
   // its slot across Stop/Start and PiP resume without retaining captured frames.
   let inFlight = null;
+  let prepared = null;
+  const statusListeners = new Set();
+  async function prepare({ signal, onStatus = () => {} } = {}) {
+    signal?.throwIfAborted();
+    const report = message => { if (!signal?.aborted) onStatus(message); };
+    statusListeners.add(report);
+    try {
+      if (!prepared) {
+        prepared = (async () => loader({
+          onStatus: message => { for (const listener of statusListeners) listener(message); },
+        }))().then(model => {
+          if (typeof model?.detect !== 'function') throw new Error('The detection model is not ready.');
+          return model;
+        }).catch(error => { prepared = null; throw error; });
+      }
+      const model = await prepared;
+      signal?.throwIfAborted();
+      return model;
+    } finally { statusListeners.delete(report); }
+  }
   return {
+    prepare,
     async start({ video, signal, onObstacle, onError, onStatus = () => {}, onResult = () => {}, onMetrics = () => {}, onFrame }) {
       signal.throwIfAborted();
       let timer;
@@ -183,7 +204,7 @@ export function createLocalDetector({
 
       let model;
       try {
-        model = await loader({ onStatus: message => { if (!signal.aborted && !stopped) onStatus(message); } });
+        model = await prepare({ signal, onStatus: message => { if (!signal.aborted && !stopped) onStatus(message); } });
       } catch (error) {
         if (!signal.aborted && !stopped) onError(error instanceof Error ? error.message : String(error));
         return () => {};

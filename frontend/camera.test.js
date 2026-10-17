@@ -569,3 +569,76 @@ test('measured performance is reported from detector metrics and cleared on stop
   f.feature.stop();
   assert.equal(f.feature.state.performance, 'No measurements yet.');
 });
+
+test('model preparation renders loading before permission and cancellation prevents late activation', async () => {
+  const ready = deferred(); const f = fixture(); let context;
+  f.feature.registerDetector({ prepare(value) { context = value; return ready.promise; }, async start() {} });
+  const starting = f.feature.start();
+  assert.equal(f.feature.state.phase, 'loading'); assert.equal(f.calls.length, 0);
+  assert.match(f.renders.at(-1).message, /loading/i);
+  f.feature.stop(); assert.equal(context.signal.aborted, true); assert.equal(f.feature.pending, null);
+  ready.resolve(); await starting;
+  assert.equal(f.calls.length, 0); assert.equal(f.feature.state.phase, 'off');
+});
+
+test('preparation failure keeps camera off and permits an explicit retry', async () => {
+  const f = fixture(); let attempts = 0;
+  f.feature.registerDetector({ async prepare() { if (++attempts === 1) throw new Error('weights unavailable'); }, async start() {} });
+  await f.feature.start();
+  assert.equal(f.calls.length, 0); assert.equal(f.feature.state.phase, 'off');
+  assert.equal(f.feature.state.startupError, true); assert.match(f.feature.state.camera, /Retry.*Cancel/);
+  await f.feature.start(); assert.equal(f.calls.length, 1); f.feature.stop();
+});
+
+test('preparation timeout fails closed and ignores a late ready model', async () => {
+  const ready = deferred(); const f = fixture();
+  f.feature.registerDetector({ prepare: () => ready.promise, async start() {} });
+  const starting = f.feature.start(); f.advance(120000); await starting;
+  assert.equal(f.feature.state.startupError, true); assert.equal(f.calls.length, 0);
+  ready.resolve(); await Promise.resolve(); assert.equal(f.calls.length, 0);
+});
+
+test('mounted loading UI is busy with Cancel and failures expose Retry and Cancel', async () => {
+  const dom = fakeDOM(); const ready = deferred(); let calls = 0;
+  dom.platform.navigator.mediaDevices = { async getUserMedia() { calls++; } };
+  const feature = mountCamera(dom.root, dom.platform);
+  feature.registerDetector({ prepare: () => ready.promise, async start() {} });
+  try {
+    const starting = feature.start();
+    assert.equal(dom.nodes.get('#camera-status').attrs['aria-busy'], 'true');
+    assert.equal(dom.nodes.get('#camera-stop').textContent, 'Cancel');
+    ready.reject(new Error('offline')); await starting;
+    assert.equal(dom.nodes.get('#camera-start').textContent, 'Retry');
+    assert.equal(dom.nodes.get('#camera-stop').disabled, false); assert.equal(calls, 0);
+  } finally { feature.destroy(); }
+});
+
+for (const reason of ['visibilitychange', 'pagehide']) test(`${reason} during preparation cannot activate camera later`, async () => {
+  const dom = fakeDOM(); const ready = deferred(); let calls = 0;
+  dom.platform.navigator.mediaDevices = { async getUserMedia() { calls++; } };
+  const feature = mountCamera(dom.root, dom.platform);
+  feature.registerDetector({ prepare: () => ready.promise, async start() {} });
+  const starting = feature.start(); dom.root.ownerDocument.hidden = true;
+  (reason === 'pagehide' ? dom.windowListeners : dom.documentListeners)[reason]();
+  ready.resolve(); await starting; assert.equal(calls, 0); feature.destroy();
+});
+
+test('cancel then restart during shared preparation only allows the newest run to request permission', async () => {
+  const { createLocalDetector } = await import('./local-detector.js');
+  const ready = deferred(); let loads = 0;
+  const f = fixture();
+  f.feature.registerDetector(createLocalDetector({ loader: () => { loads++; return ready.promise; },
+    createCanvas: () => ({ getContext() {} }), schedule: () => 0, unschedule() {} }));
+  const first = f.feature.start();
+  f.feature.stop();
+  const second = f.feature.start();
+  await f.feature.start();
+  assert.equal(f.calls.length, 0); assert.equal(loads, 1);
+  ready.resolve({ async detect() { return []; } });
+  await Promise.all([first, second]);
+  assert.equal(f.calls.length, 1); assert.equal(f.feature.state.phase, 'active');
+  f.feature.stop();
+  await f.feature.start();
+  assert.equal(loads, 1); assert.equal(f.calls.length, 2);
+  f.feature.stop();
+});

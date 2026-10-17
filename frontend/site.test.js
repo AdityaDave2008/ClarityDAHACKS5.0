@@ -125,3 +125,12 @@ test('Settings vibration cues use the shared obstacle handler and cancel on dete
   assert.equal(f.feature.state.phase, 'active');
   f.cleanup();
 });
+
+test('production startup forwards preparation and cannot fall back to camera without a model', async () => {
+  const entry = await readFile(new URL('./standalone.js', import.meta.url), 'utf8');
+  assert.match(entry, /async prepare\(context\)/);
+  assert.match(entry, /await detector\.prepare/);
+  const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
+  const fallback = html.slice(html.indexOf('document.getElementById("camera-start").addEventListener("click", async () => {'));
+  assert.doesNotMatch(fallback.split('document.getElementById("requestCamera")')[0], /getUserMedia/);
+});

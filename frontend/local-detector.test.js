@@ -431,3 +431,57 @@ for (const lifecycle of ['PiP hide/show', 'Stop/Start']) {
     } finally { feature.destroy(); }
   });
 }
+
+test('prepare shares actual loading, reuses ready model and canceled caller cannot poison reuse', async () => {
+  let resolve; let loads = 0;
+  const model = { detect: async () => [] };
+  const detector = createLocalDetector({ loader: () => { loads++; return new Promise(yes => { resolve = yes; }); } });
+  assert.equal(typeof detector.prepare, 'function');
+  const canceled = new AbortController(), active = new AbortController();
+  const first = detector.prepare({ signal: canceled.signal });
+  const firstOutcome = assert.rejects(first, { name: 'AbortError' });
+  const second = detector.prepare({ signal: active.signal });
+  let finished = false; second.then(() => { finished = true; });
+  await Promise.resolve(); assert.equal(finished, false); assert.equal(loads, 1);
+  canceled.abort(); resolve(model); await firstOutcome; await second;
+  await detector.prepare({ signal: active.signal }); assert.equal(loads, 1);
+});
+
+test('failed preparation clears singleflight so Retry really reloads', async () => {
+  let loads = 0;
+  const detector = createLocalDetector({ loader: async () => { if (++loads === 1) throw new Error('offline'); return { detect() {} }; } });
+  assert.equal(typeof detector.prepare, 'function');
+  await assert.rejects(detector.prepare(), /offline/);
+  await detector.prepare(); assert.equal(loads, 2);
+});
+
+test('real loadModel contract waits for WASM runtime and complete weights before reporting ready', async () => {
+  const originalDocument = globalThis.document, originalWindow = globalThis.window;
+  let runtimeReady, weightsReady, loads = 0;
+  const runtime = new Promise(resolve => { runtimeReady = resolve; });
+  const weights = new Promise(resolve => { weightsReady = resolve; });
+  const statuses = [];
+  globalThis.document = {
+    baseURI: 'https://example.test/', querySelector: () => null,
+    createElement: () => ({ dataset: {}, remove() {} }),
+    head: { append(script) { queueMicrotask(() => script.onload()); } },
+  };
+  globalThis.window = {
+    tf: { wasm: { setThreadsCount() {}, setWasmPaths() {} }, async setBackend() { return true; }, ready: () => runtime },
+    cocoSsd: { load() { loads++; return weights; } },
+  };
+  try {
+    const { loadModel } = await import(`./local-detector.js?readiness-test`);
+    const first = loadModel({ onStatus: value => statuses.push(value) });
+    assert.equal(first, loadModel());
+    let ready = false; first.then(() => { ready = true; });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(ready, false); assert.equal(loads, 0);
+    runtimeReady(); await new Promise(resolve => setImmediate(resolve));
+    assert.equal(loads, 1); assert.equal(ready, false);
+    assert.ok(!statuses.includes('Detection model ready.'));
+    const model = { detect() {} }; weightsReady(model);
+    assert.equal(await first, model); assert.equal(await loadModel(), model);
+    assert.equal(statuses.at(-1), 'Detection model ready.'); assert.equal(loads, 1);
+  } finally { globalThis.document = originalDocument; globalThis.window = originalWindow; }
+});
