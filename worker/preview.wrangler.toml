@@ -1,7 +1,10 @@
-# Isolated static preview only. Never deploy this under stepsense-detection.
+# Isolated browser-local preview only. Never deploy this under stepsense-detection.
 name = "stepsense-yolox-v2-preview"
+main = "src/preview.js"
 compatibility_date = "2026-10-17"
 workers_dev = true
 [assets]
 directory = "../frontend"
+binding = "ASSETS"
+run_worker_first = true
 not_found_handling = "none"
