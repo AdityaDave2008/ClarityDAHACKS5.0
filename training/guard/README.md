@@ -56,6 +56,27 @@ python3 training/guard/mirror.py \
 # Omit --once for continual watcher. Exclusive destination lock prevents duplicates.
 ```
 
+### Detached launcher and current watcher
+
+The tool-managed background task `4570687jod` was forcibly timed out after 600 seconds despite a longer requested timeout. It is **not active**. At 2026-10-17 06:21:02 UTC the watcher was restarted detached as PID **86697**, still bounded by the script's fixed 16:13 UTC end. A new successful sweep at 06:21:26 UTC captured 43 files, with all hashes independently verified. These PIDs and observations are historical: check current health before relying on them.
+
+Use a detached OS process instead of a tool-managed long-lived task:
+
+```sh
+python3 - <<'PY_LAUNCH'
+import pathlib, subprocess, sys
+root = pathlib.Path.home() / '.jcode/scratch/runpod-jgmvyjlozpj1pl'
+root.mkdir(parents=True, exist_ok=True)
+with (root / 'detached-console.log').open('ab', buffering=0) as log:
+    process = subprocess.Popen(
+        [sys.executable, str(pathlib.Path('training/guard/mirror.py').resolve()), '--dest', str(root)],
+        stdin=subprocess.DEVNULL, stdout=log, stderr=log, start_new_session=True)
+print(process.pid)
+PY_LAUNCH
+```
+
+Do not launch a duplicate while the current watcher is healthy. The destination lock rejects duplicates. Read `health.json` for its actual PID and timestamp, `latest.json` for snapshot freshness, and the append-only `detached-console.log` for errors. Root separately restarted bounded detached caffeinate as PID **87149** through 16:13 UTC. Caffeinate does not prevent lid-close sleep.
+
 Source allowlist agreed with the training worker:
 - `/workspace/broad80/artifacts/**` (checkpoints, ONNX, preflight results)
 - `/workspace/broad80/*.log` and `*.py`
