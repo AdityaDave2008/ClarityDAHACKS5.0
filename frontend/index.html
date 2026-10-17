@@ -7,22 +7,31 @@
       content="width=device-width, initial-scale=1, viewport-fit=cover"
     >
     <meta name="theme-color" content="#101820">
-    <meta name="description" content="Check reports about blocked paths and choose how Clarity alerts you.">
+    <meta name="description" content="Awareness within reach. Check reports about blocked paths and choose how Clarity alerts you.">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Clarity">
-    <title>Clarity | Awareness Within Reach</title>
-    <link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
-    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+    <title>Clarity | Awareness within reach</title>
+    <link rel="icon" href="/icons/mainLogo.png?v=2" type="image/png">
+    <link rel="shortcut icon" href="/icons/mainLogo.png?v=2" type="image/png">
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" sizes="180x180">
     <link rel="manifest" href="/manifest.webmanifest">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="homePage.css">
+    <link rel="preload" as="image" href="icons/eye_logo_smooth.gif?v=smooth-6" fetchpriority="high">
+    <link rel="stylesheet" href="homePage.css?v=eye-palette-6">
   </head>
 
   <body>
+  <svg aria-hidden="true" width="0" height="0" style="position:absolute;overflow:hidden">
+    <filter id="eye-palette-tint" color-interpolation-filters="sRGB">
+      <feColorMatrix type="matrix" result="eye-alpha" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 2.5 0 0 -0.4"></feColorMatrix>
+      <feFlood id="eye-palette-color" result="eye-tint" flood-color="#f38b68"></feFlood>
+      <feComposite in="eye-tint" in2="eye-alpha" operator="in"></feComposite>
+    </filter>
+  </svg>
     <main class="app">
       <dialog class="setup-dialog" id="firstRunDialog" aria-labelledby="firstRunTitle" aria-describedby="firstRunHelp">
         <form id="firstRunForm" method="dialog">
@@ -70,16 +79,15 @@
 
       <header>
         <div class="brand">
-          <img class="logo" src="/icons/clarity-eye.png" alt="" width="52" height="52">
+          <span class="brand-logo-window" aria-hidden="true"><img src="icons/eye_logo_smooth.gif?v=smooth-6" width="220" height="120" alt="" loading="eager" fetchpriority="high" decoding="async"></span>
           Clarity
         </div>
       </header>
 
       <!-- Issues -->
       <section id="home" class="screen">
-        <p class="eyebrow">Community updates</p>
-        <h1>Issues</h1>
-        <p class="intro">Reports of blocked sidewalks and damaged paths nearby.</p>
+        <h1>Awareness within reach.</h1>
+<p class="intro page-subtitle">Community updates</p>
 
         <section class="forum-section" aria-labelledby="forum-title">
 <!--  -->
@@ -108,8 +116,9 @@
 
       <!-- Home: camera scanner -->
       <section id="camera" class="screen active blindness-screen" aria-label="Camera scanner">
+        <p class="home-slogan">Awareness within reach.</p>
+        <p class="page-subtitle">Home</p>
         <div class="camera-feature" id="camera-feature">
-          <p id="permission-help">Point the camera ahead. Alerts may miss hazards.</p>
           <section id="camera-startup" class="camera-startup-panel" aria-label="Detection model startup" hidden>
             <h2 id="camera-startup-title">Loading detection model</h2>
             <p id="camera-startup-status" role="status" aria-live="polite" aria-atomic="true"></p>
@@ -122,6 +131,7 @@
           <video id="camera-video" autoplay muted playsinline aria-label="Live camera preview. Controls work without viewing the preview."></video>
             <canvas id="camera-overlay" aria-hidden="true"></canvas>
           </div>
+          <p id="permission-help">Point the camera ahead. Alerts may miss hazards.</p>
           <div class="camera-actions" role="group" aria-label="Camera controls">
             <button type="button" id="camera-start" aria-describedby="permission-help">Start scanning</button>
             <button type="button" id="camera-stop" disabled>Stop scanning</button>
@@ -203,9 +213,8 @@
 
       <!-- Settings -->
       <section id="settings" class="screen">
-        <p class="eyebrow">Make it yours</p>
         <h1>Awareness within reach.</h1>
-          <p class="intro">Adjust display and alert settings here.</p>
+        <p class="intro page-subtitle">Customization</p>
 
         <div class="card">
           <section class="install-card" aria-labelledby="install-title">
@@ -253,7 +262,7 @@
           <h2 class="section-title">Alert preferences</h2>
 
           <div class="setting-row">
-            <div><label for="notifications"><b>Phone notifications</b></label><small>Send confirmed object alerts when permission is allowed. Phone notification sounds follow device settings.</small></div>
+            <div><label for="notifications"><b>Phone notifications</b></label><small>Show a system notification when an object alert is triggered and permission is allowed.</small></div>
             <input id="notifications" class="toggle" type="checkbox" checked>
           </div>
 
@@ -369,7 +378,7 @@
               <div><b>Microphone</b><small id="microphonePermissionSetting" role="status">Checking microphone access…</small></div>
               <div class="permission-actions"><button type="button" class="permission-button" id="requestMicrophone">Allow</button><button type="button" class="permission-button" id="testMicrophone">Test</button></div>
             </div>
-            <div class="device-access-row">
+            <div class="device-access-row notification-access-row">
               <div><b>Notifications</b><small id="notificationPermissionSetting" role="status">Checking notification access…</small></div>
               <div class="permission-actions"><button type="button" class="permission-button" id="requestNotifications">Allow</button><button type="button" class="permission-button" id="testNotifications">Test</button></div>
             </div>
@@ -751,6 +760,7 @@
 
       const colorVisionSelect = document.getElementById("colorVision");
       const colorVisionNote = document.getElementById("colorVisionNote");
+      const eyePaletteColor = document.getElementById("eye-palette-color");
       const colorVisionDescriptions = {
         standard: "For users without a color-vision adjustment. Uses the standard palette.",
         protanopia: "For people with reduced red vision. Red can look darker, and red and green can be hard to tell apart.",
@@ -759,10 +769,16 @@
         achromatopsia: "For people who see little or no color. Colors appear as shades of gray.",
       };
 
+      function syncEyePaletteColor() {
+        const accent = getComputedStyle(document.documentElement).getPropertyValue("--mint").trim();
+        eyePaletteColor?.setAttribute("flood-color", accent || "#f38b68");
+      }
+
       function setColorVision(mode, save = true) {
         const preference = colorVisionDescriptions[mode] ? mode : "standard";
         colorVisionSelect.value = preference;
         document.documentElement.dataset.colorVision = preference;
+        syncEyePaletteColor();
         colorVisionNote.textContent = colorVisionDescriptions[preference];
         if (save) localStorage.setItem("clearpath-color-vision", preference);
       }
@@ -1196,15 +1212,104 @@
       }
 
       document.getElementById("camera-start").addEventListener("click", async () => {
-        if (window.myEyesCamera) return;
-        // Never bypass the model readiness gate if the module has not mounted.
-        document.getElementById("camera-status").textContent = "Scanner is not loaded. Camera stays off. Reload this page to retry.";
+        // The module owns scanning when it loaded. Keep a camera-preview fallback
+        // for a failed module download so Start still opens the browser permission prompt.
+        if (window.myEyesCamera || previewFallbackStream) return;
+        const status = document.getElementById("camera-status");
+        const startButton = document.getElementById("camera-start");
+        const stopButton = document.getElementById("camera-stop");
+        if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+          status.textContent = "Camera access needs HTTPS or localhost. Open this page from a secure address, then try again.";
+          return;
+        }
+        startButton.disabled = true;
+        status.textContent = "Requesting camera permission…";
+        try {
+          previewFallbackStream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: "environment" } } });
+          const video = document.getElementById("camera-video");
+          video.srcObject = previewFallbackStream;
+          video.muted = true;
+          await video.play();
+          setDetectionStatusLight(true);
+          status.textContent = "Camera preview is on. Scanning could not load; refresh the page to retry detection.";
+          startButton.disabled = true;
+          stopButton.disabled = false;
+        } catch (error) {
+          previewFallbackStream?.getTracks().forEach((track) => track.stop());
+          previewFallbackStream = null;
+          setDetectionStatusLight(false);
+          startButton.disabled = false;
+          stopButton.disabled = true;
+          status.textContent = error.name === "NotAllowedError"
+            ? "Camera permission was denied. Allow camera access in your browser settings, then try again."
+            : error.name === "NotReadableError"
+              ? "Camera is busy. Close other apps using it, then try again."
+              : "Camera could not start. Check browser permissions and try again.";
+        }
+      });
+
+      document.getElementById("camera-stop").addEventListener("click", () => {
+        if (window.myEyesCamera || !previewFallbackStream) return;
+        previewFallbackStream.getTracks().forEach((track) => track.stop());
+        previewFallbackStream = null;
+        setDetectionStatusLight(false);
+        const video = document.getElementById("camera-video");
+        video.pause();
+        video.srcObject = null;
+        document.getElementById("camera-status").textContent = "Camera off. Scanner could not load; refresh the page to retry detection.";
+        document.getElementById("camera-start").disabled = false;
+        document.getElementById("camera-stop").disabled = true;
       });
 
       document.getElementById("requestCamera").addEventListener("click", () => requestMedia("camera"));
       document.getElementById("testCamera").addEventListener("click", () => requestMedia("camera", true));
       document.getElementById("requestMicrophone").addEventListener("click", () => requestMedia("microphone"));
       document.getElementById("testMicrophone").addEventListener("click", () => requestMedia("microphone", true));
+
+      function notificationStatus() {
+        if (!("Notification" in window)) return "Not supported in this browser";
+        if (Notification.permission === "granted") return "Allowed";
+        if (Notification.permission === "denied") return "Denied — allow access in browser settings";
+        return "Not allowed yet";
+      }
+
+      function updateNotificationStatus() {
+        permissionLabels.notifications.textContent = notificationStatus();
+      }
+
+      async function requestNotifications(sendTest = false) {
+        if (!("Notification" in window)) {
+          showToast("Notifications are not supported in this browser");
+          return;
+        }
+        try {
+          const result = Notification.permission === "granted"
+            ? "granted"
+            : await Notification.requestPermission();
+          updateNotificationStatus();
+          if (result === "granted" && sendTest) {
+            const registration = await navigator.serviceWorker?.getRegistration();
+            if (registration?.showNotification) {
+              await registration.showNotification("Clarity test", { body: "Notifications are ready.", icon: new URL("icons/mainLogo.png", document.baseURI).href });
+            } else {
+              new Notification("Clarity test", { body: "Notifications are ready." });
+            }
+          }
+          showToast(result === "granted" ? sendTest ? "Test notification sent" : "Notifications allowed" : "Notification permission was not allowed");
+        } catch {
+          showToast("Could not request notifications. Check browser and device settings.");
+        }
+      }
+
+      document.getElementById("requestNotifications").addEventListener("click", () => requestNotifications());
+      document.getElementById("testNotifications").addEventListener("click", () => requestNotifications(true));
+      document.getElementById("testVibration").addEventListener("click", () => {
+        const supported = typeof navigator.vibrate === "function";
+        const worked = supported && navigator.vibrate(getVibrationPattern());
+        document.getElementById("vibrationPermissionSetting").textContent = supported
+          ? worked ? "Vibration test sent" : "Vibration is blocked by this device or browser"
+          : "Vibration is not supported by this device";
+      });
 
       refreshPermission("camera");
       refreshPermission("microphone");
