@@ -123,6 +123,10 @@ struct NormalizedBox: Decodable, Equatable {
     let height: Double
 }
 
+enum ProximitySource: String, Equatable {
+    case lidar, visual
+}
+
 struct Detection: Decodable, Equatable {
     let label: String
     let confidence: Double
@@ -138,14 +142,67 @@ struct Detection: Decodable, Equatable {
     var proximityTrackID: Int? = nil
     // Two distinct fresh matched frames are required before the first proximity output.
     var proximityConfirmed: Bool? = nil
+    var proximitySource: ProximitySource? = nil
+    var visualProximityArea: Double? = nil
+    var proximityExpiresAt: TimeInterval? = nil
     private enum CodingKeys: String, CodingKey {
-        case label, confidence, bbox, anchor, inZone, depthMeters, depthRequested, depthExpiresAt
+        case label, confidence, bbox, anchor, inZone
+    }
+
+    /// Native capture metadata only. Visual area is a heuristic, never a distance in meters.
+    mutating func enrichProximity(lidarCapable: Bool, capturedAt: TimeInterval) {
+        proximitySource = lidarCapable ? .lidar : .visual
+        proximityExpiresAt = capturedAt + proximityMaximumAge
+        visualProximityArea = nil
+        proximityBand = nil
+        proximityTrackID = nil
+        proximityConfirmed = nil
+        if !lidarCapable {
+            depthMeters = nil
+            depthRequested = false
+            depthExpiresAt = nil
+            if Self.validVisualBox(bbox) { visualProximityArea = bbox.width * bbox.height }
+        }
+    }
+
+    private static func validVisualBox(_ box: NormalizedBox) -> Bool {
+        [box.x, box.y, box.width, box.height].allSatisfy { $0.isFinite }
+            && box.x >= 0 && box.y >= 0 && box.width > 0 && box.height > 0
+            && box.x + box.width <= 1 && box.y + box.height <= 1
+    }
+
+    func freshProximitySource(at now: TimeInterval) -> ProximitySource? {
+        // Legacy native depth remains supported. Explicit LiDAR never falls back to visual.
+        if proximitySource != .visual { return freshProximityDepth(at: now) == nil ? nil : .lidar }
+        guard Self.validVisualBox(bbox), let area = visualProximityArea,
+              area.isFinite, area > 0, area <= 1, area == bbox.width * bbox.height,
+              let expiry = proximityExpiresAt, expiry.isFinite, now.isFinite,
+              now < expiry, expiry - now <= proximityMaximumAge else { return nil }
+        return .visual
+    }
+
+    /// Unitless strength, larger means closer. Visual strength is normalized box area.
+    /// The two sources are not physically comparable; selection always prefers measured LiDAR.
+    func freshProximityStrength(at now: TimeInterval) -> Double? {
+        switch freshProximitySource(at: now) {
+        case .lidar: return (5 - freshProximityDepth(at: now)!) / 4.8
+        case .visual: return visualProximityArea
+        case nil: return nil
+        }
+    }
+
+    func freshProximityExpiry(at now: TimeInterval) -> TimeInterval? {
+        switch freshProximitySource(at: now) {
+        case .lidar: return depthExpiresAt
+        case .visual: return proximityExpiresAt
+        case nil: return nil
+        }
     }
 
     /// Expiry is capture uptime + 0.75s. Reject future captures as well as expired ones.
     var proximityMaximumAge: TimeInterval { 0.75 }
     func freshProximityDepth(at now: TimeInterval) -> Double? {
-        guard depthRequested == true,
+        guard proximitySource != .visual, depthRequested == true,
               let depthMeters, depthMeters.isFinite, (0.2...5).contains(depthMeters),
               let depthExpiresAt, depthExpiresAt.isFinite, now.isFinite,
               now < depthExpiresAt, depthExpiresAt - now <= proximityMaximumAge else { return nil }
@@ -153,8 +210,16 @@ struct Detection: Decodable, Equatable {
     }
 
     func freshProximityBand(at now: TimeInterval) -> ProximityBand {
-        guard freshProximityDepth(at: now) != nil else { return .unknown }
+        guard freshProximitySource(at: now) != nil else { return .unknown }
         return proximityBand ?? .unknown
+    }
+
+    func proximityDescription(at now: TimeInterval) -> String? {
+        switch freshProximitySource(at: now) {
+        case .lidar: return depthLabel(at: now)
+        case .visual: return "visual proximity estimate"
+        case nil: return nil
+        }
     }
 
     var depthLabel: String? { depthLabel(at: ProcessInfo.processInfo.systemUptime) }
