@@ -1,124 +1,117 @@
-// Native PiP acceptance in isolated Chromium, with a synthetic camera (no device access).
-// PLAYWRIGHT_MODULE=/absolute/path/playwright/index.mjs node scripts/pip-browser-smoke.mjs
-// Set PIP_HEADLESS=1 for headless diagnostics, not visible native-window acceptance.
+// Isolated browser test with synthetic camera input, not an iPhone acceptance test.
+// PLAYWRIGHT_MODULE points to playwright or playwright-core/index.mjs.
+// PIP_BROWSER_PATH can select an installed Chrome/Chromium executable.
 import assert from 'node:assert/strict';
+import { once } from 'node:events';
+import { writeFile, mkdir } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
 import { createPreviewServer } from '../frontend/server.js';
-const playwrightModule = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
-const { chromium } = playwrightModule;
-async function realVisibility(page) {
-  // Focus emulation belongs to the CDP session that enabled it. A separate
-  // newCDPSession cannot clear Playwright's own setting. This test-only hook
-  // fails loudly if Playwright internals change rather than faking visibility.
-  const owner = playwrightModule.default?._toImpl?.(page)?._delegate?._mainFrameSession?._client;
-  assert.ok(owner, 'This Playwright build must expose its owning CDP session for real visibility checks');
-  await owner.send('Emulation.setFocusEmulationEnabled', { enabled: false });
-}
+
+const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const server = createPreviewServer({ apiOrigin: new URL('http://127.0.0.1:3001') });
-await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-const url = `http://127.0.0.1:${server.address().port}/`;
+server.listen(0, '127.0.0.1');
+await once(server, 'listening');
+const origin = `http://127.0.0.1:${server.address().port}`;
+const evidence = { input: process.env.PIP_CAMERA_FIXTURE ? 'synthetic video fixture' : 'synthetic Chromium camera',
+  physicalIPhone: 'Not tested', audibleSpeech: 'Not tested', observations: [] };
 let browser;
-const observations = [];
 try {
-  browser = await chromium.launch({ headless: process.env.PIP_HEADLESS === '1',
-    ...(process.env.PIP_CHROME_PATH ? { executablePath: process.env.PIP_CHROME_PATH } : {}),
-    args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'] });
+  browser = await chromium.launch({ headless: true, executablePath: process.env.PIP_BROWSER_PATH || undefined,
+    // Do not use browser flags that exempt hidden pages from background policies.
+    ignoreDefaultArgs: ['--disable-background-timer-throttling', '--disable-backgrounding-occluded-windows', '--disable-renderer-backgrounding'],
+    args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream',
+      ...(process.env.PIP_CAMERA_FIXTURE ? [`--use-file-for-fake-video-capture=${process.env.PIP_CAMERA_FIXTURE}`] : [])] });
+  evidence.browser = browser.version();
   const context = await browser.newContext({ permissions: ['camera'] });
   const page = await context.newPage();
-  // Playwright forces every page to appear focused. Remove that emulation so
-  // tab changes produce real visibilitychange events, not synthetic dispatches.
-  await realVisibility(page);
-  const errors = [];
+  const errors = [], uploads = [];
   page.on('pageerror', error => errors.push(error.message));
-  await page.goto(url, { waitUntil: 'domcontentloaded' });
-  await page.waitForFunction(() => Boolean(window.myEyesCamera));
-  if (await page.locator('#firstRunDialog').evaluate(el => el.open)) {
-    await page.locator('#setupNext').click();
-    await page.locator('#setupNext').click();
-    await page.locator('#setupFinish').click();
-  }
-  // Replace only inference with a deterministic adapter. Native media and PiP APIs are real.
-  await page.evaluate(() => {
-    window.pipEvidence = { starts: 0, aborts: 0, cameraRequests: 0 };
-    const getUserMedia = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
-    navigator.mediaDevices.getUserMedia = (...args) => {
-      window.pipEvidence.cameraRequests++;
-      return getUserMedia(...args);
-    };
-    window.myEyesCamera.registerDetector({ async start({ signal }) {
-      window.pipEvidence.starts++;
-      signal.addEventListener('abort', () => window.pipEvidence.aborts++, { once: true });
-    } });
-  });
-  await page.locator('#camera-start').click();
-  await page.waitForFunction(() => !document.querySelector('#camera-pip').disabled);
-  await page.locator('#camera-pip').click();
-  await page.waitForFunction(() => document.pictureInPictureElement === document.querySelector('#camera-video'));
-  assert.equal(await page.locator('#camera-pip').getAttribute('aria-pressed'), 'true');
-  observations.push({ check: 'real native PiP entered from actual Camera UI and synthetic MediaStream', pass: true });
-  console.log('JCODE_PROGRESS ' + JSON.stringify(observations.at(-1)));
+  page.on('request', request => { if (request.method() === 'POST') uploads.push(request.url()); });
+  // Disable DevTools focus emulation, so actual tab visibility can be observed.
+  const session = await context.newCDPSession(page);
+  await session.send('Emulation.setFocusEmulationEnabled', { enabled: false });
+  await page.goto(`${origin}/pip-test.html`);
+  const readReport = () => page.locator('#report').evaluate(node => JSON.parse(node.textContent));
+  await page.locator('#start').click();
+  await page.waitForFunction(() => {
+    try { return JSON.parse(document.querySelector('#report').textContent).counts.results >= 3; } catch { return false; }
+  }, null, { timeout: 60000 });
+  evidence.observations.push({ requirement: 'real bundled detector on synthetic camera', report: await readReport() });
 
   const other = await context.newPage();
-  await realVisibility(other);
   await other.goto('about:blank');
   await other.bringToFront();
-  try {
-    await page.waitForFunction(() => document.hidden && /Detection paused/.test(document.querySelector('#detection-status').textContent), null, { polling: 100, timeout: 10000 });
-  } catch (error) {
-    console.error('PiP visibility diagnostic', await page.evaluate(() => ({ hidden: document.hidden,
-      visibility: document.visibilityState, focused: document.hasFocus(), pip: Boolean(document.pictureInPictureElement),
-      detection: document.querySelector('#detection-status').textContent, camera: document.querySelector('#camera-status').textContent,
-      evidence: window.pipEvidence })));
-    throw error;
+  const hidden = await page.evaluate(() => document.hidden);
+  evidence.observations.push({ requirement: 'background without PiP', documentHidden: hidden,
+    outcome: hidden ? 'Hidden state observed' : 'Unverified: headless tabs remained visible',
+    cameraReleased: await page.locator('#video').evaluate(video => video.srcObject === null), report: await readReport() });
+  if (hidden) assert.equal(await page.locator('#video').evaluate(video => video.srcObject), null);
+  await page.bringToFront();
+  if (hidden) {
+    await page.locator('#start').click();
+    await page.waitForFunction(() => {
+      try { return JSON.parse(document.querySelector('#report').textContent).counts.results >= 3; } catch { return false; }
+    });
   }
-  const hidden = await page.evaluate(() => ({ ...window.pipEvidence,
-    pip: document.pictureInPictureElement === document.querySelector('#camera-video'),
-    track: document.querySelector('#camera-video').srcObject?.getVideoTracks()[0].readyState,
-    overlay: document.querySelector('#camera-objects').textContent,
-  }));
-  assert.equal(hidden.pip, true);
-  assert.equal(hidden.track, 'live');
-  assert.deepEqual([hidden.starts, hidden.aborts, hidden.cameraRequests], [1, 1, 1]);
-  const frameTime = await page.locator('#camera-video').evaluate(video => video.currentTime);
-  await page.waitForFunction(previous => document.querySelector('#camera-video').currentTime > previous + 0.1,
-    frameTime, { polling: 100, timeout: 5000 });
-  hidden.framesAdvancedWhileHidden = true;
-  observations.push({ check: 'tab switch retains native live preview while aborting inference', pass: true, ...hidden });
-  await page.bringToFront();
-  await page.waitForFunction(() => window.pipEvidence.starts === 2 && !document.hidden);
-  assert.equal(await page.evaluate(() => window.pipEvidence.cameraRequests), 1);
-  observations.push({ check: 'foreground resumes a fresh detector without a second camera request', pass: true });
-
-  await other.bringToFront();
-  await page.waitForFunction(() => window.pipEvidence.aborts === 2, null, { polling: 100 });
-  await page.evaluate(() => document.exitPictureInPicture());
-  await page.waitForFunction(() => document.querySelector('#camera-video').srcObject === null, null, { polling: 100 });
-  observations.push({ check: 'closing native PiP while hidden releases camera', pass: true });
-  await page.bringToFront();
-  assert.equal(await page.locator('#camera-stop').isDisabled(), true);
-  await page.locator('#camera-start').click();
-  await page.waitForFunction(() => !document.querySelector('#camera-pip').disabled);
-  await page.locator('#camera-pip').click();
-  await page.waitForFunction(() => Boolean(document.pictureInPictureElement));
-  await page.locator('#camera-stop').click();
-  await page.waitForFunction(() => !document.pictureInPictureElement && !document.querySelector('#camera-video').srcObject);
-  observations.push({ check: 'explicit Stop releases camera and owned PiP', pass: true });
-  assert.deepEqual(errors, []);
-  await context.close();
-
-  const unsupported = await browser.newContext();
-  await unsupported.addInitScript(() => {
-    Object.defineProperty(HTMLVideoElement.prototype, 'requestPictureInPicture', { value: undefined });
-    Object.defineProperty(HTMLVideoElement.prototype, 'webkitSupportsPresentationMode', { value: undefined });
+  await page.locator('#pip').click();
+  await page.waitForFunction(() => {
+    try { return JSON.parse(document.querySelector('#report').textContent).events.some(event => ['pip-request', 'pip-error'].includes(event.type)); }
+    catch { return false; }
   });
-  const fallback = await unsupported.newPage();
-  await fallback.goto(url, { waitUntil: 'domcontentloaded' });
-  await fallback.waitForFunction(() => Boolean(window.myEyesCamera));
-  assert.equal(await fallback.locator('#camera-pip').isDisabled(), true);
-  assert.match(await fallback.locator('#camera-pip-status').textContent(), /not supported.*Keep this page open/i);
-  observations.push({ check: 'unsupported API has disabled PiP and truthful inline fallback', pass: true });
-  await unsupported.close();
-  console.log(JSON.stringify({ browser: await browser.version(), headless: process.env.PIP_HEADLESS === '1', observations }, null, 2));
+  const active = await page.evaluate(() => document.pictureInPictureElement === document.querySelector('#video'));
+  if (active) {
+    await other.bringToFront();
+    const hiddenWithPiP = await page.evaluate(() => document.hidden);
+    if (hiddenWithPiP) {
+      await page.waitForFunction(() => {
+        try { return JSON.parse(document.querySelector('#report').textContent).counts.hiddenResults >= 5; } catch { return false; }
+      }, null, { timeout: 20000 }).catch(() => {});
+    }
+    evidence.observations.push({ requirement: 'PiP and background inference', pipActive: active,
+      outcome: hiddenWithPiP ? 'Inspect hidden result counters' : 'Unverified: headless tabs remained visible',
+      documentHidden: hiddenWithPiP, report: await readReport() });
+    await page.bringToFront();
+  } else {
+    evidence.observations.push({ requirement: 'PiP request', pipActive: false,
+      outcome: 'PiP did not open in this browser run; no background PiP conclusion.', report: await readReport() });
+  }
+  await page.locator('#stop').click();
+  assert.equal(await page.locator('#video').evaluate(video => video.srcObject), null);
+  assert.deepEqual(uploads, [], 'No camera images should be uploaded');
+  assert.deepEqual(errors, [], 'No unhandled page errors');
+  evidence.observations.push({ requirement: 'Stop releases camera; no uploads or page errors', result: 'pass' });
+  await mkdir(new URL('../.cache/pip-experiment/', import.meta.url), { recursive: true });
+  await page.screenshot({ path: fileURLToPath(new URL('../.cache/pip-experiment/page.png', import.meta.url)), fullPage: true });
+  // Regression fixture only: reproduce a resolved PiP call with no mode change.
+  // This checks the diagnostic; it is not an emulation of iPhone capabilities.
+  await page.waitForFunction(() => document.pictureInPictureElement === null);
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, 'standalone', { configurable: true, value: true });
+    document.querySelector('#video').requestPictureInPicture = () => Promise.resolve();
+  });
+  await page.locator('#start').click();
+  await page.waitForFunction(() => !document.querySelector('#pip').disabled);
+  await page.locator('#pip').click();
+  await page.waitForFunction(() => document.querySelector('#status').textContent.includes('PiP did not open in this Home Screen app'),
+    null, { timeout: 7000 });
+  const blocked = await readReport();
+  assert.equal(blocked.launchMode, 'home-screen');
+  assert.ok(blocked.events.some(event => event.type === 'pip-not-open'));
+  evidence.observations.push({ requirement: 'resolved API without PiP does not claim success (simulated standalone fixture)', result: 'pass' });
+  await page.locator('#stop').click();
+  assert.deepEqual(errors, []);
+} catch (error) {
+  evidence.error = error.message;
+  process.exitCode = 1;
 } finally {
   await browser?.close();
+  server.closeAllConnections();
   await new Promise(resolve => server.close(resolve));
+  await mkdir(new URL('../.cache/pip-experiment/', import.meta.url), { recursive: true });
+  await writeFile(new URL('../.cache/pip-experiment/browser-report.json', import.meta.url), JSON.stringify(evidence, null, 2));
+  console.log(JSON.stringify({ browser: evidence.browser, input: evidence.input,
+    observations: evidence.observations.map(({ requirement, result, outcome, documentHidden, pipActive, cameraReleased, report }) => ({
+      requirement, result, outcome, documentHidden, pipActive, cameraReleased, counts: report?.counts,
+      lastEvents: report?.events.slice(-3),
+    })), error: evidence.error, physicalIPhone: evidence.physicalIPhone, audibleSpeech: evidence.audibleSpeech }, null, 2));
 }

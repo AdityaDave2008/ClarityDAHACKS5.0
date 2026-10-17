@@ -1,7 +1,8 @@
 import { captureSize } from './logic.js';
+import { cameraFrameAvailable, createVideoFrameGate } from './video-frames.js';
 
-// Adapter for the team's existing COCO-SSD service. Captures only while visible
-// and started; all uploads are same-origin and serialized, never recorded.
+// Adapter for the team's existing COCO-SSD service. The camera controller owns
+// visibility/PiP lifetime; uploads are same-origin and serialized, never recorded.
 export function createBackendDetector({ request = (...args) => fetch(...args),
   createCanvas = () => document.createElement('canvas'), now = () => performance.now(),
   schedule = setTimeout, unschedule = clearTimeout, timeoutMs = 12000,
@@ -13,6 +14,7 @@ export function createBackendDetector({ request = (...args) => fetch(...args),
       // Measured round-trip time drives pacing and capture size; device speed is never assumed.
       let sizeIndex = 0, samples = [], transientFailures = 0;
       const canvas = createCanvas();
+      const newFrame = createVideoFrameGate();
       const recordLatency = (ms) => {
         samples.push(ms);
         if (samples.length > 10) samples.shift();
@@ -61,6 +63,10 @@ export function createBackendDetector({ request = (...args) => fetch(...args),
       }
       async function frame() {
         signal.throwIfAborted();
+        if (!newFrame(video)) {
+          onStatus('Waiting for a fresh camera frame. Alerts paused.');
+          return null;
+        }
         const started = now();
         const sourceWidth = video.videoWidth, sourceHeight = video.videoHeight;
         const size = captureSize(sourceWidth, sourceHeight, captureSizes[sizeIndex]);
@@ -81,7 +87,7 @@ export function createBackendDetector({ request = (...args) => fetch(...args),
           throw new Error('AI returned an unexpected result. Stop and Start to retry.');
         }
         // A delayed result must never become a fresh obstacle alert.
-        if (now() - started >= 2500 || video.videoWidth !== sourceWidth || video.videoHeight !== sourceHeight) {
+        if (now() - started >= 2500 || !cameraFrameAvailable(video) || video.videoWidth !== sourceWidth || video.videoHeight !== sourceHeight) {
           onStatus('AI result delayed; old alert skipped. Waiting for a fresh result.');
           return null;
         }

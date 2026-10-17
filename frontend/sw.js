@@ -1,4 +1,5 @@
 const CACHE = 'myeyes-pwa-v12-orange-logo';
+const CACHE = 'myeyes-pwa-v11-pip-object-alerts';
 const ASSETS = [
   '/',
   '/index.html',
@@ -11,7 +12,9 @@ const ASSETS = [
   '/logic.js',
   '/camera.js',
   '/picture-in-picture.js',
+  '/video-frames.js',
   '/phone-notifications.js',
+  '/object-alerts.js',
   '/backend-detector.js',
   '/local-detector.js',
   '/depth-controller.js',

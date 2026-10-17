@@ -1,4 +1,5 @@
 /* Small integration layer: preserve the webpage design outside Camera. */
+#camera-alert-banner { padding: 16px; border: 2px solid currentColor; border-radius: 12px; font-size: 1.25rem; font-weight: 700; }
 [hidden] { display: none !important; }
 :focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
 .screen h1:focus { outline: none; }
