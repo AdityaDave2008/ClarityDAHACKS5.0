@@ -25,6 +25,8 @@ export function createDepthController({
   let calibration = null, groundContact = false;
   let anchor = { x: .5, y: .8 };
   let modelEnabled = false, model = null, loading = null, busy = false;
+  let loadGeneration = 0;
+  const disposed = new WeakSet();
   let snapshotRequested = false;
   let lastConfiguration = null;
   const timers = {};
@@ -49,31 +51,47 @@ export function createDepthController({
     state = { ground: unavailable(reason), model: unavailable(modelEnabled ? reason : 'Optional model off.') };
     emit();
   }
-  function retireModel() {
-    if (!busy && !loading && model && !modelEnabled) {
-      try { Promise.resolve(model.dispose()).catch(() => {}); } catch { /* depth only */ }
-      model = null;
-    }
+  function release(candidate) {
+    if (!candidate || disposed.has(candidate)) return;
+    disposed.add(candidate);
+    try { Promise.resolve(candidate.dispose()).catch(() => {}); } catch { /* depth only */ }
+  }
+  function cancelModel() {
+    // Loading has its own epoch: frame/calibration changes do not imply opt-out,
+    // but disable must stop downloads/worker work immediately, not after load.
+    loadGeneration++;
+    const candidate = model;
+    model = null;
+    loading = null;
+    release(candidate);
   }
   async function setModelEnabled(value) {
     modelEnabled = enabled && !!value;
     invalidate(modelEnabled ? 'Loading optional relative model.' : 'Optional model off.');
-    if (!modelEnabled) { retireModel(); return; }
+    if (!modelEnabled) { cancelModel(); return; }
     if (model || loading) return loading;
+    const token = ++loadGeneration;
+    const isCurrent = () => token === loadGeneration && modelEnabled;
+    let candidate;
     loading = (async () => {
       try {
-        const candidate = await modelFactory();
+        candidate = await modelFactory();
+        // The user can revoke opt-in while the lazy module/factory is pending.
+        if (!isCurrent()) { release(candidate); return; }
         model = candidate;
         await candidate.load({ onStatus: status => {
-          if (modelEnabled && !hidden) publish('model', unavailable(status?.reason || `Relative model ${status?.status || 'loading'}.`));
+          if (isCurrent() && !hidden) publish('model', unavailable(status?.reason || `Relative model ${status?.status || 'loading'}.`));
         } });
-        if (modelEnabled && !hidden) publish('model', unavailable('Relative model ready. Choose Analyze depth snapshot.'));
+        if (isCurrent() && !hidden) publish('model', unavailable('Relative model ready. Choose Analyze depth snapshot.'));
       } catch {
+        if (!isCurrent()) return;
         modelEnabled = false;
+        model = null;
+        release(candidate);
         publish('model', unavailable('Optional model unavailable. Ground geometry and object detection are unchanged.'));
       } finally {
-        loading = null;
-        retireModel();
+        // A cancelled generation must never clear a rapid re-enable's load.
+        if (token === loadGeneration) loading = null;
       }
     })();
     return loading;
@@ -100,13 +118,12 @@ export function createDepthController({
       if (token === generation && active()) publish('model', unavailable('Relative inference unavailable. Object detection continues.'));
     } finally {
       busy = false;
-      retireModel();
     }
   }
   return {
     setEnabled(value) {
       enabled = !!value;
-      if (!enabled) { modelEnabled = false; calibration = null; groundContact = false; sensors?.stop(); retireModel(); }
+      if (!enabled) { modelEnabled = false; calibration = null; groundContact = false; sensors?.stop(); cancelModel(); }
       invalidate(enabled ? 'Calibrate projection and enable motion to estimate ground depth.' : 'Experimental depth off.');
     },
     setModelEnabled,

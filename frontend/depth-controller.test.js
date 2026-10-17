@@ -138,3 +138,51 @@ test('malformed raw snapshot maps never reach the UI visualization or acquire me
     assert.equal('meters' in h.updates.at(-1).model,false);
   }
 });
+
+const deferred = () => { let resolve, reject; const promise=new Promise((yes,no)=>{resolve=yes;reject=no;});return {promise,resolve,reject}; };
+test('disable while factory is pending never starts its late model download', async () => {
+  const factory=deferred();let loads=0,disposes=0;
+  const h=harness({modelFactory:()=>factory.promise});h.start();
+  const pending=h.controller.setModelEnabled(true);await h.controller.setModelEnabled(false);
+  factory.resolve({load:async()=>loads++,dispose:()=>disposes++});await pending;
+  assert.equal(loads,0);assert.equal(disposes,1);
+});
+test('disable promptly disposes a model whose load is pending', async () => {
+  const load=deferred();let disposes=0;
+  const h=harness({modelFactory:async()=>({load:()=>load.promise,dispose:()=>disposes++})});h.start();
+  const pending=h.controller.setModelEnabled(true);await flush();
+  await h.controller.setModelEnabled(false);assert.equal(disposes,1);
+  load.resolve();await pending;assert.equal(disposes,1);
+  assert.match(h.updates.at(-1).model.reason,/off/i);
+});
+test('rapid reenable isolates stale load callbacks and cleanup from the newer model', async () => {
+  const first=deferred(),second=deferred();let calls=0;const statuses=[];const disposed=[];
+  const h=harness({modelFactory:async()=>{
+    const id=++calls;return {load:({onStatus})=>{statuses[id]=onStatus;return id===1?first.promise:second.promise;},
+      estimate:async()=>({data:[1],width:1,height:1}),dispose:()=>disposed.push(id)};
+  }});h.start();const old=h.controller.setModelEnabled(true);await flush();
+  await h.controller.setModelEnabled(false);const current=h.controller.setModelEnabled(true);await flush();
+  first.reject(Error('cancelled'));await old;
+  const before=h.updates.length;statuses[1]({status:'ready'});assert.equal(h.updates.length,before);
+  assert.equal(h.controller.analyzeSnapshot(),false,'Old finally must not clear the new loading flag');
+  second.resolve();await current;assert.equal(h.controller.analyzeSnapshot(),true);h.frame();await flush();
+  assert.equal(h.updates.at(-1).model.kind,'relative');assert.deepEqual(disposed,[1]);
+});
+
+test('turning off all experimental depth cancels pending optional load immediately', async () => {
+  const load=deferred();let disposes=0;
+  const h=harness({modelFactory:async()=>({load:()=>load.promise,dispose:()=>disposes++})});h.start();
+  const pending=h.controller.setModelEnabled(true);await flush();h.controller.setEnabled(false);
+  assert.equal(disposes,1);load.reject(Error('cancelled'));await pending;
+  assert.match(h.updates.at(-1).ground.reason,/off/i);
+});
+test('late first factory cannot replace a rapidly reenabled ready model', async () => {
+  const factory=deferred();let calls=0,oldLoads=0,oldDisposals=0;
+  const h=harness({modelFactory:()=>++calls===1?factory.promise:Promise.resolve({load:async()=>{},estimate:async()=>({data:[1],width:1,height:1}),dispose(){}})});
+  h.start();const old=h.controller.setModelEnabled(true);await h.controller.setModelEnabled(false);
+  await h.controller.setModelEnabled(true);
+  factory.resolve({load:async()=>oldLoads++,dispose:()=>oldDisposals++});await old;
+  assert.equal(oldLoads,0);assert.equal(oldDisposals,1);
+  assert.equal(h.controller.analyzeSnapshot(),true);h.frame();await flush();
+  assert.equal(h.updates.at(-1).model.kind,'relative');
+});
