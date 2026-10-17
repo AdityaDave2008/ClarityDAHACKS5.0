@@ -12,7 +12,7 @@
 // worker afterwards. Inference is CPU-bound in WASM, so a laptop is noticeably faster than
 // a phone.
 
-import { captureSize } from './logic.js';
+import { appearsClose, captureSize } from './logic.js';
 import { cameraFrameAvailable, createVideoFrameGate } from './video-frames.js';
 
 const SUPPORTED_LABELS = Object.freeze([
@@ -92,7 +92,10 @@ export function createAlertPolicy({ cooldownMs = 3000, maxGapMs = 2500, confirma
         message: triggered ? 'Object in camera zone. Check your surroundings.' : null,
         cooldownRemainingMs: triggered ? cooldownMs : cooldownRemainingMs,
       });
-      const items = detections.filter((item) => item.inZone).sort((a, b) => b.confidence - a.confidence);
+      // Only alert when a detection is both in the walking area and large/low
+      // enough in frame to use the same rough "near" cue as the yellow overlay.
+      const items = detections.filter((item) => item.inZone && appearsClose(item.bbox))
+        .sort((a, b) => b.confidence - a.confidence);
       const match = candidate && now - candidate.seenAt <= maxGapMs
         ? items.find((item) => {
           const a = center(item);
@@ -171,7 +174,28 @@ export function createLocalDetector({
   // Abort suppresses delivery, but cannot cancel an already-running model. Keep
   // its slot across Stop/Start and PiP resume without retaining captured frames.
   let inFlight = null;
+  let prepared = null;
+  const statusListeners = new Set();
+  async function prepare({ signal, onStatus = () => {} } = {}) {
+    signal?.throwIfAborted();
+    const report = message => { if (!signal?.aborted) onStatus(message); };
+    statusListeners.add(report);
+    try {
+      if (!prepared) {
+        prepared = (async () => loader({
+          onStatus: message => { for (const listener of statusListeners) listener(message); },
+        }))().then(model => {
+          if (typeof model?.detect !== 'function') throw new Error('The detection model is not ready.');
+          return model;
+        }).catch(error => { prepared = null; throw error; });
+      }
+      const model = await prepared;
+      signal?.throwIfAborted();
+      return model;
+    } finally { statusListeners.delete(report); }
+  }
   return {
+    prepare,
     async start({ video, signal, onObstacle, onError, onStatus = () => {}, onResult = () => {}, onMetrics = () => {}, onFrame }) {
       signal.throwIfAborted();
       let timer;
@@ -183,7 +207,7 @@ export function createLocalDetector({
 
       let model;
       try {
-        model = await loader({ onStatus: message => { if (!signal.aborted && !stopped) onStatus(message); } });
+        model = await prepare({ signal, onStatus: message => { if (!signal.aborted && !stopped) onStatus(message); } });
       } catch (error) {
         if (!signal.aborted && !stopped) onError(error instanceof Error ? error.message : String(error));
         return () => {};

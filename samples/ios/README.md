@@ -13,9 +13,9 @@
 ## Build and run
 
 1. Open `samples/ios/MyEyes.xcodeproj` in Xcode and select the **Clarity** scheme. Minimum deployment target is iOS 16. A leftover `StepSense.xcodeproj/project.xcworkspace/xcuserdata` directory is not a buildable project and must not be submitted as source.
-2. For a compilation check without signing or touching a phone, run the unsigned build below. For a physical demonstration, prefer the team's already-installed app. Installing a new build requires compatible hardware, appropriate signing and explicit device-owner consent. Do not overwrite an existing app or change its preferences merely to try this sample.
-3. Tap **Start scanning** and allow camera access if requested. Denied permission must be changed by the device owner in Settings. Do not reset permissions or uninstall the app as a test step.
-4. The preview starts before model initialization. Initialization failure remains **Preview only**, with no object alerts. Stop then Start retries.
+2. For a compilation check without signing or touching a phone, run the unsigned build below. For a physical demonstration of these fixes, use a signed build of this revision: an already-installed copy may predate the repairs. Installing requires compatible hardware, appropriate signing and explicit device-owner consent. See [wireless setup](WIRELESS_TESTING.md). Do not overwrite an existing app or change its preferences merely to try this sample.
+3. Tap **Start scanning** to see the model-loading screen. The bundled runtime and model must report ready before camera initialization or permission. Loading failure keeps the camera off and offers **Retry** or **Cancel**. A ready idle model is reused safely on the next scan, with alert state reset.
+4. Once the model is ready, allow camera access if requested. Denied permission must be changed by the device owner in Settings. Do not reset permissions or uninstall the app as a test step.
 5. Configure confidence, cooldown and sound/haptics/speech in Scan settings. No backend address is required. The app is portrait-only and uses the rear camera.
 
 From the repository root on a Mac with Xcode and the iPhoneOS SDK:
@@ -36,17 +36,21 @@ The camera captures a fresh JPEG only after the previous local inference complet
 
 `OfflineDetector.swift` serves packaged files over the private `stepsense://offline/` scheme. It rejects other navigation and uses a restrictive page Content Security Policy. JPEGs are passed to JavaScript in memory and never uploaded. There is no local HTTP listener. `APIClient.swift` retains the shared response/preferences types and legacy unused backend client, but `ScanModel` no longer constructs or calls that client.
 
-The exact existing JS alert policy is packaged as `policy.js`, with parity enforced by tests. Two nearby, same-label detections within 2.5 seconds confirm an alert. Cooldown suppresses repeated delivery. Preferences apply locally and invalidate in-flight UI results. Stop cancels pending work, releases the camera/WebKit, and invalidates late callbacks with both operation tokens and scan generations.
+The exact existing JS alert policy is packaged as `policy.js`, with parity enforced by tests. Two nearby, same-label detections within 2.5 seconds confirm an alert. Cooldown suppresses repeated delivery. Preferences apply locally and invalidate in-flight UI results. Stop cancels pending work, releases the camera and invalidates late callbacks with both operation tokens and scan generations. An idle ready WebKit model may be retained for a warm restart; pending or failed runtimes are destroyed.
 
 Initialization times out after 60 seconds and inference after 15 seconds. Results more than 2.5 seconds old never draw boxes or deliver alerts. Both main-view and PiP overlays expire if inference stalls. Model failure is never reported as a clear path.
 
 **Limitations:** COCO categories do not include potholes, curbs, stairs, generic barriers, or every obstacle. The zone is an image-coordinate heuristic, not depth, collision prediction, or a measured walking corridor. An empty detection result is not evidence that travel is safe. Do not rely on this prototype for navigation or personal safety.
 
+## Distance-dependent feedback
+
+Fresh matched LiDAR object estimates now drive adjustable near/red, intermediate/amber, far/green and out-of-range/blue bands. Missing or expired distance is gray/unknown. Selected beeps and haptics scale from 0.5 to 2 pulses per second after two distinct fresh in-zone observations. Text labels accompany colors, and Stop/interruption cancels output. See [exact behavior, tests and physical-phone limitations](../../docs/PROXIMITY_ACCEPTANCE.md). This is approximate axial depth, not safe-path or collision prediction.
+
 ## Floating window
 
 The existing video-call Picture in Picture camera implementation is retained. It requires an active PiP window, the declared `voip` background mode, and granted `AVCaptureSession.isMultitaskingCameraAccessEnabled`. Where background camera access is unavailable the camera pauses rather than implying live frames.
 
-On launch the scanner is stopped and the floating window is closed. The PiP controller is prepared automatically, without a toggle or a saved opt-out preference. Tapping **Start scanning** arms automatic PiP entry once the camera starts, even if the model fails. Leaving the app can then open PiP when iOS permits. **Open floating window now** remains the explicit fallback (and can open an empty window before scanning). **Stop scanning** releases the camera and closes PiP. Dismissing PiP disarms automatic entry until a new scan or an explicit Open request, so returning to the app or finishing model loading does not force it open again. WebKit may suspend offline analysis while the app is backgrounded, even when the camera continues in PiP. Old boxes expire and the UI warns about this limitation. Background object alerts are **not guaranteed or verified**. The `voip` mode remains a hackathon prototype choice, not an assertion of App Store eligibility.
+On launch the scanner is stopped and the floating window is closed. The PiP controller is prepared automatically, without a toggle or a saved opt-out preference. Tapping **Start scanning** arms automatic PiP entry once the model is ready and the camera starts. Initial model-load failure keeps both capture and automatic PiP off. Leaving the app can then open PiP when iOS permits. **Open floating window now** remains the explicit fallback (and can open an empty window before scanning). **Stop scanning** releases the camera and closes PiP. Dismissing PiP disarms automatic entry until a new scan or an explicit Open request, so returning to the app or finishing model loading does not force it open again. WebKit may suspend offline analysis while the app is backgrounded, even when the camera continues in PiP. Old boxes expire and the UI warns about this limitation. Background object alerts are **not guaranteed or verified**. The `voip` mode remains a hackathon prototype choice, not an assertion of App Store eligibility.
 
 ## Historical verification and implementation notes
 
@@ -116,14 +120,16 @@ Run actual offline inference using the production Swift bridge, WKWebView, JS ru
 ```sh
 swiftc -parse-as-library \
   samples/ios/MyEyes/APIClient.swift \
+  samples/ios/MyEyes/DepthEstimate.swift \
   samples/ios/MyEyes/OfflineDetector.swift \
+  samples/ios/MyEyes/DetectorRecovery.swift \
   samples/ios/tests/OfflineInferenceSmoke.swift \
   -o "$JCODE_SCRATCH_DIR/offline-inference-smoke"
 "$JCODE_SCRATCH_DIR/offline-inference-smoke" \
   "$PWD/samples/ios/MyEyes/OfflineDetector" /absolute/path/to/cat.jpg
 ```
 
-The smoke asserts a high-confidence cat and normalized box, confirming → triggered → cooldown, stale suppression, stale/error streak breaking, canceled startup replacement, malformed-image recovery, blocked remote fetch, single-flight rejection, a real 15-second hung-frame timeout, and shutdown. This exercises real production WebKit inference, not mocked detections. It is a macOS runtime test, not proof of iPhone camera/thermal/background behavior.
+The smoke asserts a high-confidence cat and normalized box, confirming → triggered → cooldown, stale suppression, stale/error streak breaking, canceled startup replacement, malformed-image recovery, blocked remote fetch, single-flight rejection, a real 15-second hung-frame timeout, bounded recovery followed by 120 fresh model inferences, and shutdown. This exercises real production WebKit inference, not mocked detections. It is a macOS runtime test, not proof of iPhone camera/thermal/background behavior.
 
 Signed iPhone build:
 

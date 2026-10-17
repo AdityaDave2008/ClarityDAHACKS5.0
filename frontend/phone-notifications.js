@@ -17,7 +17,9 @@ export async function notifyPhone(message, platform = globalThis, {
       icon: '/icons/logo-orange.svg',
       badge: '/icons/logo-orange.svg',
       tag,
-      silent: !pattern,
+      // Clarity plays the chosen alert sound in-page. Keep the OS notification
+      // silent to avoid an extra system tone on top of the selected sound.
+      silent: true,
       ...(pattern ? { vibrate: pattern, renotify: true } : {}),
       data: { url: '/#camera' },
     };

@@ -11,29 +11,27 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Clarity - Awareness within reach">
-    <title>Clarity | Home</title>
-    <link rel="icon" href="icons/logo-orange.svg?v=1" type="image/svg+xml" sizes="any">
-    <link rel="apple-touch-icon" href="icons/logo-orange.svg?v=1">
     <meta name="apple-mobile-web-app-title" content="Clarity">
-    <title>Clarity | Awareness Within Reach</title>
-    <link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
-    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+    <title>Clarity | Awareness within reach</title>
+    <link rel="icon" href="/icons/mainLogo.png?v=2" type="image/png">
+    <link rel="shortcut icon" href="/icons/mainLogo.png?v=2" type="image/png">
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" sizes="180x180">
     <link rel="manifest" href="/manifest.webmanifest">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="homePage.css">
+    <link rel="preload" as="image" href="icons/eye_logo_smooth.gif?v=smooth-6" fetchpriority="high">
+    <link rel="stylesheet" href="homePage.css?v=eye-palette-6">
   </head>
 
   <body>
-    <svg aria-hidden="true" width="0" height="0" style="position:absolute;overflow:hidden">
-      <filter id="eye-background-key" color-interpolation-filters="sRGB">
-        <feColorMatrix type="matrix" result="keyed" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 3.5 -3.5 0 0"></feColorMatrix>
-        <feFlood result="palette-color" style="flood-color:var(--mint,#f38b68)"></feFlood>
-        <feComposite in="palette-color" in2="keyed" operator="in"></feComposite>
-      </filter>
-    </svg>
+  <svg aria-hidden="true" width="0" height="0" style="position:absolute;overflow:hidden">
+    <filter id="eye-palette-tint" color-interpolation-filters="sRGB">
+      <feColorMatrix type="matrix" result="eye-alpha" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 2.5 0 0 -0.4"></feColorMatrix>
+      <feFlood id="eye-palette-color" result="eye-tint" flood-color="#f38b68"></feFlood>
+      <feComposite in="eye-tint" in2="eye-alpha" operator="in"></feComposite>
+    </filter>
+  </svg>
     <main class="app">
       <dialog class="setup-dialog" id="firstRunDialog" aria-labelledby="firstRunTitle" aria-describedby="firstRunHelp">
         <form id="firstRunForm" method="dialog">
@@ -81,7 +79,7 @@
 
       <header>
         <div class="brand">
-          <span class="logo-window" aria-hidden="true"><img class="logo" src="icons/eye_logo_smooth.gif" alt=""></span>
+          <span class="brand-logo-window" aria-hidden="true"><img src="icons/eye_logo_smooth.gif?v=smooth-6" width="220" height="120" alt="" loading="eager" fetchpriority="high" decoding="async"></span>
           Clarity
         </div>
       </header>
@@ -121,6 +119,14 @@
         <p class="home-slogan">Awareness within reach.</p>
         <p class="page-subtitle">Home</p>
         <div class="camera-feature" id="camera-feature">
+          <section id="camera-startup" class="camera-startup-panel" aria-label="Detection model startup" hidden>
+            <h2 id="camera-startup-title">Loading detection model</h2>
+            <p id="camera-startup-status" role="status" aria-live="polite" aria-atomic="true"></p>
+            <div class="camera-startup-actions">
+              <button type="button" id="camera-startup-retry" hidden>Retry</button>
+              <button type="button" id="camera-startup-cancel">Cancel</button>
+            </div>
+          </section>
           <div class="camera-preview">
           <video id="camera-video" autoplay muted playsinline aria-label="Live camera preview. Controls work without viewing the preview."></video>
             <canvas id="camera-overlay" aria-hidden="true"></canvas>
@@ -209,9 +215,6 @@
       <section id="settings" class="screen">
         <h1>Awareness within reach.</h1>
         <p class="intro page-subtitle">Customization</p>
-        <p class="eyebrow">Make it yours</p>
-        <h1>Awareness within reach.</h1>
-          <p class="intro">Adjust display and alert settings here.</p>
 
         <div class="card">
           <section class="install-card" aria-labelledby="install-title">
@@ -259,7 +262,7 @@
           <h2 class="section-title">Alert preferences</h2>
 
           <div class="setting-row">
-            <div><label for="notifications"><b>Phone notifications</b></label><small>Send confirmed object alerts when permission is allowed. Phone notification sounds follow device settings.</small></div>
+            <div><label for="notifications"><b>Phone notifications</b></label><small>Show a system notification when an object alert is triggered and permission is allowed.</small></div>
             <input id="notifications" class="toggle" type="checkbox" checked>
           </div>
 
@@ -757,6 +760,7 @@
 
       const colorVisionSelect = document.getElementById("colorVision");
       const colorVisionNote = document.getElementById("colorVisionNote");
+      const eyePaletteColor = document.getElementById("eye-palette-color");
       const colorVisionDescriptions = {
         standard: "For users without a color-vision adjustment. Uses the standard palette.",
         protanopia: "For people with reduced red vision. Red can look darker, and red and green can be hard to tell apart.",
@@ -765,10 +769,16 @@
         achromatopsia: "For people who see little or no color. Colors appear as shades of gray.",
       };
 
+      function syncEyePaletteColor() {
+        const accent = getComputedStyle(document.documentElement).getPropertyValue("--mint").trim();
+        eyePaletteColor?.setAttribute("flood-color", accent || "#f38b68");
+      }
+
       function setColorVision(mode, save = true) {
         const preference = colorVisionDescriptions[mode] ? mode : "standard";
         colorVisionSelect.value = preference;
         document.documentElement.dataset.colorVision = preference;
+        syncEyePaletteColor();
         colorVisionNote.textContent = colorVisionDescriptions[preference];
         if (save) localStorage.setItem("clearpath-color-vision", preference);
       }
@@ -1202,54 +1212,51 @@
       }
 
       document.getElementById("camera-start").addEventListener("click", async () => {
-        if (window.myEyesCamera) return;
-        const video = document.getElementById("camera-video");
+        // The module owns scanning when it loaded. Keep a camera-preview fallback
+        // for a failed module download so Start still opens the browser permission prompt.
+        if (window.myEyesCamera || previewFallbackStream) return;
         const status = document.getElementById("camera-status");
         const startButton = document.getElementById("camera-start");
         const stopButton = document.getElementById("camera-stop");
         if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
-          status.textContent = "Camera access requires this page to be served from localhost or HTTPS. Open the site through its local web server, not as a file.";
+          status.textContent = "Camera access needs HTTPS or localhost. Open this page from a secure address, then try again.";
           return;
         }
         startButton.disabled = true;
-        status.textContent = "Requesting camera permission… choose Allow in the browser prompt.";
+        status.textContent = "Requesting camera permission…";
         try {
-          previewFallbackStream = await navigator.mediaDevices.getUserMedia({
-            audio: false,
-            video: { facingMode: { ideal: "environment" } },
-          });
-          window.dispatchEvent(new CustomEvent("myeyes:permissionchange", {
-            detail: { kind: "camera", state: "granted" },
-          }));
+          previewFallbackStream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: "environment" } } });
+          const video = document.getElementById("camera-video");
           video.srcObject = previewFallbackStream;
           video.muted = true;
           await video.play();
           setDetectionStatusLight(true);
-          status.textContent = "Camera preview is on. Reload the page to restore obstacle detection controls.";
+          status.textContent = "Camera preview is on. Scanning could not load; refresh the page to retry detection.";
+          startButton.disabled = true;
           stopButton.disabled = false;
         } catch (error) {
-          startButton.disabled = false;
-          previewFallbackStream?.getTracks().forEach(track => track.stop());
+          previewFallbackStream?.getTracks().forEach((track) => track.stop());
           previewFallbackStream = null;
           setDetectionStatusLight(false);
-          video.srcObject = null;
+          startButton.disabled = false;
+          stopButton.disabled = true;
           status.textContent = error.name === "NotAllowedError"
-            ? "Camera permission denied. Allow camera access in browser settings, then reload this page."
-            : "Camera could not start. Check camera permission and close any other app using the camera.";
-          if (error.name === "NotAllowedError") {
-            window.dispatchEvent(new CustomEvent("myeyes:permissionchange", {
-              detail: { kind: "camera", state: "denied" },
-            }));
-          }
+            ? "Camera permission was denied. Allow camera access in your browser settings, then try again."
+            : error.name === "NotReadableError"
+              ? "Camera is busy. Close other apps using it, then try again."
+              : "Camera could not start. Check browser permissions and try again.";
         }
       });
+
       document.getElementById("camera-stop").addEventListener("click", () => {
         if (window.myEyesCamera || !previewFallbackStream) return;
-        previewFallbackStream.getTracks().forEach(track => track.stop());
+        previewFallbackStream.getTracks().forEach((track) => track.stop());
         previewFallbackStream = null;
         setDetectionStatusLight(false);
-        document.getElementById("camera-video").srcObject = null;
-        document.getElementById("camera-status").textContent = "Camera off. Tap Start to restart.";
+        const video = document.getElementById("camera-video");
+        video.pause();
+        video.srcObject = null;
+        document.getElementById("camera-status").textContent = "Camera off. Scanner could not load; refresh the page to retry detection.";
         document.getElementById("camera-start").disabled = false;
         document.getElementById("camera-stop").disabled = true;
       });
@@ -1283,7 +1290,7 @@
           if (result === "granted" && sendTest) {
             const registration = await navigator.serviceWorker?.getRegistration();
             if (registration?.showNotification) {
-              await registration.showNotification("Clarity test", { body: "Notifications are ready.", icon: new URL("icons/logo-orange.svg", document.baseURI).href });
+              await registration.showNotification("Clarity test", { body: "Notifications are ready.", icon: new URL("icons/mainLogo.png", document.baseURI).href });
             } else {
               new Notification("Clarity test", { body: "Notifications are ready." });
             }

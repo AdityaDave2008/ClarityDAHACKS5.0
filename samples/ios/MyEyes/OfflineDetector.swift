@@ -50,6 +50,8 @@ final class OfflineDetector: NSObject, WKScriptMessageHandler, WKNavigationDeleg
     private let resourceRoot: URL?
     private var pending: (id: String, token: UUID, continuation: CheckedContinuation<Data, Error>)?
     private var timeout: Task<Void, Never>?
+    private var startup: UUID?
+    private var isReady = false
     private(set) var backend = "not loaded"
 
     init(resourceRoot: URL? = Bundle.main.url(forResource: "OfflineDetector", withExtension: nil)) {
@@ -57,26 +59,54 @@ final class OfflineDetector: NSObject, WKScriptMessageHandler, WKNavigationDeleg
     }
 
     func start() async throws -> [NormalizedPoint] {
-        stop()
-        guard let root = resourceRoot else { throw OfflineDetectorError.unavailable("Bundled model is missing.") }
-        let configuration = WKWebViewConfiguration()
-        configuration.websiteDataStore = .nonPersistent()
-        configuration.setURLSchemeHandler(OfflineAssetHandler(root: root), forURLScheme: "stepsense")
-        configuration.userContentController.add(self, name: "detector")
-        let view = WKWebView(frame: .zero, configuration: configuration)
-        view.navigationDelegate = self
-        webView = view
-        let data = try await waitForReply(id: "ready", seconds: 60) {
-            view.load(URLRequest(url: URL(string: "stepsense://offline/index.html")!))
+        try Task.checkCancellation()
+        guard startup == nil, pending == nil else {
+            throw OfflineDetectorError.unavailable("An operation is already being processed.")
         }
-        struct Ready: Decodable { let backend: String; let zone: [NormalizedPoint] }
-        let ready = try JSONDecoder().decode(Ready.self, from: data)
-        backend = ready.backend
-        return ready.zone
+        let reuse = isReady && webView != nil
+        if !reuse {
+            stop()
+            guard let root = resourceRoot else { throw OfflineDetectorError.unavailable("Bundled model is missing.") }
+            let configuration = WKWebViewConfiguration()
+            configuration.websiteDataStore = .nonPersistent()
+            configuration.setURLSchemeHandler(OfflineAssetHandler(root: root), forURLScheme: "stepsense")
+            configuration.userContentController.add(self, name: "detector")
+            let view = WKWebView(frame: .zero, configuration: configuration)
+            view.navigationDelegate = self
+            webView = view
+        }
+        let view = webView!
+        let generation = UUID()
+        startup = generation
+        isReady = false
+        do {
+            let id = reuse ? UUID().uuidString : "ready"
+            let data = try await waitForReply(id: id, seconds: 60) {
+                if reuse {
+                    view.callAsyncJavaScript("window.resetOffline(id)", arguments: ["id": id], in: nil, in: .page) { [weak self] result in
+                        if case .failure(let error) = result { self?.finish(id: id, result: .failure(error)) }
+                    }
+                } else {
+                    view.load(URLRequest(url: URL(string: "stepsense://offline/index.html")!))
+                }
+            }
+            try Task.checkCancellation()
+            // A canceled/obsolete continuation must not publish readiness for a replacement view.
+            guard startup == generation, webView === view else { throw CancellationError() }
+            struct Ready: Decodable { let backend: String; let zone: [NormalizedPoint] }
+            let ready = try JSONDecoder().decode(Ready.self, from: data)
+            backend = ready.backend
+            isReady = true
+            startup = nil
+            return ready.zone
+        } catch {
+            if startup == generation, webView === view { stop() }
+            throw error
+        }
     }
 
     func analyze(jpeg: Data, sequence: Int, preferences: ScanPreferences, capturedAt: TimeInterval) async throws -> FrameAnalysis {
-        guard let view = webView else { throw OfflineDetectorError.unavailable("Model not loaded. Stop and Start to retry.") }
+        guard isReady, startup == nil, let view = webView else { throw OfflineDetectorError.unavailable("Model not loaded. Stop and Start to retry.") }
         let id = UUID().uuidString
         let settings = try JSONSerialization.jsonObject(with: JSONEncoder().encode(preferences))
         let data = try await waitForReply(id: id, seconds: 15) {
@@ -121,7 +151,12 @@ final class OfflineDetector: NSObject, WKScriptMessageHandler, WKNavigationDeleg
         operation.continuation.resume(with: result)
     }
 
-    func stop() {
+    /// User Stop may retain an idle, fully initialized model. Recovery/error Stop always destroys it.
+    /// Per-scan policy is reset and acknowledged by the next start(), before accepting frames.
+    func stop(keepingReadyModel: Bool = false) {
+        if keepingReadyModel, isReady, startup == nil, pending == nil, webView != nil { return }
+        startup = nil
+        isReady = false
         if let id = pending?.id { finish(id: id, result: .failure(CancellationError())) }
         webView?.stopLoading()
         webView?.configuration.userContentController.removeScriptMessageHandler(forName: "detector")
@@ -147,6 +182,11 @@ final class OfflineDetector: NSObject, WKScriptMessageHandler, WKNavigationDeleg
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
         guard webView === self.webView else { return }
         if let id = pending?.id { finish(id: id, result: .failure(error)) }
+        stop()
+    }
+
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        self.webView(webView, didFailProvisionalNavigation: navigation, withError: error)
     }
 
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {

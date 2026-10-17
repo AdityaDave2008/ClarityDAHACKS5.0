@@ -5,6 +5,17 @@ let policy;
 let settingsKey;
 let busy = false;
 const reply = payload => window.webkit.messageHandlers.detector.postMessage(payload);
+const readyValue = () => ({ backend: 'ONNX WASM · experimental YOLOX-Nano', zone: ZONE });
+
+// A new scan must not inherit confirmation or cooldown from the preceding scan.
+// Native startup waits for this acknowledgement before it accepts camera frames.
+window.resetOffline = function (id) {
+  if (!detector) { reply({ id, error: 'Offline detector not ready' }); return; }
+  if (busy) { reply({ id, error: 'Detector already processing a frame' }); return; }
+  policy = undefined;
+  settingsKey = undefined;
+  reply({ id, value: readyValue() });
+};
 
 async function initialize() {
   try {
@@ -13,7 +24,7 @@ async function initialize() {
     ort.env.wasm.wasmPaths = 'stepsense://offline/';
     detector = await ort.InferenceSession.create('stepsense://offline/candidate.onnx', { executionProviders: ['wasm'], graphOptimizationLevel: 'all' });
     if (detector.inputNames[0] !== 'images' || detector.outputNames[0] !== 'predictions') throw new Error('Unexpected model contract');
-    reply({ id: 'ready', value: { backend: 'ONNX WASM · experimental YOLOX-Nano', zone: ZONE } });
+    reply({ id: 'ready', value: readyValue() });
   } catch (error) { reply({ id: 'ready', error: String(error) }); }
 }
 

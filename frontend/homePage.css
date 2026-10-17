@@ -64,7 +64,7 @@ header.camera-header-hidden {
 
 .brand {
   display: flex;
-  gap: 14px;
+  gap: 6px;
   align-items: center;
   color: var(--mint);
   font-size: 36px;
@@ -72,25 +72,24 @@ header.camera-header-hidden {
   line-height: 1;
 }
 
-.logo-window {
+.brand-logo-window {
   position: relative;
   display: block;
-  flex: 0 0 92px;
-  width: 92px;
-  height: 52px;
+  flex: 0 0 94px;
+  width: 94px;
+  height: 56px;
   overflow: hidden;
 }
 
-.logo {
+.brand-logo-window img {
   position: absolute;
   top: 50%;
   left: 50%;
-  display: block;
-  width: 230px;
+  width: 220px;
   max-width: none;
   height: auto;
   transform: translate(-50%, -50%);
-  filter: url(#eye-background-key);
+  filter: url(#eye-palette-tint);
 }
 
 .status {
@@ -1348,16 +1347,6 @@ select {
 
 .app.blindness-mode .brand {
   font-size: 36px;
-}
-
-.app.blindness-mode .logo-window {
-  flex-basis: 98px;
-  width: 98px;
-  height: 56px;
-}
-
-.app.blindness-mode .logo {
-  width: 248px;
 }
 
 .app.blindness-mode .status {
@@ -2728,3 +2717,27 @@ html *::after {
     transition: none;
   }
 }
+/* Startup is a visible screen, not a status below the full-height preview.
+   Only model loading/failure shows this panel, never an active camera stream. */
+#camera .camera-startup-panel:not([hidden]) {
+  position: fixed;
+  z-index: 10010;
+  top: max(1rem, env(safe-area-inset-top));
+  left: max(1rem, env(safe-area-inset-left));
+  right: max(1rem, env(safe-area-inset-right));
+  width: auto;
+  max-width: 34rem;
+  max-height: calc(100dvh - 7rem);
+  overflow: auto;
+  margin: 0 auto;
+  padding: clamp(1rem, 4vw, 2rem);
+  border: 2px solid #99e6cf;
+  border-radius: 1rem;
+  background: #102923;
+  color: #fff;
+  box-shadow: 0 0 0 100vmax rgb(0 0 0 / 65%);
+}
+#camera .camera-startup-panel h2 { margin: 0 0 1rem; color: #fff; font-size: 1.5rem; }
+#camera .camera-startup-panel p { margin: 0 0 1.25rem; color: #fff; font-size: 1.1rem; line-height: 1.5; }
+#camera .camera-startup-actions { display: flex; flex-wrap: wrap; gap: .75rem; }
+#camera .camera-startup-actions button { min-height: 3rem; flex: 1; }

@@ -16,6 +16,7 @@ struct CameraDiagnostics: Sendable {
     let multitaskingSupported: Bool
     let multitaskingEnabled: Bool
     let depthStatus: String
+    let lidarHardwareAvailable: Bool
 }
 
 enum CameraFailure: LocalizedError {
@@ -49,6 +50,7 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
     private var frameRequested = false
     private var frameHandler: (@Sendable (CapturedFrame) -> Void)?
     private var previewHandler: (@Sendable (PiPFrame) -> Void)?
+    private var depthSampleHandler: (@Sendable (CenterDepthSample) async -> Void)?
     private var failureHandler: (@Sendable (String) -> Void)?
     private var observers: [NSObjectProtocol] = []
     private var interrupted = false
@@ -60,6 +62,7 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
     private var depthCounters: [String: Int] = [:]
     private var lastDepthLog: TimeInterval = 0
     private var lastCenterLog: TimeInterval = 0
+    private var centerDelivery = CenterDepthDeliveryGate()
     private var syncReason = "waiting for synchronized depth"
     private var previousRGBTime: CMTime?
     // Strong Swift reference retains exactly one SDK sample until the next callback.
@@ -265,6 +268,7 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
 
     func start(lidarEnabled: Bool = false, onFrame: @escaping @Sendable (CapturedFrame) -> Void,
                onPreview: @escaping @Sendable (PiPFrame) -> Void,
+               onDepthSample: @escaping @Sendable (CenterDepthSample) async -> Void = { _ in },
                onInterruption: @escaping @Sendable (Bool, String) -> Void,
                onFailure: @escaping @Sendable (String) -> Void) async throws -> CameraDiagnostics {
         let token = UUID()
@@ -274,7 +278,9 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
             sessionQueue.async { [self] in
                 do {
                     guard lock.withLock({ captureToken == token }) else { throw CancellationError() }
-                    if !configured || configuredLiDAR != lidarEnabled {
+                    // An RGB fallback records the requested mode, not successful depth setup.
+                    // Retry on the next explicit start rather than caching a transient failure forever.
+                    if !configured || configuredLiDAR != lidarEnabled || (lidarEnabled && synchronizedDepth == nil) {
                         try configure(lidarEnabled: lidarEnabled)
                     }
                     // Video-call Picture in Picture needs camera frames while another app is
@@ -295,6 +301,7 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
                     lastFrameAt = ProcessInfo.processInfo.systemUptime
                     frameHandler = onFrame
                     previewHandler = onPreview
+                    depthSampleHandler = onDepthSample
                     interruptionHandler = onInterruption
                     failureHandler = onFailure
                     lock.unlock()
@@ -302,7 +309,8 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
                     guard session.isRunning else { throw CameraFailure.configuration }
                     startLivenessTimer()
                     continuation.resume(returning: CameraDiagnostics(multitaskingSupported: supported,
-                                                                     multitaskingEnabled: enabledAccess, depthStatus: depthStatus))
+                                                                     multitaskingEnabled: enabledAccess, depthStatus: depthStatus,
+                                                                     lidarHardwareAvailable: AVCaptureDevice.default(.builtInLiDARDepthCamera, for: .video, position: .back) != nil))
                 } catch {
                     clearHandlers(ifToken: token)
                     continuation.resume(throwing: error)
@@ -321,7 +329,7 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
         clearHandlers()
         sessionQueue.async { [self] in
             if session.isRunning { session.stopRunning() }
-            frameQueue.sync { clearDepthPairing() }
+            frameQueue.sync { clearDepthPairing(); centerDelivery.reset() }
             onStopped()
         }
     }
@@ -335,6 +343,7 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
         interrupted = false
         frameHandler = nil
         previewHandler = nil
+        depthSampleHandler = nil
         interruptionHandler = nil
         failureHandler = nil
         lock.unlock()
@@ -353,6 +362,7 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
             lastDepthLog = 0
             syncReason = "waiting for synchronized depth"
             clearDepthPairing()
+            centerDelivery.reset()
             lastSyncMetadataLog = 0
         }
         session.beginConfiguration()
@@ -474,12 +484,14 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
         lock.lock()
         guard active, !interrupted else { lock.unlock(); return }
         let preview = previewHandler
+        let sensorHandler = depthSampleHandler
+        let token = captureToken
         let wanted = frameRequested
         let handler = frameHandler
         if wanted { frameRequested = false }
         lock.unlock()
 
-        // Every frame feeds the Picture in Picture window; only requested frames are uploaded.
+        // Every frame feeds Picture in Picture; only requested frames enter local inference.
         diagnosticFrames += 1
         lock.lock()
         lastFrameAt = ProcessInfo.processInfo.systemUptime
@@ -489,9 +501,13 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
         }
         preview?(PiPFrame(sampleBuffer: sampleBuffer))
 
-        guard wanted, let handler else { return }
-
         let now = ProcessInfo.processInfo.systemUptime
+        let sensorReservation = sensorHandler != nil && configuredLiDAR ? centerDelivery.reserve(now: now) : nil
+        guard (wanted && handler != nil) || sensorReservation != nil else { return }
+        var sensorDispatched = false
+        defer {
+            if let sensorReservation, !sensorDispatched { centerDelivery.complete(sensorReservation) }
+        }
         var depthCapturedAt: TimeInterval?
         if let timestamp = synchronizedTime, let clock = session.synchronizationClock {
             let hostTime = CMSyncConvertTime(timestamp, from: clock, to: CMClockGetHostTimeClock())
@@ -518,12 +534,25 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
         }
         if configuredLiDAR, synchronizedDepth != nil { depthEvent(reason) }
         let diagnostic = synchronizedDepth == nil ? depthStatus : "LiDAR · " + reason
+        if let sensorReservation, let sensorHandler {
+            let sample = CenterDepthSample(snapshot: depth, now: now, diagnostic: diagnostic)
+            sensorDispatched = true
+            Task { [weak self] in
+                guard let self else { return }
+                if self.lock.withLock({ self.active && !self.interrupted && self.captureToken == token }) {
+                    await sensorHandler(sample)
+                }
+                self.frameQueue.async { [weak self] in self?.centerDelivery.complete(sensorReservation) }
+            }
+        }
         if now - lastCenterLog >= 3, synchronizedDepth != nil {
             lastCenterLog = now
             let center = depth?.centerSurface(now: now)
             if let depth { PiPDiagnostics.log("lidar.distribution", depth.distributionSummary) }
             PiPDiagnostics.log("lidar.center", "meters=\(center.map { String(format: "%.3f", $0) } ?? "unavailable") ageMs=\(depthCapturedAt.map { Int((now - $0) * 1000) } ?? -1) snapshot=\(reason)")
         }
+        // Sensor observations never encode JPEG or wait for object inference.
+        guard wanted, let handler else { return }
         let source = CIImage(cvPixelBuffer: buffer)
         let scale = min(1, 640 / max(source.extent.width, source.extent.height))
         let image = source.transformed(by: CGAffineTransform(scaleX: scale, y: scale))

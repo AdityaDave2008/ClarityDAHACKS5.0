@@ -36,7 +36,7 @@ test('capture uses synchronized unfiltered calibrated depth without replacing or
 test('settings require Stop and estimates expire independently from detector boxes', () => {
   const model = read('ScanModel.swift');
   const ui = read('ScannerView.swift');
-  assert.match(model, /lidarEnabled: preferences.isLidarEnabled/);
+  assert.match(model, /lidarEnabled: self\.preferences\.isLidarEnabled/);
   assert.match(model, /updated.isLidarEnabled != preferences.isLidarEnabled/);
   assert.match(model, /depthExpirationTask/);
   assert.match(model, /frame.depth/);
@@ -55,7 +55,7 @@ test('superseded start cannot clear a newer run and format selection searches va
 
 test('stop transition blocks capture mode edits and restart until camera release completes', () => {
   const model = read('ScanModel.swift');
-  assert.ok(model.includes('cameraStopping = true'), 'model must track asynchronous camera release');
+  assert.ok(model.includes('cameraStopping = cameraInitialized'), 'model must track asynchronous camera release');
   assert.ok(model.includes('isBusy || cameraRunning || cameraStopping'), 'model mode-change guard includes stopping');
   assert.ok(read('ScannerView.swift').includes('model.cameraStopping'), 'UI disables capture controls during stop');
   assert.ok(read('CameraCapture.swift').includes('onStopped()'), 'stop completion follows stopRunning on session queue');

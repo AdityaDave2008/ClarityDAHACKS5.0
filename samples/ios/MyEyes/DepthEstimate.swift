@@ -99,6 +99,20 @@ struct DepthSnapshot: Sendable {
 
 
 extension Detection {
+    /// Hardware capability, not a temporarily missing depth frame, selects the source.
+    func addingProximity(from snapshot: DepthSnapshot?, lidarCapable: Bool?, enabled: Bool,
+                         matchingFrame: Bool, capturedAt: TimeInterval, now: TimeInterval,
+                         onRejection: (String) -> Void = { _ in }) -> Detection {
+        var enriched = addingDepth(from: snapshot, enabled: enabled && lidarCapable == true,
+                                   matchingFrame: matchingFrame, now: now, onRejection: onRejection)
+        enriched.proximitySource = nil
+        enriched.visualProximityArea = nil
+        enriched.proximityExpiresAt = nil
+        guard let lidarCapable, matchingFrame else { return enriched }
+        enriched.enrichProximity(lidarCapable: lidarCapable, capturedAt: capturedAt)
+        return enriched
+    }
+
     /// Replaces, never merges, prior native depth. OFF and missing/mismatched frames clear it.
     func addingDepth(from snapshot: DepthSnapshot?, enabled: Bool, matchingFrame: Bool, now: TimeInterval, onRejection: (String) -> Void = { _ in }) -> Detection {
         var enriched = self

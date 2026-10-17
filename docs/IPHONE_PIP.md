@@ -1,3 +1,5 @@
+> Historical implementation notes. For the current native model, startup ordering, hardware-depth defaults and judging setup, use [the iOS guide](../samples/ios/README.md). Issue #37 changes startup to load the model before camera access; initial load failure no longer starts a preview.
+
 > Historical reference selectively preserved from `origin/feature/iphone-pip-test` (`8203fdb`). Descriptions and verification claims below refer to that branch at the time of writing, not acceptance results for the current app. Proposed features are not necessarily implemented.
 
 # Native iPhone floating camera

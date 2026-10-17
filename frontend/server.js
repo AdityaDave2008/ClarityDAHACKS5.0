@@ -43,6 +43,12 @@ const ASSETS = new Map([
   ['/icons/logo-orange.svg', ['icons/logo-orange.svg', 'image/svg+xml']],
   ['/icons/favicon-white.svg', ['icons/favicon-white.svg', 'image/svg+xml']],
   ['/icons/eye_logo_smooth.gif', ['icons/eye_logo_smooth.gif', 'image/gif']],
+  ['/icons/mainLogo.png', ['icons/mainLogo.png', 'image/png']],
+  ['/icons/icon-192.png', ['icons/icon-192.png', 'image/png']],
+  ['/icons/icon-512.png', ['icons/icon-512.png', 'image/png']],
+  ['/icons/icon-maskable-512.png', ['icons/icon-maskable-512.png', 'image/png']],
+  ['/icons/apple-touch-icon.png', ['icons/apple-touch-icon.png', 'image/png']],
+  ['/icons/clarity-eye.png', ['icons/clarity-eye.png', 'image/png']],
 ]);
 
 const HOP_BY_HOP = new Set([

@@ -38,7 +38,11 @@ struct MyEyesApp: App {
 }
 
 extension Color {
-    static let senseTeal = Color(red: 0.29, green: 0.91, blue: 0.79)
-    static let senseSurface = Color(red: 0.055, green: 0.075, blue: 0.075)
-    static let senseMuted = Color(red: 0.56, green: 0.64, blue: 0.62)
+    // Web identity tokens. Keep the shared proximity band colors independent.
+    static let senseBackground = Color(red: 16 / 255, green: 24 / 255, blue: 32 / 255)
+    static let senseTeal = Color(red: 243 / 255, green: 139 / 255, blue: 104 / 255)
+    static let senseSurface = Color(red: 28 / 255, green: 42 / 255, blue: 53 / 255)
+    static let senseSurfaceBottom = Color(red: 22 / 255, green: 34 / 255, blue: 44 / 255)
+    static let senseMuted = Color(red: 169 / 255, green: 181 / 255, blue: 191 / 255)
+    static let senseNavigation = Color(red: 18 / 255, green: 29 / 255, blue: 39 / 255)
 }
