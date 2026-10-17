@@ -21,7 +21,7 @@ enum AlertMode: String, Codable, CaseIterable, Identifiable {
 
 struct ScanPreferences: Codable, Equatable {
     var alertModes: [AlertMode] = [.sound]
-    var confidenceThreshold: Double = 0.6
+    var confidenceThreshold: Double = 0.7874982953071594
     var cooldownMs: Int = 3000
     // Missing storage enables automatic hardware depth; explicit saved choices are preserved.
     private var lidarEnabled: Bool? = nil
@@ -32,7 +32,7 @@ struct ScanPreferences: Codable, Equatable {
 
     // A private stored property makes Swift's generated memberwise initializer private.
     // Keep configurable construction available without changing persisted LiDAR choices.
-    init(alertModes: [AlertMode] = [.sound], confidenceThreshold: Double = 0.6, cooldownMs: Int = 3000) {
+    init(alertModes: [AlertMode] = [.sound], confidenceThreshold: Double = 0.7874982953071594, cooldownMs: Int = 3000) {
         self.alertModes = alertModes
         self.confidenceThreshold = confidenceThreshold
         self.cooldownMs = cooldownMs

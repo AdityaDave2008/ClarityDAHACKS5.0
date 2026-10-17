@@ -1,3 +1,5 @@
+> **v2-testing branch:** This app is **Clarity V2 Test**, bundle `com.dahacks.clarity.v2testing`, using the actual experimental fine-tuned YOLOX-Nano ONNX candidate offline. The previous COCO-SSD/TFJS instructions below describe the original baseline and do not apply to this branch's detector. See [testing instructions, verification and limitations](../../docs/v2-testing/README.md) and [model provenance](MyEyes/OfflineDetector/PROVENANCE.md). Existing StepSense app/settings are preserved for rollback.
+
 # Clarity native iPhone sample
 
 The SwiftUI camera app now runs **fully offline object detection** using the same pretrained COCO-SSD `lite_mobilenet_v2` graph as the backend. It bundles TensorFlow.js 4.22.0, its single-threaded WebAssembly backend, COCO-SSD 2.2.3, and all five weight shards. No server, Wi-Fi, mobile data, or runtime model download is required. This is not a custom-trained model or a different Core ML detector.
@@ -35,6 +37,8 @@ On launch the scanner is stopped and the floating window is closed. The PiP cont
 ## Verification
 
 **Mac/Xcode testing required for the October 17 fixes.** The explicit `ScanPreferences` initializer and Node.js 24 action upgrades have not been executed on a Mac from this Windows workspace. Source/path and whitespace checks passed; earlier build results below do not confirm this revision.
+
+Windows checks for the integrated update: JavaScript syntax checks passed, and the browser/native-source regression suite passed 231 tests with zero failures. Two tests that compile and execute Swift were skipped because they require macOS. These results do not replace the Mac/Xcode checks below.
 
 On a Mac with Node.js 24+ and Xcode, run:
 
