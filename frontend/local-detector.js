@@ -167,19 +167,25 @@ export function createLocalDetector({
 
       async function tick() {
         if (signal.aborted || stopped) return;
+        const startedAt = now();
+        let delay = minIntervalMs;
         try {
           const result = await frame();
           if (signal.aborted || stopped) return;
           if (result) {
             onResult(result);
             if (result.alert.triggered) onObstacle();
+            // Pace capture starts, not inference completions. Keep a bounded UI
+            // yield even when inference exceeds the interval. Only schedule after
+            // completion, so the next capture is live rather than a queued frame.
+            delay = Math.max(16, minIntervalMs - (now() - startedAt));
           }
         } catch (error) {
           if (signal.aborted || stopped) return;
           policy.breakStreak();
           if (!signal.aborted && !stopped) onError(error instanceof Error ? error.message : String(error));
         }
-        if (!signal.aborted && !stopped) timer = schedule(tick, minIntervalMs);
+        if (!signal.aborted && !stopped) timer = schedule(tick, delay);
       }
 
       const stop = () => { stopped = true; unschedule(timer); policy.breakStreak(); signal.removeEventListener('abort', stop); };

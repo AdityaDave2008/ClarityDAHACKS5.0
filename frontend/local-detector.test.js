@@ -251,3 +251,70 @@ test('aborted loading cannot overwrite the next camera session status', async ()
   run.controller.abort(); resume(); await pending;
   assert.deepEqual(run.events.statuses, []);
 });
+
+// These exercise the real loop. A fixed post-inference sleep unnecessarily adds
+// model latency to the target interval. Timers and inference are controlled here
+// to make cadence and backpressure assertions independent of machine speed.
+for (const [inferenceMs, expectedDelay] of [[20, 70], [80, 16], [150, 16]]) {
+  test(`successful ${inferenceMs}ms inference targets start-to-start cadence with a UI yield`, async () => {
+    const stub = harness();
+    const delays = [];
+    const stop = await createLocalDetector({
+      ...stub.options,
+      loader: async () => ({ detect: async () => { stub.advance(inferenceMs); return [prediction()]; } }),
+      schedule: (_callback, delay) => { delays.push(delay); },
+    }).start(session().context);
+    await new Promise(resolve => setImmediate(resolve));
+    assert.deepEqual(delays, [expectedDelay]);
+    stop();
+  });
+}
+
+test('slow failed and stale frames retain full retry delay instead of spinning', async () => {
+  for (const failure of [true, false]) {
+    const stub = harness();
+    const delays = [];
+    const run = session();
+    const stop = await createLocalDetector({
+      ...stub.options,
+      loader: async () => ({ detect: async () => {
+        stub.advance(3000);
+        if (failure) throw Error('inference failed');
+        return [prediction()];
+      } }),
+      schedule: (_callback, delay) => { delays.push(delay); },
+    }).start(run.context);
+    await new Promise(resolve => setImmediate(resolve));
+    assert.deepEqual(delays, [90]);
+    assert.equal(run.events.results.length, 0);
+    stop();
+  }
+});
+
+test('in-flight inference never queues captures and the next tick captures the latest video', async () => {
+  let finish;
+  const stub = harness({ detectImpl: () => new Promise(resolve => { finish = resolve; }) });
+  const captured = [];
+  const video = { videoWidth: 640, videoHeight: 480, frameId: 1 };
+  stub.canvas.getContext = () => ({ drawImage: source => captured.push(source.frameId) });
+  const run = session({ video });
+  const stop = await createLocalDetector(stub.options).start(run.context);
+  assert.deepEqual(captured, [1]);
+  assert.equal(stub.scheduled(), 0);
+  video.frameId = 2;
+  stub.advance(150);
+  stub.runScheduled();
+  assert.deepEqual(captured, [1], 'No capture while inference is pending');
+  finish([prediction()]);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(stub.scheduled(), 1);
+  video.frameId = 3;
+  stub.runScheduled();
+  assert.deepEqual(captured, [1, 3], 'Intermediate video frames must not be queued');
+  assert.equal(stub.scheduled(), 0);
+  stop();
+  finish([prediction()]);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(run.events.results.length, 1, 'Stopping discards the last in-flight result');
+  assert.equal(stub.scheduled(), 0);
+});
