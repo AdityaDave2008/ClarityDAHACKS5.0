@@ -115,6 +115,10 @@
             <button type="button" id="camera-start" aria-describedby="permission-help">Start scanning</button>
             <button type="button" id="camera-stop" disabled>Stop scanning</button>
           </div>
+          <section class="status-panel" aria-label="Camera and detection status">
+            <p id="camera-status" role="status" aria-live="polite">Camera off. Tap Start when ready.</p>
+            <p class="detection-status-line"><span id="detection-status-light" class="dot needs-permission" aria-hidden="true"></span><span id="detection-status">Detection stopped.</span></p>
+          </section>
           <section class="speech-controls" aria-label="Spoken alerts">
             <button type="button" id="camera-speech" aria-pressed="false">Turn on spoken alerts</button>
             <div class="camera-actions">
