@@ -1519,8 +1519,7 @@ body.blindness-mode {
 .app.blindness-mode #home > .intro,
 .app.blindness-mode #home .forum-heading > div > .eyebrow,
 .app.blindness-mode #home .forum-live,
-.app.blindness-mode #home .forum-intro,
-.app.blindness-mode #home .post-meta {
+.app.blindness-mode #home .forum-intro {
   display: none;
 }
 
@@ -1538,4 +1537,159 @@ body.blindness-mode {
 
 .app.blindness-mode #camera #permission-help {
   max-width: 30ch;
+}
+
+.ai-issue h3 {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.3;
+}
+
+.ai-issue .issue-open {
+  display: grid;
+  width: 100%;
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ai-issue .issue-open:focus-visible {
+  outline: 3px solid var(--mint);
+  outline-offset: 5px;
+  border-radius: 10px;
+}
+
+.ai-issue .post-meta {
+  width: 100%;
+}
+
+.issue-urgency,
+.issue-view-prompt {
+  justify-self: start;
+  padding: 5px 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.issue-view-prompt {
+  border-color: transparent;
+  padding-left: 0;
+  color: var(--mint);
+}
+
+.ai-issue .issue-location {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.app.blindness-mode #home .ai-issue h3 {
+  font-size: 24px;
+}
+
+.app.blindness-mode #home .ai-issue .issue-location {
+  font-size: 18px;
+}
+
+.app.blindness-mode #home .ai-issue .issue-urgency,
+.app.blindness-mode #home .ai-issue .issue-view-prompt {
+  font-size: 17px;
+}
+
+.issue-dialog {
+  width: min(560px, calc(100vw - 32px));
+  max-height: min(80dvh, 720px);
+  padding: clamp(20px, 5vw, 30px);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: linear-gradient(145deg, var(--card-top), var(--card-bottom));
+  color: var(--ink);
+}
+
+.issue-dialog::backdrop {
+  background: #061117cc;
+  backdrop-filter: blur(4px);
+}
+
+.issue-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.issue-dialog-header .eyebrow {
+  margin: 0;
+}
+
+.issue-dialog-close {
+  min-height: 44px;
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--accent-wash);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.issue-dialog h2 {
+  margin: 18px 0 10px;
+  font-size: clamp(28px, 7vw, 38px);
+  line-height: 1.12;
+}
+
+.issue-dialog > p {
+  font-size: 17px;
+  line-height: 1.55;
+}
+
+.issue-detail-list {
+  display: grid;
+  gap: 0;
+  margin: 20px 0;
+}
+
+.issue-detail-list > div {
+  display: grid;
+  grid-template-columns: minmax(90px, 0.7fr) minmax(0, 1.3fr);
+  gap: 12px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+
+.issue-detail-list dt {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.issue-detail-list dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-weight: 750;
+}
+
+.issue-dialog .issue-dialog-note {
+  margin-bottom: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.app.blindness-mode .issue-dialog {
+  font-size: 20px;
+}
+
+.app.blindness-mode .issue-dialog-close {
+  min-height: 60px;
+  font-size: 18px;
+}
+
+.app.blindness-mode .issue-detail-list > div {
+  padding: 16px 0;
 }
