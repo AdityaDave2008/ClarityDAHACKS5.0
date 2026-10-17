@@ -21,6 +21,21 @@ struct OfflineInferenceSmoke {
                 let zone = try await detector.start()
                 print("READY backend=\(detector.backend) zoneVertices=\(zone.count) seconds=\(ProcessInfo.processInfo.systemUptime - started)")
                 let jpeg = try Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[2]))
+                let defaults = ScanPreferences()
+                guard defaults.confidenceThreshold == 0.7874982953071594 else { throw OfflineDetectorError.unavailable("Wrong candidate default") }
+                let defaultResult = try await detector.analyze(jpeg: jpeg, sequence: 0, preferences: defaults, capturedAt: ProcessInfo.processInfo.systemUptime)
+                guard defaultResult.detections.isEmpty, !defaultResult.alert.triggered else { throw OfflineDetectorError.unavailable("Candidate default did not suppress below-threshold cat") }
+                print("PASS native default 0.7874982953071594 suppresses known below-threshold cat")
+                if CommandLine.arguments.count > 3 {
+                    let positiveImage = try Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[3]))
+                    let positive = try await detector.analyze(jpeg: positiveImage, sequence: 100, preferences: defaults, capturedAt: ProcessInfo.processInfo.systemUptime)
+                    guard let cat = positive.detections.first(where: { $0.label == "cat" }), cat.confidence >= defaults.confidenceThreshold,
+                          abs(cat.confidence - 0.7943040132522583) < 0.005,
+                          abs(cat.bbox.x - 0) < 0.01, abs(cat.bbox.y - 0.1271128287682166) < 0.01,
+                          abs(cat.bbox.width - 0.9143495192894567) < 0.01, abs(cat.bbox.height - 0.8383545508751504) < 0.01
+                    else { throw OfflineDetectorError.unavailable("Lossless positive reference score/geometry mismatch") }
+                    print("PASS default positive lossless fixture and independent reference geometry: \(cat.confidence)")
+                }
                 var results: [FrameAnalysis] = []
                 for sequence in 1...3 {
                     var framePreferences = ScanPreferences(confidenceThreshold: 0.4)
@@ -30,7 +45,7 @@ struct OfflineInferenceSmoke {
                     print("FRAME \(sequence) size=\(result.frame.width)x\(result.frame.height) ms=\(result.processingMs) alert=\(result.alert.reason)")
                     for item in result.detections { print("DETECTION \(item.label) confidence=\(item.confidence) box=\(item.bbox) zone=\(item.inZone)") }
                 }
-                guard results[0].detections.contains(where: { $0.label == "cat" && $0.confidence > 0.8 }),
+                guard results[0].detections.contains(where: { $0.label == "cat" && abs($0.confidence - 0.7431903383972909) < 0.005 }),
                       results[0].alert.reason == "confirming", results[1].alert.triggered,
                       results[2].alert.reason == "cooldown" else { throw OfflineDetectorError.unavailable("Known-cat confidence or confirmation/cooldown regression") }
                 let stale = try await detector.analyze(jpeg: jpeg, sequence: 4, preferences: ScanPreferences(confidenceThreshold: 0.4), capturedAt: ProcessInfo.processInfo.systemUptime - 3)

@@ -19,7 +19,7 @@ final class ScanModel: ObservableObject {
     @Published private(set) var zone: [NormalizedPoint] = []
     @Published private(set) var detections: [Detection] = []
     @Published private(set) var imageSize = CGSize(width: 480, height: 640)
-    @Published private(set) var modelStatus = "Bundled COCO-SSD · offline"
+    @Published private(set) var modelStatus = "Experimental YOLOX-Nano · offline"
     @Published private(set) var multitaskingSupported: Bool?
     /// True once the capture session actually grants camera access while backgrounded.
     @Published private(set) var multitaskingEnabled: Bool?
@@ -117,7 +117,7 @@ final class ScanModel: ObservableObject {
                 zone = try await detector.start()
                 try Task.checkCancellation()
                 guard generation == current else { return }
-                modelStatus = "COCO-SSD lite_mobilenet_v2 · offline \(detector.backend.uppercased())"
+                modelStatus = "Experimental YOLOX-Nano · offline \(detector.backend.uppercased())"
                 sequence = 0
                 phase = .scanning
                 detail = "Scanning the marked image zone offline."

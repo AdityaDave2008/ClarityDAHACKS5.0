@@ -1,57 +1,51 @@
 {
-  "model": "COCO-SSD lite_mobilenet_v2",
-  "adapterVersion": "2.2.3",
-  "tensorflowjsVersion": "4.22.0",
-  "source": "https://storage.googleapis.com/tfjs-models/savedmodel/ssdlite_mobilenet_v2/",
-  "downloaded": "2026-10-16",
+  "model": "YOLOX-Nano fine-tuned candidate",
+  "onnxRuntimeVersion": "1.20.1",
+  "confidenceThreshold": 0.7874982953071594,
   "files": {
-    "model/group1-shard1of5": {
-      "bytes": 4194304,
-      "sha256": "0e7af0f713e98521252321f7f84892c31cefccccec3ac64c84e5065b75ed5646"
+    "candidate.onnx": {
+      "bytes": 3815640,
+      "sha256": "516617114420ce3c2bac545869ee91bac8ff7a63e148a73afdb12f126433fab4"
     },
-    "model/group1-shard2of5": {
-      "bytes": 4194304,
-      "sha256": "74cc6cfc2c4510c9cd81b8ad4cebf6f6a8f305119bb365ce0eb96276da38519a"
+    "ort.wasm.min.js": {
+      "bytes": 49026,
+      "sha256": "e66568724f8848e57cc2a56e4bea3a5b86ce3ff81b2da11eac8ed7ab02b27bd4"
     },
-    "model/group1-shard3of5": {
-      "bytes": 4194304,
-      "sha256": "50383033f893eae136392a403e8f70ade5efd90867df5695c4ca5ac640e14f38"
+    "ort-wasm-simd-threaded.mjs": {
+      "bytes": 24618,
+      "sha256": "745eb7c0ce6f18a6aa521971b2877babc7ffb27eecb58ab3bc6e5ef4692672e8"
     },
-    "model/group1-shard4of5": {
-      "bytes": 4194304,
-      "sha256": "d856dc534c780068bbf6c666ce1516df2c8433d87578aa31fcdf197de7058cc2"
+    "ort-wasm-simd-threaded.wasm": {
+      "bytes": 11246032,
+      "sha256": "207d02be4591c156b0a98f024f3d58005b5b04c92274d759fb390338c63559ea"
     },
-    "model/group1-shard5of5": {
-      "bytes": 1257312,
-      "sha256": "3d356f1fb6dfca6af78c56db34d9326706d0196e303f9de6b04f236ca79ed309"
+    "model-contract.json": {
+      "bytes": 8013,
+      "sha256": "f3e8999876857070886110f5bfc1cea1a399b64600967dd178bc77798249523e"
     },
-    "model/model.json": {
-      "bytes": 527315,
-      "sha256": "3770b2528339b1e3340cb74360e1e40401816b009779aeb8d0cce3a4353ea3a9"
+    "yolox.js": {
+      "bytes": 3522,
+      "sha256": "e1c7825e0ce783fe273ffddfae5ea502617fa8682a755a53910dac8b4700fb8c"
     },
-    "tf.min.js": {
-      "bytes": 1469843,
-      "sha256": "300dfae273d20b4046f46a06d735688f03675a807561e9bcb5f664eb2f3d2831"
+    "policy.js": {
+      "bytes": 3640,
+      "sha256": "a62bd2032c7f3d1ce1a294ae735536543ce6cc96ed11e89840d538c70c5b15f3"
     },
-    "coco-ssd.min.js": {
-      "bytes": 9299,
-      "sha256": "8875b8c1bb57723990c9d6506226e0e51cd21b8b6943eb53201086096de52df5"
+    "detector.js": {
+      "bytes": 3217,
+      "sha256": "eac68744a2779e1013f8de37af97603e78aa41c49d5c718b6f42f8c63d196915"
     },
-    "tf-backend-wasm.min.js": {
-      "bytes": 149861,
-      "sha256": "691bbec0ef8b5a7f17f212e9c5d85832030f90d030b46e99acb4dea1fb16f009"
+    "index.html": {
+      "bytes": 525,
+      "sha256": "20008fd8facb74f09773f073decefdd3f4a6844aa3d2de0c2f8dcb2f214c9fcd"
     },
-    "tfjs-backend-wasm-simd.wasm": {
-      "bytes": 424594,
-      "sha256": "77ebb28a6d34f371dbbf2086b7f2de8994acd8ea5a3cf1fa24d2c26c840cac7b"
+    "bootstrap.js": {
+      "bytes": 601,
+      "sha256": "988cdbcf32fecb6815f86b6004384a7425bb6ae8a6d059dea241f165a2fe4a7e"
     },
-    "tfjs-backend-wasm-threaded-simd.wasm": {
-      "bytes": 435643,
-      "sha256": "c052228d4bef185c27bbe59a9e029570c78bbb9f08b3cb46b597851650373de2"
-    },
-    "tfjs-backend-wasm.wasm": {
-      "bytes": 311123,
-      "sha256": "70a5d516060464e5269f01c74bac1772d6b8ab6cb612acf16b5cdaf61f78d892"
+    "ONNX-RUNTIME-LICENSE.txt": {
+      "bytes": 1073,
+      "sha256": "2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c"
     }
   }
 }
