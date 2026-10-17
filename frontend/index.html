@@ -7,7 +7,15 @@
       content="width=device-width, initial-scale=1, viewport-fit=cover"
     >
     <meta name="theme-color" content="#101c25">
+    <meta name="description" content="ClearPath helps you stay aware of walking path issues and customize alerts.">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="ClearPath">
     <title>ClearPath | Walk with confidence</title>
+    <link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+    <link rel="manifest" href="/manifest.webmanifest">
     <link rel="stylesheet" href="homePage.css">
   </head>
 
@@ -232,6 +240,11 @@
           <div class="controls">
             <button id="save" class="primary">Save preferences</button>
           </div>
+          <section class="install-card" aria-labelledby="install-title">
+            <h2 id="install-title" class="section-title">Install ClearPath</h2>
+            <p id="install-help">iPhone or iPad: open this page in Safari, tap Share, then Add to Home Screen. Android: use your browser menu and choose Install app or Add to Home screen.</p>
+            <button type="button" id="installAppButton" hidden>Install app</button>
+          </section>
           <section class="device-access" aria-labelledby="device-access-title">
             <h2 class="section-title" id="device-access-title">Permissions & device tests</h2>
             <p class="device-access-intro">Allow camera, microphone, or notification access here. Speaker and vibration tests work without separate browser permissions. To revoke access later, use your browser’s site settings.</p>
@@ -281,6 +294,40 @@
     </main>
 
     <script>
+      const installButton = document.getElementById("installAppButton");
+      const installHelp = document.getElementById("install-help");
+      let installPrompt = null;
+
+      if ("serviceWorker" in navigator && window.isSecureContext) {
+        navigator.serviceWorker.register("/sw.js").catch((error) => {
+          console.warn("ClearPath offline support could not start.", error);
+        });
+      }
+
+      window.addEventListener("beforeinstallprompt", (event) => {
+        event.preventDefault();
+        installPrompt = event;
+        installButton.hidden = false;
+      });
+
+      installButton.addEventListener("click", async () => {
+        if (!installPrompt) return;
+        const promptEvent = installPrompt;
+        installPrompt = null;
+        installButton.hidden = true;
+        await promptEvent.prompt();
+        await promptEvent.userChoice;
+      });
+
+      window.addEventListener("appinstalled", () => {
+        installButton.hidden = true;
+        installHelp.textContent = "ClearPath is installed on this device.";
+      });
+
+      if (window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true) {
+        installHelp.textContent = "ClearPath is installed on this device.";
+      }
+
       const issueFeed = document.getElementById("issueFeed");
       const issueDialog = document.getElementById("issueDialog");
       const issueFields = {

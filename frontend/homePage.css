@@ -1693,3 +1693,39 @@ body.blindness-mode {
 .app.blindness-mode .issue-detail-list > div {
   padding: 16px 0;
 }
+
+.install-card {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: linear-gradient(145deg, var(--card-top), var(--card-bottom));
+}
+
+.install-card .section-title,
+.install-card p {
+  margin: 0;
+}
+
+.install-card p {
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.install-card button {
+  min-height: 52px;
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--mint);
+  color: var(--bg);
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.install-card button[hidden] {
+  display: none;
+}
