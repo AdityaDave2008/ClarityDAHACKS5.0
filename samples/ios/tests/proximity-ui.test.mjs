@@ -15,7 +15,7 @@ test('main overlay resolves fresh bands on a periodic clock, never zone-based bo
   assert.match(ui, /Color\(uiColor: band\.overlayColor\)/);
   assert.doesNotMatch(ui, /detection\.inZone \? \.yellow/);
   assert.match(ui, /band\.title/);
-  assert.match(ui, /depthLabel\(at: now\)/);
+  assert.match(ui, /proximityDescription\(at: now\)/);
 });
 
 test('PiP uses the same fresh palette and always labels unknown boxes without changing lifecycle', () => {
@@ -23,7 +23,7 @@ test('PiP uses the same fresh palette and always labels unknown boxes without ch
   assert.match(pip, /detection\.freshProximityBand\(at: now\)/);
   assert.match(pip, /shape\.strokeColor = band\.overlayColor\.cgColor/);
   assert.match(pip, /band\.title/);
-  assert.match(pip, /depthLabel\(at: now\)/);
+  assert.match(pip, /proximityDescription\(at: now\)/);
   assert.doesNotMatch(pip, /shape\.strokeColor = detection\.inZone/);
   assert.match(pip, /Paused · open Clarity/);
 });
@@ -87,4 +87,13 @@ print("proximity UI editing contract passed")
   const run = spawnSync(binary, [], { encoding: 'utf8' });
   assert.equal(run.status, 0, run.stderr);
   assert.match(run.stdout, /proximity UI editing contract passed/);
+});
+
+
+test('legend separates confirmed non-LiDAR visual estimates from measured and unknown capability', () => {
+  const ui = read('ScannerView.swift');
+  assert.match(ui, /model\.lidarHardwareAvailable == false/);
+  assert.match(ui, /model\.lidarHardwareAvailable == true/);
+  for (const text of ['Visual size estimate', '35%', '12%', '3%', 'not meters', 'physical distance', 'Checking depth capability']) assert.ok(ui.includes(text), text);
+  assert.match(ui, /Unknown · gray · no pulses/);
 });

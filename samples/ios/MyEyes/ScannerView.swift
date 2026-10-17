@@ -280,11 +280,27 @@ struct ScannerView: View {
     private var proximityLegend: some View {
         let settings = model.preferences.effectiveProximitySettings
         return VStack(alignment: .leading, spacing: 5) {
-            Text("Approximate optical-axis depth · not a safety indication")
-                .font(.caption.weight(.semibold))
-            Text("Near ≤ \(settings.nearMeters, specifier: "%.1f") m · red · 2 Hz\nIntermediate ≤ \(settings.intermediateMeters, specifier: "%.1f") m · amber · 1 Hz\nFar ≤ \(settings.farMeters, specifier: "%.1f") m · green · 0.5 Hz\nOut of range > \(settings.farMeters, specifier: "%.1f") m · muted blue · no pulses\nUnknown · gray · depth unavailable")
-                .font(.caption.monospacedDigit())
-            Text("Cadence applies to selected sound/vibration alerts. Green means farther, not a clear path.")
+            if model.lidarHardwareAvailable == false {
+                Text("Visual size estimate · not meters")
+                    .font(.caption.weight(.semibold))
+                Text("Box area in image: ≥ 35% · near · red · 2 Hz\n≥ 12% · intermediate · amber · 1 Hz\n≥ 3% · far · green · 0.5 Hz\nBelow 3% · out of range · muted blue · no pulses\nUnknown · gray · no pulses")
+                    .font(.caption.monospacedDigit())
+                Text("Based on apparent box size, not physical distance. Object size, camera angle and framing can change this estimate. No meter values are inferred.")
+                    .font(.caption)
+            } else if model.lidarHardwareAvailable == true {
+                Text("Approximate optical-axis depth · not a safety indication")
+                    .font(.caption.weight(.semibold))
+                Text("Near ≤ \(settings.nearMeters, specifier: "%.1f") m · red · 2 Hz\nIntermediate ≤ \(settings.intermediateMeters, specifier: "%.1f") m · amber · 1 Hz\nFar ≤ \(settings.farMeters, specifier: "%.1f") m · green · 0.5 Hz\nOut of range > \(settings.farMeters, specifier: "%.1f") m · muted blue · no pulses\nUnknown · gray · depth unavailable")
+                    .font(.caption.monospacedDigit())
+                Text("LiDAR measurements only on this device. Disabled, missing or stale depth remains unknown; visual size is not substituted.")
+                    .font(.caption)
+            } else {
+                Text("Checking depth capability")
+                    .font(.caption.weight(.semibold))
+                Text("Start scanning to check this device. Unknown · gray · no pulses. No visual estimate until absence of LiDAR is confirmed.")
+                    .font(.caption)
+            }
+            Text("Cadence applies to selected sound/vibration alerts. Green means a farther band, not a clear path. Estimates are not a safety indication.")
                 .font(.caption)
         }
         .foregroundStyle(Color.senseMuted)
@@ -412,7 +428,7 @@ private struct DetectionOverlay: View {
                     .stroke(color, lineWidth: 2)
                     .frame(width: box.width, height: box.height)
                     .position(x: box.midX, y: box.midY)
-                Text("\(detection.label)  \(Int(detection.confidence * 100))%\n\(band.title)" + (detection.depthLabel(at: now).map { " · axial " + $0 } ?? " · depth unavailable"))
+                Text("\(detection.label)  \(Int(detection.confidence * 100))%\n\(band.title)" + (" · " + (detection.proximityDescription(at: now) ?? "proximity unavailable")))
                     .font(.system(size: 10, weight: .semibold, design: .monospaced))
                     .foregroundStyle(.black)
                     .multilineTextAlignment(.center)

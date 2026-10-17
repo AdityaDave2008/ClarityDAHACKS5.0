@@ -193,7 +193,7 @@ final class PiPContentView: UIView {
             shape.strokeColor = band.overlayColor.cgColor
             overlayLayer.addSublayer(shape)
             let label = CATextLayer()
-            let depthLabel = detection.depthLabel(at: now).map { "axial " + $0 } ?? "depth unavailable"
+            let depthLabel = detection.proximityDescription(at: now) ?? "proximity unavailable"
             label.string = "\(band.title)\n\(depthLabel)"
             label.fontSize = 9
             label.contentsScale = window?.screen.scale ?? 2
