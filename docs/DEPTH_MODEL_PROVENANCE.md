@@ -26,13 +26,21 @@ Hashes below were computed from downloaded bytes, not inferred from filenames. T
 
 Runtime binary/JS total: **22,512,306 bytes**. Model plus runtime: **49,771,107 bytes**, approximately **49.8 MB** (47.5 MiB), plus 499 bytes model configuration and small app modules. HTTP compression/cache can reduce transferred bytes. The exported download constants describe artifact bytes, not a guaranteed network bill.
 
-All local files individually fit Cloudflare's 25 MiB static-asset limit. The 27,258,801-byte ONNX model deliberately is **not** bundled into Cloudflare static assets. It downloads from:
+All local files individually fit Cloudflare's 25 MiB static-asset limit. The 27,258,801-byte ONNX model deliberately is **not** bundled into Cloudflare static assets. The browser downloads it through the same-origin immutable asset route:
 
 ```text
-https://huggingface.co/onnx-community/depth-anything-v2-small/resolve/4472b7362082ad9968fee890ca0f1e5aca36b93d/onnx/model_quantized.onnx
+/depth-assets/onnx-community/depth-anything-v2-small/resolve/4472b7362082ad9968fee890ca0f1e5aca36b93d/onnx/model_quantized.onnx
 ```
 
-HF may redirect to its content-addressed CDN. This is a model download, not inference or a frame upload. The app pins revisions and vendors runtime bytes, but does not independently recompute the model hash on each browser load. The table is build/provenance verification, not a claim of runtime SRI enforcement.
+The asset server fetches the exact upstream artifact from `https://huggingface.co/onnx-community/depth-anything-v2-small/resolve/4472b7362082ad9968fee890ca0f1e5aca36b93d/onnx/model_quantized.onnx`. The same fixed prefix permits only `config.json`, `preprocessor_config.json`, and `onnx/model_quantized.onnx`. The server streams public model bytes, **not inference, camera frames, or uploads**. This is not an arbitrary-URL proxy.
+
+### Production CORS correction
+
+Direct HF downloads worked in the initial localhost browser smoke, but the coordinator's actual workers.dev test found `MissingAllowOriginHeader` for config/preprocessor requests. The adapter therefore sets `env.remoteHost = new URL('/depth-assets/', import.meta.url).href` and `env.remotePathTemplate = '{model}/resolve/{revision}/'`. Browser requests remain on the app's origin, independent of page nesting, with the model and revision unchanged. The worker asset route follows HF's content-addressed CDN redirect server-side. Neither inference nor image pixels leave the browser. A failing asset route fails the optional model load instead of silently switching to a direct HF URL.
+
+The app pins revisions and vendors runtime bytes, but does not independently recompute the model hash on each browser load. The table is build/provenance verification, not a claim of runtime SRI enforcement.
+
+Correction validation: the real Chromium smoke was rerun against the shared `handleDepthAsset` streaming handler. It made **exactly three same-origin `/depth-assets/` GET requests** for the two JSON files and quantized ONNX. Every browser request stayed on the localhost app origin and used GET, with no direct HF/CDN request, upload, or page error. The production adapter returned 320x212 raw output, **67,840 finite values**, range 0.7608626..2.9031565 and the same foreground/recess ordering. Observed load 3625.6 ms, inference 2329.0 ms, 115 main-thread timer ticks with 21.9 ms maximum gap. This validates the revised routing locally; deployment/retesting on workers.dev remains the coordinator's separate release check.
 
 ## Adapter and operational bounds
 
@@ -62,7 +70,7 @@ Importing the adapter is safe before opt-in. Runtime import, worker creation, an
 
 Serve `.js`/`.mjs` as JavaScript and `.wasm` as `application/wasm`. `depth-worker.js` is application code, not vendored upstream code. It uses a dedicated module Worker and OffscreenCanvas. Missing worker/offscreen/WASM capability fails closed, rather than falling back to blocking v1 on the main thread.
 
-The main thread makes a same-frame `getImageData` copy, transfers its pixel buffer to the worker, and receives a transferable raw float tensor. No frame is passed to a network API. Actual browser network observation showed only GETs for static modules, local test photo and immutable HF assets, with no POST/upload requests.
+The main thread makes a same-frame `getImageData` copy, transfers its pixel buffer to the worker, and receives a transferable raw float tensor. No frame is passed to a network API. Actual initial localhost browser network observation showed only GETs for static modules, local test photo and immutable HF assets, with no POST/upload requests. After the production CORS correction, browser model GETs use the same-origin `/depth-assets/` route instead of direct HF URLs.
 
 WebGPU is selected only after `requestAdapter()` **and** `requestDevice()` succeed. The temporary device is destroyed. Each probe is bounded at 2 seconds. A WebGPU pipeline creation failure falls back once to WASM. WASM is explicitly `numThreads=1`, `proxy=false` inside our dedicated worker, so COOP/COEP and SharedArrayBuffer are not required. WebGPU hardware execution remains unverified on this host.
 
@@ -97,10 +105,11 @@ These timings are **not compatible with a 500 ms live-frame freshness requiremen
 node --test frontend/depth-model.test.js
 # Obtain a real photo you have permission to use, then:
 node frontend/depth-model-smoke.mjs /absolute/path/to/photo.png
+# Uses the shared immutable-asset handler in worker/src/depth-assets.js.
 # Open http://127.0.0.1:8799 in a real browser and click Run.
 ```
 
-The smoke helper serves only loopback, does not add COOP/COEP, and uses the production adapter and worker. It records shape, finite count, raw min/max, sample pixels, timing, timer responsiveness, browser identification, and isolation state. Front/back sample coordinates are meaningful for the documented bread image only. The helper does not download or redistribute an image automatically.
+The smoke helper serves only loopback, does not add COOP/COEP, and uses the production adapter and worker. It records shape, finite count, raw min/max, sample pixels, timing, timer responsiveness, browser identification, and isolation state. Front/back sample coordinates are meaningful for the documented bread image only. The helper does not download or redistribute an image automatically. After opt-in, it streams the three pinned public model artifacts through the same shared asset handler used by the application server.
 
 Unit tests cover lazy loading, immutable model revision, raw-not-visualized semantics, malformed/nonfinite tensors, single-thread WASM, successful/failed GPU probe, one GPU-to-WASM fallback, bounded failures, late-load cleanup, prompt cancellation, worker termination, no overlapping inference, stale output rejection, disable/re-enable races, unavailable worker platform, processor size, and pathological aspect-ratio rejection.
 
