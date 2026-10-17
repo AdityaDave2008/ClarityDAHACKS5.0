@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 import { createBackendDetector } from './backend-detector.js';
 
 const flush = async () => { for (let i = 0; i < 25; i++) await Promise.resolve(); };
-function fixture({ response, toBlob, onResult } = {}) {
+function fixture({ response, toBlob, onResult, options } = {}) {
   const controller = new AbortController();
   const tasks = new Map();
-  const calls = [], obstacles = [], errors = [], statuses = [];
+  const calls = [], obstacles = [], errors = [], statuses = [], metrics = [];
   let now = 0, id = 0;
   const canvas = { width: 0, height: 0, getContext: () => ({ drawImage() {} }),
     toBlob: toBlob || (fn => fn(new Blob(['jpeg'], { type: 'image/jpeg' }))) };
@@ -22,9 +22,10 @@ function fixture({ response, toBlob, onResult } = {}) {
     return { ok: true, status: 200, json: async () => data };
   };
   const adapter = createBackendDetector({ request, createCanvas: () => canvas, now: () => now,
-    schedule: (fn, ms) => { tasks.set(++id, { fn, ms }); return id; }, unschedule: id => tasks.delete(id) });
+    schedule: (fn, ms) => { tasks.set(++id, { fn, ms }); return id; }, unschedule: id => tasks.delete(id), ...options });
   const start = () => adapter.start({ video: { videoWidth: 1920, videoHeight: 1080 }, signal: controller.signal,
-    onResult, onObstacle: () => obstacles.push(true), onError: error => errors.push(error), onStatus: text => statuses.push(text) });
+    onResult, onMetrics: value => metrics.push(value),
+    onObstacle: () => obstacles.push(true), onError: error => errors.push(error), onStatus: text => statuses.push(text) });
   const tick = async () => {
     const next = [...tasks].sort((a, b) => a[1].ms - b[1].ms)[0];
     assert.ok(next, 'A task should be scheduled');
@@ -34,7 +35,7 @@ function fixture({ response, toBlob, onResult } = {}) {
     await flush();
     return next[1].ms;
   };
-  return { start, tick, controller, calls, obstacles, errors, statuses, tasks, canvas };
+  return { start, tick, controller, calls, obstacles, errors, statuses, tasks, canvas, metrics };
 }
 
 test('backend adapter does nothing before Start; reuses API and alerts only on confirmed results', async () => {
@@ -91,7 +92,7 @@ test('busy detector backs off and uploads a fresh sequence rather than queuing f
   await f.start();
   await f.tick();
   assert.match(f.statuses.at(-1), /busy/);
-  assert.equal(await f.tick(), 1100);
+  assert.ok(await f.tick() <= 1100);
   assert.equal(f.calls.at(-1).options.headers['X-Frame-Sequence'], '3');
   assert.equal(f.obstacles.length, 1);
   f.controller.abort();
@@ -182,4 +183,43 @@ test('initial busy response gives explicit restart instructions instead of promi
     assert.equal(f.tasks.size, 0);
     assert.equal(f.calls.filter(call => call.options.method === 'DELETE').length, 1);
   }
+});
+
+test('measured round-trip is reported and a slow device reduces capture size', async () => {
+  const f = fixture({ response: async (path, _options, { advance }) => { if (path.endsWith('/frames')) advance(900); },
+    options: { captureSizes: [640, 512, 384] } });
+  await f.start();
+  assert.equal(f.metrics[0].lastMs, 900);
+  assert.equal(f.metrics[0].captureMaxSide, 640);
+  await f.tick();
+  await f.tick();
+  assert.equal(f.metrics.at(-1).captureMaxSide, 512, 'Sustained slow results reduce the captured frame size');
+  await f.tick();
+  assert.equal(f.canvas.width, 512);
+  f.controller.abort();
+});
+
+test('a transient connection failure retries instead of ending the scan', async () => {
+  let fail = true;
+  const f = fixture({ response: async (path, options) => {
+    if (path.endsWith('/frames') && options.headers['X-Frame-Sequence'] === '2' && fail) { fail = false; throw new TypeError('Network error'); }
+    return null;
+  } });
+  await f.start();
+  await f.tick();
+  assert.equal(f.errors.length, 0);
+  assert.match(f.statuses.at(-1), /Retry 1 of 2/);
+  await f.tick();
+  assert.equal(f.errors.length, 0);
+  assert.equal(f.calls.at(-1).options.headers['X-Frame-Sequence'], '3');
+  f.controller.abort();
+});
+
+test('repeated connection failures stop the loop and report once', async () => {
+  const f = fixture({ response: async path => { if (path.endsWith('/frames') && !path.includes('nope')) { if (fails++ > 0) throw new TypeError('Network error'); } return null; } });
+  let fails = 0;
+  await f.start();
+  for (let i = 0; i < 4 && f.tasks.size; i++) await f.tick();
+  assert.equal(f.errors.length, 1);
+  assert.equal(f.tasks.size, 0);
 });

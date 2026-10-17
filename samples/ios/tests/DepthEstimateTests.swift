@@ -100,7 +100,17 @@ struct DepthEstimateTests {
         }
         let old = Data(#"{"alertModes":["sound"],"confidenceThreshold":0.7,"cooldownMs":4000}"#.utf8)
         var preferences = try JSONDecoder().decode(ScanPreferences.self, from: old)
-        precondition(!preferences.isLidarEnabled && !ScanPreferences().isLidarEnabled, "default OFF / migration")
+        precondition(preferences.isLidarEnabled, "missing preference enables automatic hardware depth")
+        precondition(ScanPreferences().isLidarEnabled, "fresh settings enable automatic hardware depth")
+        for (json, expected) in [
+            (#"{"alertModes":["sound"],"confidenceThreshold":0.7,"cooldownMs":4000,"lidarEnabled":false}"#, false),
+            (#"{"alertModes":["sound"],"confidenceThreshold":0.7,"cooldownMs":4000,"lidarEnabled":true}"#, true)
+        ] {
+            let saved = try JSONDecoder().decode(ScanPreferences.self, from: Data(json.utf8))
+            precondition(saved.isLidarEnabled == expected, "preserve explicit saved choice")
+            let restored = try JSONDecoder().decode(ScanPreferences.self, from: JSONEncoder().encode(saved))
+            precondition(restored.isLidarEnabled == expected && restored.cooldownMs == 4000, "preserve choice and unrelated settings after persistence")
+        }
         preferences.isLidarEnabled = true
         let roundTrip = try JSONDecoder().decode(ScanPreferences.self, from: JSONEncoder().encode(preferences))
         precondition(roundTrip.isLidarEnabled && roundTrip.cooldownMs == 4000, "persist enabled without losing settings")
