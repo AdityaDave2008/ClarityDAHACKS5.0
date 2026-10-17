@@ -13,6 +13,7 @@
 // a phone.
 
 import { captureSize } from './logic.js';
+import { cameraFrameAvailable, createVideoFrameGate } from './video-frames.js';
 
 const SUPPORTED_LABELS = Object.freeze([
   'person', 'bicycle', 'car', 'motorcycle', 'bus', 'truck', 'bench', 'cat',
@@ -163,6 +164,7 @@ export function createLocalDetector({
       let sequence = 0;
       const canvas = createCanvas();
       const policy = createAlertPolicy(preferences);
+      const newFrame = createVideoFrameGate();
 
       let model;
       try {
@@ -176,6 +178,11 @@ export function createLocalDetector({
 
       async function frame() {
         signal.throwIfAborted();
+        if (!newFrame(video)) {
+          policy.breakStreak();
+          onStatus('Waiting for a fresh camera frame. Alerts paused.');
+          return null;
+        }
         const started = now();
         const sourceWidth = video.videoWidth;
         const sourceHeight = video.videoHeight;
@@ -187,6 +194,9 @@ export function createLocalDetector({
 
         const predictions = await model.detect(canvas, 20, preferences.confidenceThreshold);
         if (signal.aborted) return null;
+        if (!cameraFrameAvailable(video) || video.videoWidth !== sourceWidth || video.videoHeight !== sourceHeight) {
+          policy.breakStreak(); return null;
+        }
         const elapsed = now() - started;
         sequence += 1;
         // A result older than the staleness window describes a scene that has moved on.

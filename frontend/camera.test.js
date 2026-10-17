@@ -289,7 +289,7 @@ function fakeDOM() {
   return { root, platform, nodes, documentListeners, windowListeners };
 }
 
-test('UI wiring stops on hide and pagehide, never auto resumes; simulation hidden by default', async () => {
+test('UI wiring stops on hide without PiP and on pagehide; never auto resumes', async () => {
   const dom = fakeDOM();
   const track = { stopCount: 0, stop() { this.stopCount++; }, addEventListener() {} };
   dom.platform.navigator.mediaDevices = { async getUserMedia() { return { getTracks: () => [track] }; } };
@@ -312,6 +312,61 @@ test('UI wiring stops on hide and pagehide, never auto resumes; simulation hidde
     assert.equal(feature.state.phase, 'off');
     feature.destroy();
   } finally { globalThis.CustomEvent = original; }
+});
+
+test('the mounted website keeps confirmed speech alerts in hidden PiP and stops when its window closes', async () => {
+  const dom = fakeDOM();
+  const doc = dom.root.ownerDocument;
+  const video = dom.root.querySelector('#camera-video');
+  const spoken = [];
+  const track = { readyState: 'live', muted: false, stopped: false, stop() { this.stopped = true; }, addEventListener() {} };
+  dom.platform.navigator.mediaDevices = { async getUserMedia() { return { getTracks: () => [track], getVideoTracks: () => [track] }; } };
+  dom.platform.speechSynthesis = { cancel() {}, getVoices: () => [], speak: utterance => spoken.push(utterance.text) };
+  dom.platform.SpeechSynthesisUtterance = class { constructor(text) { this.text = text; } };
+  video.requestPictureInPicture = () => { doc.pictureInPictureElement = video; video.listeners.enterpictureinpicture(); return Promise.resolve(); };
+  doc.exitPictureInPicture = async () => { doc.pictureInPictureElement = null; video.listeners.leavepictureinpicture(); };
+  let detection;
+  const feature = mountCamera(dom.root, dom.platform);
+  try {
+    feature.registerDetector({ async start(context) { detection = context; } });
+    feature.enableSpeech(true);
+    await feature.start(); await Promise.resolve();
+    dom.nodes.get('#camera-pip').listeners.click(); await Promise.resolve();
+    assert.equal(doc.pictureInPictureElement, video);
+    doc.hidden = true; dom.documentListeners.visibilitychange();
+    assert.equal(feature.state.phase, 'active');
+    assert.equal(detection.signal.aborted, false);
+    detection.onObstacle();
+    assert.ok(spoken.includes('Object ahead.'));
+    doc.pictureInPictureElement = null; video.listeners.leavepictureinpicture();
+    assert.equal(feature.state.phase, 'off');
+    assert.equal(track.stopped, true);
+    assert.equal(detection.signal.aborted, true);
+  } finally { feature.destroy(); }
+});
+
+test('PiP is available while the detector loads and its paused feed can be resumed', async () => {
+  const dom = fakeDOM(), doc = dom.root.ownerDocument;
+  const video = dom.root.querySelector('#camera-video');
+  const loading = deferred();
+  const track = { stop() {}, addEventListener() {} };
+  dom.platform.navigator.mediaDevices = { async getUserMedia() { return { getTracks: () => [track] }; } };
+  video.requestPictureInPicture = () => { doc.pictureInPictureElement = video; video.listeners.enterpictureinpicture(); return Promise.resolve(); };
+  doc.exitPictureInPicture = async () => { doc.pictureInPictureElement = null; video.listeners.leavepictureinpicture(); };
+  const feature = mountCamera(dom.root, dom.platform);
+  try {
+    feature.registerDetector({ start: () => loading.promise });
+    await feature.start();
+    assert.equal(feature.detectionRunning, false);
+    assert.equal(dom.nodes.get('#camera-pip').disabled, false);
+    dom.nodes.get('#camera-pip').listeners.click(); await Promise.resolve();
+    video.paused = true; video.listeners.pause();
+    assert.equal(dom.nodes.get('#camera-pip-resume').hidden, false);
+    assert.match(dom.nodes.get('#camera-pip-status').textContent, /playback is paused/);
+    video.play = async () => { video.paused = false; video.listeners.playing(); };
+    dom.nodes.get('#camera-pip-resume').listeners.click(); await Promise.resolve();
+    assert.equal(dom.nodes.get('#camera-pip-resume').hidden, true);
+  } finally { feature.destroy(); loading.resolve(); }
 });
 
 test('preview serves integrated camera assets and preserves the file allowlist', async () => {

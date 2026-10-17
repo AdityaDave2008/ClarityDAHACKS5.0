@@ -1,5 +1,7 @@
 import { notifyPhone } from './phone-notifications.js';
 import { containRect, captureSize } from './logic.js';
+import { createPictureInPicture } from './picture-in-picture.js';
+import { cameraFrameAvailable, createVideoFrameGate } from './video-frames.js';
 
 const $ = (id) => document.getElementById(id);
 const ui = Object.fromEntries(['camera-stage', 'camera', 'overlay', 'demo-scene', 'demo-tab', 'live-tab', 'source-badge', 'feed-label', 'feed-counter', 'feed-caption', 'stage-prompt', 'status-orb', 'status-title', 'status-detail', 'status-word', 'start-button', 'start-label', 'start-icon', 'test-alert', 'demo-controls', 'add-obstacle', 'move-obstacle', 'remove-obstacle', 'preferences', 'standard-preset', 'accessible-preset', 'sound-mode', 'speech-mode', 'vibration-mode', 'vibration-note', 'speech-note', 'settings-hint', 'activity-live', 'frame-count', 'frame-metric-label', 'latency', 'activity-log', 'how-dialog', 'toast'].map((id) => [id, $(id)]));
@@ -8,6 +10,17 @@ const state = { mode: 'demo', phase: 'idle', generation: 0, timer: null, control
 const frameCanvas = document.createElement('canvas');
 const context = ui.overlay.getContext('2d');
 const supports = { sound: Boolean(window.AudioContext || window.webkitAudioContext), speech: 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window, vibration: typeof navigator.vibrate === 'function' };
+let newCameraFrame = createVideoFrameGate();
+const pip = createPictureInPicture({ video: ui.camera, doc: document, platform: window,
+  onChange(pipState) {
+    $('pip-status').textContent = pipState.message;
+    $('pip-button').textContent = pipState.active ? 'Close floating camera' : 'Open floating camera';
+    $('pip-button').setAttribute('aria-pressed', String(pipState.active));
+    $('pip-button').disabled = state.mode !== 'live' || state.phase !== 'running' || pipState.opening;
+    $('pip-resume').hidden = !pipState.canResume;
+  },
+  onHiddenExit() { if (active()) stop('Scan stopped', 'The floating camera closed. Start again when ready.', true); },
+});
 
 function selectedModes() { return ['sound', 'speech', 'vibration'].filter((mode) => ui[`${mode}-mode`].checked && supports[mode]); }
 function active() { return ['starting', 'running'].includes(state.phase); }
@@ -39,6 +52,7 @@ function log(title, detail = '') {
 function flow(step = '') { document.querySelectorAll('[data-step]').forEach((element) => element.classList.toggle('current', element.dataset.step === step)); }
 function renderControls() {
   const running = active();
+  $('pip-button').disabled = state.mode !== 'live' || state.phase !== 'running' || pip.snapshot().opening;
   ui['start-label'].textContent = running ? (state.phase === 'starting' ? 'Cancel' : 'Stop scanning') : state.mode === 'demo' ? 'Start walkthrough' : 'Start camera scan';
   ui['start-icon'].textContent = running ? '□' : '▷';
   ui['start-button'].classList.toggle('stop', running);
@@ -66,6 +80,7 @@ function renderControls() {
   ui['activity-live'].textContent = state.phase === 'running' ? (state.mode === 'demo' ? 'SIMULATED' : 'LIVE') : 'STANDBY';
 }
 function resetMetrics() {
+  newCameraFrame = createVideoFrameGate();
   state.frames = 0;
   state.captureMaxSide = 640;
   state.latencySamples = [];
@@ -212,7 +227,8 @@ async function playSelectedAlertSound() {
 }
 
 function notify(message, modes = selectedModes()) {
-  void notifyPhone(message);
+  const generation = state.generation;
+  void notifyPhone(message, window, { enabled: () => $('notifications-mode').checked && state.generation === generation, signal: state.controller?.signal });
   let delivered = 0;
   if (modes.includes('sound') && state.audio?.state === 'running') {
     playSelectedAlertSound().catch(() => playTonePreset('ping'));
@@ -249,6 +265,7 @@ function deleteSession(id) {
 function stop(message = 'Scan stopped', detail = 'Your camera is off. Start again whenever you’re ready.', paused = false) {
   state.generation += 1;
   state.phase = paused ? 'paused' : 'idle';
+  pip.close();
   clearTimeout(state.timer);
   state.timer = null;
   state.controller?.abort();
@@ -383,6 +400,12 @@ async function liveTick(generation) {
       state.timer = setTimeout(() => liveTick(generation), 500);
       return;
     }
+    if (!newCameraFrame(ui.camera)) {
+      state.detections = []; draw(); stopAlerts();
+      setStatus('Waiting for a fresh camera frame', 'Alerts are paused until the camera supplies a new frame.', 'WAITING');
+      if (generation === state.generation && state.phase === 'running') state.timer = setTimeout(() => liveTick(generation), 250);
+      return;
+    }
     const blob = await captureFrame();
     if (generation !== state.generation) return;
     flow('detect');
@@ -391,12 +414,13 @@ async function liveTick(generation) {
     if (generation !== state.generation) return;
     state.frames += 1;
     const ageMs = performance.now() - started;
-    state.detections = ageMs <= 2500 ? result.detections : [];
+    const fresh = ageMs < 2500 && cameraFrameAvailable(ui.camera) && (!document.hidden || pip.isActive());
+    state.detections = fresh ? result.detections : [];
     state.lastResultAt = performance.now();
     ui.latency.textContent = `${Math.round(ageMs)}ms`;
     adaptCaptureSize(ageMs);
     updateMetrics();
-    if (ageMs > 2500) {
+    if (!fresh) {
       setStatus('Late result skipped', 'Capturing a fresh frame. No alert was played from the delayed result.', 'WAITING');
       flow('capture');
     } else if (result.alert.triggered) {
@@ -514,6 +538,18 @@ ui['demo-tab'].addEventListener('click', () => changeMode('demo'));
 ui['live-tab'].addEventListener('click', () => changeMode('live'));
 ui['start-button'].addEventListener('click', start);
 ui['test-alert'].addEventListener('click', async () => { await primeAudio(); notify('Test alert. Check your surroundings.'); log('Test alert requested', selectedModes().join(' + ') || 'Visual feedback only.'); });
+$('enable-notifications').disabled = !('Notification' in window);
+$('notifications-mode').disabled = !('Notification' in window);
+$('notifications-note').textContent = 'Notification' in window
+  ? 'Requires permission. Phone notification sounds follow device settings.'
+  : 'Phone notifications unavailable in this browser. Use spoken or on-screen alerts.';
+$('enable-notifications').addEventListener('click', async () => {
+  try {
+    const permission = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
+    $('notifications-note').textContent = permission === 'granted' ? 'Phone notifications allowed.' : 'Phone notifications blocked or not allowed.';
+    if (permission === 'granted') $('notifications-mode').checked = true;
+  } catch { $('notifications-note').textContent = 'Cannot enable notifications here. Use spoken or on-screen alerts.'; }
+});
 const soundSelect = $('alert-sound-select');
 const customSoundInput = $('custom-alert-sound');
 const customSoundRow = $('custom-alert-sound-row');
@@ -610,7 +646,12 @@ $('how-button').addEventListener('click', () => ui['how-dialog'].showModal());
 $('close-dialog').addEventListener('click', () => ui['how-dialog'].close());
 $('understood-button').addEventListener('click', () => ui['how-dialog'].close());
 ui['how-dialog'].addEventListener('click', (event) => { if (event.target === ui['how-dialog']) { const bounds = ui['how-dialog'].getBoundingClientRect(); if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) ui['how-dialog'].close(); } });
-document.addEventListener('visibilitychange', () => { if (document.hidden && active()) { stop('Paused when you left the page', 'Keep this page visible, then tap Start to resume.', true); log('Paused in the background', 'This browser sample scans only while visible.'); } });
+$('pip-button').addEventListener('click', () => {
+  if (pip.isActive()) pip.close();
+  else if (state.mode === 'live' && state.phase === 'running') pip.open();
+});
+$('pip-resume').addEventListener('click', () => pip.resume());
+document.addEventListener('visibilitychange', () => { if (document.hidden && active() && !pip.isActive()) { stop('Paused when you left the page', 'Open the floating camera before switching apps, or keep this page visible.', true); log('Paused in the background', 'No floating camera was active.'); } });
 window.addEventListener('pagehide', () => { if (active()) stop(); });
 new ResizeObserver(draw).observe(ui['camera-stage']);
 // Remove old boxes even if a network request stalls; they are not a fresh observation.

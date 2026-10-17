@@ -96,6 +96,29 @@ test('an object must be confirmed across frames before alerting', async () => {
   assert.equal(run.events.obstacles, 1, 'A confirmed object must alert');
 });
 
+test('a frozen camera cannot confirm an object, and muted camera input never reaches inference', async () => {
+  const stub = harness();
+  const run = session();
+  const video = run.context.video;
+  const track = { readyState: 'live', muted: false };
+  video.currentTime = 1; video.readyState = 4; video.srcObject = { getVideoTracks: () => [track] };
+  await createLocalDetector(stub.options).start(run.context);
+  await new Promise(resolve => setImmediate(resolve));
+  stub.runScheduled(); await new Promise(resolve => setImmediate(resolve));
+  assert.equal(run.events.results.length, 1, 'Repeated media time must not produce another result');
+  assert.equal(run.events.obstacles, 0);
+  video.currentTime = 2; track.muted = true;
+  stub.runScheduled(); await new Promise(resolve => setImmediate(resolve));
+  assert.equal(run.events.results.length, 1);
+  track.muted = false;
+  stub.runScheduled(); await new Promise(resolve => setImmediate(resolve));
+  assert.equal(run.events.results.at(-1).alert.reason, 'confirming', 'Frozen/muted inputs must break the old streak');
+  video.currentTime = 3;
+  stub.runScheduled(); await new Promise(resolve => setImmediate(resolve));
+  assert.equal(run.events.obstacles, 1);
+  run.controller.abort();
+});
+
 test('a result older than the freshness limit is discarded', async () => {
   const stub = harness();
   // Simulate inference slower than the 2500 ms staleness window.

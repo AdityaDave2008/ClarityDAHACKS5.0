@@ -1,4 +1,4 @@
-const CACHE = 'myeyes-pwa-v7-depth';
+const CACHE = 'myeyes-pwa-v10-object-alerts';
 const ASSETS = [
   '/',
   '/index.html',
@@ -10,7 +10,10 @@ const ASSETS = [
   '/app.js',
   '/logic.js',
   '/camera.js',
+  '/picture-in-picture.js',
+  '/video-frames.js',
   '/phone-notifications.js',
+  '/object-alerts.js',
   '/backend-detector.js',
   '/local-detector.js',
   '/depth-controller.js',

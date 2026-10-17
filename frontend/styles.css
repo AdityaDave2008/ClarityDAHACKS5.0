@@ -16,6 +16,9 @@
 #preview-alert-sound{min-height:38px;width:100%;font-size:10px}
 
 /* Shared product typography and subdued urban-slate gradient. */
+.scan-actions{flex-wrap:wrap}
+.scan-actions #pip-button{flex:1 1 100%;min-height:44px}
+.pip-status{margin:0 16px 16px;color:var(--muted);font-size:12px;line-height:1.6}
 :root{--bg:#101820;--panel:#1c2a35;--panel2:#16222c;--line:#34414c;--ink:#f2f5f7;--muted:#a9b5bf;--green:#f38b68;--orange:#f2c76e;font-family:"Be Vietnam Pro",sans-serif;font-synthesis:none}
 h1{letter-spacing:-.04em;font-weight:650}
 

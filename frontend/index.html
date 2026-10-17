@@ -117,7 +117,13 @@
           <div class="camera-actions" role="group" aria-label="Camera controls">
             <button type="button" id="camera-start" aria-describedby="permission-help">Start scanning</button>
             <button type="button" id="camera-stop" disabled>Stop scanning</button>
+            <button type="button" id="camera-pip" disabled aria-pressed="false" aria-describedby="camera-pip-status">Open floating camera</button>
           </div>
+          <p id="camera-pip-status" role="status" aria-live="polite">Start scanning, enable spoken alerts, then open the floating camera before switching apps.</p>
+          <button type="button" id="camera-pip-resume" hidden>Resume camera</button>
+          <button type="button" id="camera-notifications" aria-describedby="camera-alert-output-status">Enable phone notifications</button>
+          <p id="camera-alert-output-status" role="status">Checking alert support…</p>
+          <p id="camera-alert-banner" hidden></p>
           <section class="status-panel" aria-label="Camera and detection status">
             <p id="camera-status" role="status" aria-live="polite">Camera off. Tap Start when ready.</p>
             <p class="detection-status-line"><span id="detection-status-light" class="dot needs-permission" aria-hidden="true"></span><span id="detection-status">Detection stopped.</span></p>
@@ -237,6 +243,11 @@
           </p>
 
           <h2 class="section-title">Alert preferences</h2>
+
+          <div class="setting-row">
+            <div><label for="notifications"><b>Phone notifications</b></label><small>Send confirmed object alerts when permission is allowed. Phone notification sounds follow device settings.</small></div>
+            <input id="notifications" class="toggle" type="checkbox" checked>
+          </div>
 
           <div class="setting-row alert-style-setting">
             <div>
@@ -1234,57 +1245,8 @@
       document.getElementById("requestMicrophone").addEventListener("click", () => requestMedia("microphone"));
       document.getElementById("testMicrophone").addEventListener("click", () => requestMedia("microphone", true));
 
-      function notificationStatus() {
-        if (!("Notification" in window)) return "Not supported in this browser";
-        if (Notification.permission === "granted") return "Allowed";
-        if (Notification.permission === "denied") return "Denied — allow access in browser settings";
-        return "Not allowed yet";
-      }
-
-      function updateNotificationStatus() {
-        permissionLabels.notifications.textContent = notificationStatus();
-      }
-
-      async function requestNotifications(sendTest = false) {
-        if (!("Notification" in window)) {
-          showToast("Notifications are not supported in this browser");
-          return;
-        }
-        try {
-          const result = Notification.permission === "granted"
-            ? "granted"
-            : await Notification.requestPermission();
-          updateNotificationStatus();
-          if (result === "granted" && sendTest) {
-            const registration = await navigator.serviceWorker?.getRegistration();
-            if (registration?.showNotification) {
-              await registration.showNotification("Clarity test", { body: "Notifications are ready.", icon: "/icons/icon-192.png" });
-            } else {
-              new Notification("Clarity test", { body: "Notifications are ready." });
-            }
-          }
-          showToast(result === "granted" ? sendTest ? "Test notification sent" : "Notifications allowed" : "Notification permission was not allowed");
-        } catch {
-          showToast("Could not request notifications. Check browser and device settings.");
-        }
-      }
-
-      document.getElementById("requestNotifications").addEventListener("click", () => requestNotifications());
-      document.getElementById("testNotifications").addEventListener("click", () => requestNotifications(true));
-      document.getElementById("testVibration").addEventListener("click", () => {
-        const supported = typeof navigator.vibrate === "function";
-        const worked = supported && navigator.vibrate(getVibrationPattern());
-        document.getElementById("vibrationPermissionSetting").textContent = supported
-          ? worked ? "Vibration test sent" : "Vibration is blocked by this device or browser"
-          : "Vibration is not supported by this device";
-      });
-
       refreshPermission("camera");
       refreshPermission("microphone");
-      refreshPermission("notifications");
-      document.getElementById("vibrationPermissionSetting").textContent = typeof navigator.vibrate === "function"
-        ? "Supported — no separate browser permission"
-        : "Not supported by this device or browser";
     </script>
     <script src="gradient.js"></script>
     <script type="module" src="standalone.js"></script>

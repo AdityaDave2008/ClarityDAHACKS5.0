@@ -42,7 +42,9 @@
             <div class="stage-prompt" id="stage-prompt"><span class="prompt-icon" aria-hidden="true">↗</span><strong>A second look, before your next step.</strong><span>Start the walkthrough to see how an alert happens.</span></div>
           </div>
           <div class="scanner-status" role="status" aria-live="polite"><span class="status-orb" id="status-orb"></span><div><strong id="status-title">Ready when you are</strong><span id="status-detail">No camera permission needed for the walkthrough.</span></div><span class="status-word" id="status-word">IDLE</span></div>
-          <div class="scan-actions"><button class="primary-button" id="start-button"><span id="start-icon" aria-hidden="true">▷</span><span id="start-label">Start walkthrough</span></button><button class="secondary-button" id="test-alert">Test alert <span aria-hidden="true">♪</span></button></div>
+          <div class="scan-actions"><button class="primary-button" id="start-button"><span id="start-icon" aria-hidden="true">▷</span><span id="start-label">Start walkthrough</span></button><button class="secondary-button" id="test-alert">Test alert <span aria-hidden="true">♪</span></button><button class="secondary-button" id="pip-button" disabled aria-pressed="false" aria-describedby="pip-status">Open floating camera</button></div>
+          <p id="pip-status" class="pip-status" role="status" aria-live="polite">Select Live camera and start scanning before opening the floating camera.</p>
+          <button class="secondary-button" id="pip-resume" hidden>Resume camera</button>
           <div class="demo-controls" id="demo-controls"><span>SET THE SCENE</span><button id="add-obstacle" disabled>＋ Add backpack</button><button id="move-obstacle" disabled>Move to edge</button><button id="remove-obstacle" disabled>Remove</button></div>
         </section>
         <aside class="settings-column">
@@ -52,6 +54,8 @@
             <label class="switch-row"><span><strong>Sound</strong><small>A short two-tone cue</small></span><input id="sound-mode" type="checkbox" checked role="switch"><span class="switch" aria-hidden="true"></span></label>
             <label class="switch-row"><span><strong>Spoken alert</strong><small id="speech-note">A brief voice notification</small></span><input id="speech-mode" type="checkbox" role="switch"><span class="switch" aria-hidden="true"></span></label>
             <label class="switch-row"><span><strong>Vibration</strong><small id="vibration-note">Checking device support…</small></span><input id="vibration-mode" type="checkbox" role="switch"><span class="switch" aria-hidden="true"></span></label>
+            <label class="switch-row"><span><strong>Phone notifications</strong><small id="notifications-note">Checking notification support…</small></span><input id="notifications-mode" type="checkbox" checked role="switch"><span class="switch" aria-hidden="true"></span></label>
+            <button type="button" class="secondary-button" id="enable-notifications">Enable phone notifications</button>
             <div class="alert-sound-settings">
   <label for="alert-sound-select">Alert sound</label>
   <select id="alert-sound-select">
@@ -74,10 +78,10 @@
         </aside>
       </div>
       <section class="flow-card" aria-label="How detection works"><div class="flow-heading"><div class="section-label"><span>03</span> HOW ALERTS WORK</div><p>Clarity checks camera frames for selected objects.</p></div><div class="flow-steps"><div data-step="capture"><span>01</span><strong>Capture</strong><small>Take a camera frame</small></div><b aria-hidden="true">→</b><div data-step="detect"><span>02</span><strong>Detect</strong><small>Look for selected objects</small></div><b aria-hidden="true">→</b><div data-step="confirm"><span>03</span><strong>Confirm</strong><small>Check another frame</small></div><b aria-hidden="true">→</b><div data-step="alert"><span>04</span><strong>Alert</strong><small>Send your chosen alert</small></div></div></section>
-      <footer><p><span class="small-dot"></span> Foreground scanning · Keep this page open</p><span>Look up. Stay connected.</span></footer>
+      <footer><p><span class="small-dot"></span> Keep this page or its floating camera visible while scanning</p><span>Look up. Stay connected.</span></footer>
     </main>
   </div>
-      <dialog id="how-dialog"><button class="dialog-close text-button" id="close-dialog" aria-label="Close explanation">✕</button><span class="eyebrow green">HOW IT WORKS</span><h2>About this demo</h2><p><strong>Walkthrough:</strong> Add a backpack, move it out of the marked area, or remove it. The demo sends an alert after the object appears in two checks.</p><p><strong>Live camera:</strong> Clarity sends small camera images to your backend to check for selected objects. The backend decides whether to send an alert. Images are processed but not saved.</p><p>Clarity can miss hazards such as curbs, stairs, potholes, and barriers. The marked area does not measure distance or show whether a path is clear.</p><p>Scanning stops when you leave this page. Background scanning is not part of this demo.</p><button class="primary-button" id="understood-button">Got it — let’s try it <span aria-hidden="true">↗</span></button></dialog>
+      <dialog id="how-dialog"><button class="dialog-close text-button" id="close-dialog" aria-label="Close explanation">✕</button><span class="eyebrow green">HOW IT WORKS</span><h2>About this demo</h2><p><strong>Walkthrough:</strong> Add a backpack, move it out of the marked area, or remove it. The demo sends an alert after the object appears in two checks.</p><p><strong>Live camera:</strong> Clarity sends small camera images to your backend to check for selected objects. The backend decides whether to send an alert. Images are processed but not saved.</p><p>Clarity can miss hazards such as curbs, stairs, potholes, and barriers. The marked area does not measure distance or show whether a path is clear.</p><p>For multitasking in a supported browser, select Spoken alert and open the floating camera before switching apps. The floating window shows the camera; object boxes remain on this page. Scanning stops if you leave without PiP or close its window while away. Safari support can differ from a Home Screen install.</p><button class="primary-button" id="understood-button">Got it — let’s try it <span aria-hidden="true">↗</span></button></dialog>
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
   <script src="/gradient.js"></script>
   <script type="module" src="/app.js"></script>
