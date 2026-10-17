@@ -2,6 +2,8 @@
 
 Submission deadline: **October 17, 2026, 2:00 PM PDT**. Check [official announcements and schedule](https://dahacks5.devpost.com/details/dates) for changes.
 
+Use the [submission copy and six-slide outline](SUBMISSION_DRAFT.md), [browser judge guide](JUDGES.md), and [native judge guide](../samples/ios/JUDGES.md) to prepare the handoff. These are drafts and instructions, not a completed submission or a recorded demo.
+
 ## Submission owner checklist
 
 - [ ] Assign a submission owner and confirm every team member is registered and eligible.

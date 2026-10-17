@@ -1,12 +1,12 @@
 // Detection model v1 running in the browser.
 //
-// Loads the same COCO-SSD lite_mobilenet_v2 weights the iPhone app bundles, through
+// Loads the browser baseline COCO-SSD lite_mobilenet_v2 weights through
 // TensorFlow.js on a WebAssembly backend. Frames never leave the device: there is no upload,
 // no session, and no network call after the model files load.
 //
 // This exists because the deployed Cloudflare API cannot return bounding boxes. Its hosted
 // models provide a label and a coarse region only, and this web app draws boxes. Running v1
-// here keeps the overlay truthful and the same model the phone uses.
+// here provides bounding boxes. The current native app uses a separate experimental model.
 //
 // The first load fetches roughly 20 MB of model and runtime files, cached by the service
 // worker afterwards. Inference is CPU-bound in WASM, so a laptop is noticeably faster than
@@ -156,22 +156,26 @@ export function createLocalDetector({
   minIntervalMs = 90,
   maxResultAgeMs = 2500,
 } = {}) {
+  // Abort suppresses delivery, but cannot cancel an already-running model. Keep
+  // its slot across Stop/Start and PiP resume without retaining captured frames.
+  let inFlight = null;
   return {
     async start({ video, signal, onObstacle, onError, onStatus = () => {}, onResult = () => {}, onMetrics = () => {}, onFrame }) {
       signal.throwIfAborted();
       let timer;
+      let stopped = false;
       let sequence = 0;
       const canvas = createCanvas();
       const policy = createAlertPolicy(preferences);
 
       let model;
       try {
-        model = await loader({ onStatus });
+        model = await loader({ onStatus: message => { if (!signal.aborted && !stopped) onStatus(message); } });
       } catch (error) {
-        onError(error instanceof Error ? error.message : String(error));
+        if (!signal.aborted && !stopped) onError(error instanceof Error ? error.message : String(error));
         return () => {};
       }
-      if (signal.aborted) return () => {};
+      if (signal.aborted || stopped) return () => {};
       onStatus('Detecting on this device. Frames are not uploaded.');
 
       async function frame() {
@@ -185,8 +189,12 @@ export function createLocalDetector({
         canvas.height = size.height;
         canvas.getContext('2d').drawImage(video, 0, 0, size.width, size.height);
 
-        const predictions = await model.detect(canvas, 20, preferences.confidenceThreshold);
-        if (signal.aborted) return null;
+        const pending = Promise.resolve(model.detect(canvas, 20, preferences.confidenceThreshold));
+        inFlight = pending;
+        let predictions;
+        try { predictions = await pending; }
+        finally { if (inFlight === pending) inFlight = null; }
+        if (signal.aborted || stopped) return null;
         const elapsed = now() - started;
         sequence += 1;
         // A result older than the staleness window describes a scene that has moved on.
@@ -220,23 +228,35 @@ export function createLocalDetector({
       }
 
       async function tick() {
-        if (signal.aborted) return;
+        if (signal.aborted || stopped) return;
+        while (inFlight) {
+          // Wait before timestamping/capture. A waiting run may have been stopped
+          // in turn; only a still-live run may acquire the released inference slot.
+          await inFlight.catch(() => {});
+          if (signal.aborted || stopped) return;
+        }
+        const startedAt = now();
+        let delay = minIntervalMs;
         try {
           const result = await frame();
-          if (signal.aborted) return;
+          if (signal.aborted || stopped) return;
           if (result) {
             onResult(result);
             if (result.alert.triggered) onObstacle();
+            // Pace capture starts, not inference completions. Keep a bounded UI
+            // yield even when inference exceeds the interval. Only schedule after
+            // completion, so the next capture is live rather than a queued frame.
+            delay = Math.max(16, minIntervalMs - (now() - startedAt));
           }
         } catch (error) {
-          if (signal.aborted) return;
+          if (signal.aborted || stopped) return;
           policy.breakStreak();
-          onError(error instanceof Error ? error.message : String(error));
+          if (!signal.aborted && !stopped) onError(error instanceof Error ? error.message : String(error));
         }
-        if (!signal.aborted) timer = schedule(tick, minIntervalMs);
+        if (!signal.aborted && !stopped) timer = schedule(tick, delay);
       }
 
-      const stop = () => unschedule(timer);
+      const stop = () => { stopped = true; unschedule(timer); policy.breakStreak(); signal.removeEventListener('abort', stop); };
       signal.addEventListener('abort', stop, { once: true });
       tick();
       return stop;

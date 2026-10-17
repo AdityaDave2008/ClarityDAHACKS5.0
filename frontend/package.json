@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "node --watch server.js",
     "start": "node server.js",
-    "check": "node --check server.js && node --check app.js && node --check logic.js && node --check sw.js && node --check site.js && node --check camera.js && node --check backend-detector.js && node --check standalone.js && node --check local-detector.js && node --check depth-controller.js && node --check depth-geometry.js && node --check depth-model.js && node --check depth-sensors.js && node --check depth-ui.js && node --check vendor-depth/depth-worker.js",
+    "check": "node --check server.js && node --check app.js && node --check logic.js && node --check sw.js && node --check site.js && node --check camera.js && node --check picture-in-picture.js && node --check backend-detector.js && node --check standalone.js && node --check local-detector.js && node --check depth-controller.js && node --check depth-geometry.js && node --check depth-model.js && node --check depth-sensors.js && node --check depth-ui.js && node --check vendor-depth/depth-worker.js",
     "test": "node --test *.test.js"
   }
 }

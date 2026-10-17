@@ -1,5 +1,6 @@
 import { drawDetectionOverlay } from './logic.js';
 import { notifyPhone } from './phone-notifications.js';
+import { mountPictureInPicture } from './picture-in-picture.js';
 
 // Camera/speech controller. Detection is supplied by a separate adapter.
 export class CameraFeature {
@@ -7,7 +8,7 @@ export class CameraFeature {
     now = () => performance.now(), schedule = (callback, ms) => setTimeout(callback, ms),
     unschedule = timer => clearTimeout(timer), development = false, isVisible = () => true }) {
     Object.assign(this, { video, mediaDevices, secure, speech, Utterance, emit, render, now, schedule, unschedule, development, isVisible });
-    this.state = { phase: 'off', camera: 'Camera off. Tap Start when ready.', detection: 'Detection not connected.',
+    this.state = { phase: 'off', previewOnly: false, camera: 'Camera off. Tap Start when ready.', detection: 'Detection not connected.',
       distance: 'Not available', detections: [], result: null, obstacle: '', speechEnabled: false, announcements: 'screen-reader',
       speechStatus: 'Spoken alerts off.', performance: 'No measurements yet.' };
     this.generation = 0;
@@ -104,6 +105,7 @@ export class CameraFeature {
   stop(message = 'Camera off. Tap Start to restart.') {
     const runId = this.generation;
     this.generation++;
+    this.state.previewOnly = false;
     this.unschedule(this.stallTimer);
     this.stallTimer = null;
     this.stopDetection();
@@ -119,6 +121,26 @@ export class CameraFeature {
     this.cancelSpeech();
     this.update(this.state.camera);
     this.emit('camera:stopped', { video: this.video, runId, reason: message });
+  }
+
+  pauseForPictureInPicture() {
+    if (this.state.phase !== 'active' || this.state.previewOnly) return;
+    this.state.previewOnly = true;
+    this.unschedule(this.stallTimer);
+    this.stallTimer = null;
+    this.stopDetection();
+    this.state.camera = 'Picture in picture preview only. The browser may pause the camera.';
+    this.state.detection = 'Detection paused while this page is hidden. Return to resume scanning.';
+    this.update();
+  }
+
+  resumeFromPictureInPicture() {
+    if (!this.state.previewOnly || this.state.phase !== 'active' || !this.isVisible()) return;
+    this.state.previewOnly = false;
+    this.state.camera = 'Camera active. Resuming foreground detection.';
+    this.update();
+    this.watchForStall(this.generation);
+    void this.startDetection(this.generation);
   }
 
   // The preview can freeze after prolonged use or an OS interruption while the
@@ -171,7 +193,7 @@ export class CameraFeature {
         onResult: result => {
           if (run === this.generation && !controller.signal.aborted && this.state.phase === 'active' && this.isVisible()) this.acceptResult(result);
         },
-        onDistance: meters => { if (run === this.generation) this.distance(meters); },
+        onDistance: meters => { if (run === this.generation && !controller.signal.aborted && this.isVisible()) this.distance(meters); },
         onMetrics: metrics => { if (run === this.generation && !controller.signal.aborted) this.performance(metrics); },
         onStatus: message => {
           if (run === this.generation && this.detectionRunning && !controller.signal.aborted) {
@@ -371,6 +393,7 @@ export function mountCamera(root, platform = window, { onState = () => {} } = {}
   const announcer = find('announcer');
   let permissionState = 'prompt';
   let announceTimer;
+  let pictureInPicture;
   function renderPermission(state) {
     const light = find('permission-light');
     const label = find('permission-label');
@@ -378,7 +401,9 @@ export function mountCamera(root, platform = window, { onState = () => {} } = {}
     else if (/permission denied/i.test(state.camera)) permissionState = 'denied';
     const granted = permissionState === 'granted';
     const cameraLabel = granted
-      ? state.phase === 'active' ? 'Camera permission allowed — scanning is active' : 'Camera permission allowed'
+      ? state.phase === 'active'
+        ? state.previewOnly ? 'Camera permission allowed — preview only, detection paused' : 'Camera permission allowed — scanning is active'
+        : 'Camera permission allowed'
       : permissionState === 'denied'
         ? 'Camera permission denied — allow it in browser settings, then tap Start'
         : state.phase === 'requesting'
@@ -404,8 +429,12 @@ export function mountCamera(root, platform = window, { onState = () => {} } = {}
     speech: platform.speechSynthesis, Utterance: platform.SpeechSynthesisUtterance,
     isVisible: () => !root.ownerDocument.hidden,
     development: new URLSearchParams(platform.location.search).get('dev') === '1',
-    emit: (name, detail) => platform.dispatchEvent(new CustomEvent(name, { detail })),
+    emit: (name, detail) => {
+      if (name === 'camera:stopped') void pictureInPicture?.stop();
+      platform.dispatchEvent(new CustomEvent(name, { detail }));
+    },
     render: (state, message) => {
+      pictureInPicture?.update(state);
       renderPermission(state);
       find('status').textContent = state.camera;
       const performanceNode = find('performance');
@@ -439,6 +468,16 @@ export function mountCamera(root, platform = window, { onState = () => {} } = {}
       }
     },
   });
+  if (find('pip') && find('pip-status')) {
+    pictureInPicture = mountPictureInPicture({ video: feature.video, button: find('pip'), status: find('pip-status'),
+      doc: root.ownerDocument,
+      onChange: active => {
+        if (!active && root.ownerDocument.hidden && feature.state.phase === 'active') {
+          feature.stop('Camera off because picture in picture closed while this page was hidden. Tap Start to restart.');
+        }
+      },
+    });
+  }
   find('start').addEventListener('click', () => void feature.start());
   find('stop').addEventListener('click', () => feature.stop());
   find('speech').addEventListener('click', () => feature.enableSpeech(!feature.state.speechEnabled));
@@ -452,10 +491,22 @@ export function mountCamera(root, platform = window, { onState = () => {} } = {}
   });
   find('simulate').hidden = !feature.development;
   find('simulate').addEventListener('click', () => feature.obstacle(true));
-  root.ownerDocument.addEventListener('visibilitychange', () => {
-    if (root.ownerDocument.hidden) feature.stop('Camera off because this page was hidden. Tap Start when you return.');
-  });
-  platform.addEventListener('pagehide', () => feature.stop('Camera off because you left the page. Tap Start to restart.'));
+  const visibilityChanged = () => {
+    if (root.ownerDocument.hidden) {
+      if (pictureInPicture?.active) feature.pauseForPictureInPicture();
+      else feature.stop('Camera off because this page was hidden. Tap Start when you return.');
+    } else feature.resumeFromPictureInPicture();
+  };
+  const pageHidden = () => feature.stop('Camera off because you left the page. Tap Start to restart.');
+  root.ownerDocument.addEventListener('visibilitychange', visibilityChanged);
+  platform.addEventListener('pagehide', pageHidden);
+  const destroy = feature.destroy.bind(feature);
+  feature.destroy = () => {
+    root.ownerDocument.removeEventListener?.('visibilitychange', visibilityChanged);
+    platform.removeEventListener?.('pagehide', pageHidden);
+    destroy();
+    pictureInPicture?.destroy();
+  };
   platform.addEventListener('myeyes:permissionchange', event => {
     if (event.detail?.kind === 'camera') {
       permissionState = event.detail.state;
