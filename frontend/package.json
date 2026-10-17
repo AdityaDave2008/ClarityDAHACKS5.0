@@ -11,6 +11,6 @@
     "dev": "node --watch server.js",
     "start": "node server.js",
     "check": "node --check server.js && node --check app.js && node --check logic.js && node --check sw.js && node --check site.js && node --check camera.js && node --check backend-detector.js && node --check standalone.js",
-    "test": "node --test camera.test.js backend-detector.test.js site.test.js server.test.js"
+    "test": "node --test detection-overlay.test.js camera.test.js backend-detector.test.js site.test.js server.test.js"
   }
 }

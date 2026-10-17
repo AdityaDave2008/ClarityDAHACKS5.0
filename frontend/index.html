@@ -97,7 +97,15 @@
             <button type="button" id="camera-start" aria-describedby="permission-help">Start scanning</button>
             <button type="button" id="camera-stop" disabled>Stop scanning</button>
           </div>
-          <video id="camera-video" autoplay muted playsinline aria-label="Live camera preview. Controls work without viewing the preview."></video>
+          <div class="camera-preview">
+            <video id="camera-video" autoplay muted playsinline aria-label="Live camera preview. Controls work without viewing the preview."></video>
+            <canvas id="camera-overlay" aria-hidden="true"></canvas>
+          </div>
+          <section class="camera-results" aria-labelledby="camera-objects-heading">
+            <h2 id="camera-objects-heading">Detected objects</h2>
+            <p id="camera-objects">Start scanning to see supported objects.</p>
+            <p class="camera-result-note">Labels show model confidence, not distance or safety. Browser camera does not measure distance.</p>
+          </section>
           <div class="readings">
             <section aria-label="Distance estimate"><h2>Distance</h2><p id="camera-distance">Not available</p></section>
             <section aria-label="Obstacle alert"><h2>Alert</h2><p id="camera-obstacle">No alert. Keep watching your path.</p></section>

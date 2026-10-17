@@ -6,7 +6,7 @@ export function createBackendDetector({ request = (...args) => fetch(...args),
   createCanvas = () => document.createElement('canvas'), now = () => performance.now(),
   schedule = setTimeout, unschedule = clearTimeout, timeoutMs = 12000 } = {}) {
   return {
-    async start({ video, signal, onObstacle, onError, onStatus = () => {} }) {
+    async start({ video, signal, onObstacle, onError, onStatus = () => {}, onResult = () => {} }) {
       signal.throwIfAborted();
       let sessionId = null, sequence = 0, timer, deleted = false;
       const canvas = createCanvas();
@@ -51,7 +51,8 @@ export function createBackendDetector({ request = (...args) => fetch(...args),
       async function frame() {
         signal.throwIfAborted();
         const started = now();
-        const size = captureSize(video.videoWidth, video.videoHeight);
+        const sourceWidth = video.videoWidth, sourceHeight = video.videoHeight;
+        const size = captureSize(sourceWidth, sourceHeight);
         canvas.width = size.width;
         canvas.height = size.height;
         const context = canvas.getContext('2d');
@@ -69,11 +70,11 @@ export function createBackendDetector({ request = (...args) => fetch(...args),
           throw new Error('AI returned an unexpected result. Stop and Start to retry.');
         }
         // A delayed result must never become a fresh obstacle alert.
-        if (now() - started > 2500) {
+        if (now() - started >= 2500 || video.videoWidth !== sourceWidth || video.videoHeight !== sourceHeight) {
           onStatus('AI result delayed; old alert skipped. Waiting for a fresh result.');
           return null;
         }
-        return result;
+        return { ...result, ageMs: now() - started, sourceWidth, sourceHeight };
       }
       async function tick() {
         if (signal.aborted) return;
@@ -82,7 +83,7 @@ export function createBackendDetector({ request = (...args) => fetch(...args),
           const result = await frame();
           if (signal.aborted) return;
           if (result) {
-            onStatus('Detection running.');
+            onResult(result);
             if (result.alert.triggered) onObstacle();
           }
         } catch (error) {
@@ -108,12 +109,14 @@ export function createBackendDetector({ request = (...args) => fetch(...args),
         if (signal.aborted) { cleanup(); signal.throwIfAborted(); }
         // Confirm the actual frame path before the controller says running.
         // The first frame establishes a connection, not an obstacle event.
-        await frame();
+        const initial = await frame();
         signal.throwIfAborted();
+        if (initial) onResult(initial);
         timer = schedule(() => void tick(), 400);
       } catch (error) {
         cleanup();
         signal.removeEventListener('abort', cleanup);
+        if ([409, 429].includes(error.status)) error.message = 'AI detector busy. Stop and Start to retry.';
         throw error;
       }
     },

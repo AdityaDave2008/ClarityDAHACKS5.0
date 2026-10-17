@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createBackendDetector } from './backend-detector.js';
 
 const flush = async () => { for (let i = 0; i < 25; i++) await Promise.resolve(); };
-function fixture({ response, toBlob } = {}) {
+function fixture({ response, toBlob, onResult } = {}) {
   const controller = new AbortController();
   const tasks = new Map();
   const calls = [], obstacles = [], errors = [], statuses = [];
@@ -24,7 +24,7 @@ function fixture({ response, toBlob } = {}) {
   const adapter = createBackendDetector({ request, createCanvas: () => canvas, now: () => now,
     schedule: (fn, ms) => { tasks.set(++id, { fn, ms }); return id; }, unschedule: id => tasks.delete(id) });
   const start = () => adapter.start({ video: { videoWidth: 1920, videoHeight: 1080 }, signal: controller.signal,
-    onObstacle: () => obstacles.push(true), onError: error => errors.push(error), onStatus: text => statuses.push(text) });
+    onResult, onObstacle: () => obstacles.push(true), onError: error => errors.push(error), onStatus: text => statuses.push(text) });
   const tick = async () => {
     const next = [...tasks].sort((a, b) => a[1].ms - b[1].ms)[0];
     assert.ok(next, 'A task should be scheduled');
@@ -146,4 +146,40 @@ test('requests time out and shutdown cannot publish a late response', async () =
   await rejection;
   assert.equal(f.obstacles.length, 0);
   assert.equal(f.tasks.size, 0);
+});
+
+test('fresh results including initial frame reach the UI without fabricating obstacle alerts', async () => {
+  const results = [];
+  const f = fixture({ onResult: result => results.push(result) });
+  await f.start();
+  assert.equal(results.length, 1);
+  assert.equal(results[0].frame.sequence, 1);
+  assert.equal(results[0].ageMs, 0);
+  assert.equal(f.obstacles.length, 0);
+  await f.tick();
+  assert.equal(results[1].frame.sequence, 2);
+  f.controller.abort();
+});
+
+test('capture dimensions accompany results and responses at freshness boundary are skipped', async () => {
+  const results = [];
+  const f = fixture({ onResult: result => results.push(result), response: async (path, options, { advance }) => {
+    if (path.endsWith('/frames') && options.headers['X-Frame-Sequence'] === '2') advance(2500);
+  } });
+  await f.start();
+  assert.equal(results[0].sourceWidth, 1920);
+  assert.equal(results[0].sourceHeight, 1080);
+  await f.tick();
+  assert.equal(results.length, 1);
+  assert.equal(f.obstacles.length, 0);
+  f.controller.abort();
+});
+
+test('initial busy response gives explicit restart instructions instead of promising an unscheduled retry', async () => {
+  for (const status of [409, 429]) {
+    const f = fixture({ response: async path => path.endsWith('/frames') ? { ok: false, status } : null });
+    await assert.rejects(f.start(), /AI detector busy\. Stop and Start to retry\./);
+    assert.equal(f.tasks.size, 0);
+    assert.equal(f.calls.filter(call => call.options.method === 'DELETE').length, 1);
+  }
 });

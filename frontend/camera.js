@@ -1,12 +1,14 @@
+import { drawDetectionOverlay } from './logic.js';
 import { notifyPhone } from './phone-notifications.js';
 
 // Camera/speech controller. Detection is supplied by a separate adapter.
 export class CameraFeature {
   constructor({ video, mediaDevices, secure = true, speech, Utterance, emit = () => {}, render = () => {},
-    now = () => performance.now(), schedule = setTimeout, unschedule = clearTimeout, development = false }) {
-    Object.assign(this, { video, mediaDevices, secure, speech, Utterance, emit, render, now, schedule, unschedule, development });
+    now = () => performance.now(), schedule = (callback, ms) => setTimeout(callback, ms),
+    unschedule = timer => clearTimeout(timer), development = false, isVisible = () => true }) {
+    Object.assign(this, { video, mediaDevices, secure, speech, Utterance, emit, render, now, schedule, unschedule, development, isVisible });
     this.state = { phase: 'off', camera: 'Camera off. Tap Start when ready.', detection: 'Detection not connected.',
-      distance: 'Not available', obstacle: '', speechEnabled: false, announcements: 'screen-reader',
+      distance: 'Not available', detections: [], result: null, obstacle: '', speechEnabled: false, announcements: 'screen-reader',
       speechStatus: 'Spoken alerts off.' };
     this.generation = 0;
     this.pending = null;
@@ -130,7 +132,10 @@ export class CameraFeature {
     this.update();
     try {
       await this.detector.start({ video: this.video, signal: controller.signal,
-        onObstacle: () => { if (run === this.generation) this.obstacle(false); },
+        onObstacle: () => { if (run === this.generation && !controller.signal.aborted && this.isVisible()) this.obstacle(false); },
+        onResult: result => {
+          if (run === this.generation && !controller.signal.aborted && this.state.phase === 'active' && this.isVisible()) this.acceptResult(result);
+        },
         onDistance: meters => { if (run === this.generation) this.distance(meters); },
         onStatus: message => {
           if (run === this.generation && this.detectionRunning && !controller.signal.aborted) {
@@ -149,7 +154,7 @@ export class CameraFeature {
       });
       if (run !== this.generation || controller.signal.aborted) return;
       this.detectionRunning = true;
-      this.state.detection = 'Detection running.';
+      if (!this.state.result) this.state.detection = 'Detection running.';
       this.update(this.state.detection);
     } catch (error) {
       if (run !== this.generation || controller.signal.aborted) return;
@@ -159,8 +164,44 @@ export class CameraFeature {
     }
   }
 
+  acceptResult(result) {
+    const sequence = result?.frame?.sequence;
+    if (!Number.isInteger(sequence) || sequence <= (this.resultSequence || 0) ||
+        !Number.isFinite(result.ageMs) || result.ageMs < 0 || result.ageMs >= 2500 ||
+        ![result.sourceWidth, result.sourceHeight].every(value => Number.isInteger(value) && value > 0)) return;
+    this.resultSequence = sequence;
+    const detections = (Array.isArray(result.detections) ? result.detections : []).filter(item => {
+      const box = item?.bbox;
+      return typeof item?.label === 'string' && item.label.length > 0 && Number.isFinite(item.confidence) &&
+        item.confidence >= 0 && item.confidence <= 1 && box &&
+        [box.x, box.y, box.width, box.height].every(Number.isFinite) &&
+        box.x >= 0 && box.y >= 0 && box.width > 0 && box.height > 0 &&
+        box.x + box.width <= 1.001 && box.y + box.height <= 1.001;
+    }).slice(0, 50).map(item => ({ ...item, label: item.label.slice(0, 80), bbox: { ...item.bbox } }));
+    this.state.detections = detections;
+    this.state.result = { sequence, sourceWidth: result.sourceWidth, sourceHeight: result.sourceHeight };
+    this.state.detection = result.alert?.triggered ? 'Object confirmed in the marked image zone.'
+      : result.alert?.reason === 'confirming' ? 'Object seen. Checking another frame to confirm…'
+      : result.alert?.reason === 'cooldown' ? 'Object remains in the image zone. Alert cooldown active.'
+      : detections.length ? `Detection running. ${detections.length} supported object${detections.length === 1 ? '' : 's'} visible.`
+      : 'Detection running. No supported objects detected. Keep watching your path.';
+    this.unschedule(this.resultTimer);
+    this.resultTimer = this.schedule(() => {
+      this.state.detections = [];
+      this.state.result = null;
+      this.state.detection = 'Waiting for a fresh result. Old detections cleared.';
+      this.update();
+    }, 2500 - result.ageMs);
+    // Per-frame results are visible/readable, not repeated automatic announcements.
+    this.update();
+  }
+
   stopDetection() {
     this.detectionRunning = false;
+    this.unschedule(this.resultTimer);
+    this.resultSequence = 0;
+    this.state.detections = [];
+    this.state.result = null;
     this.detectionController?.abort();
     this.detectionController = null;
     this.state.detection = this.detector ? 'Detection stopped.' : 'Detection not connected.';
@@ -316,6 +357,7 @@ export function mountCamera(root, platform = window, { onState = () => {} } = {}
   const feature = new CameraFeature({
     video: find('video'), mediaDevices: platform.navigator.mediaDevices, secure: platform.isSecureContext,
     speech: platform.speechSynthesis, Utterance: platform.SpeechSynthesisUtterance,
+    isVisible: () => !root.ownerDocument.hidden,
     development: new URLSearchParams(platform.location.search).get('dev') === '1',
     emit: (name, detail) => platform.dispatchEvent(new CustomEvent(name, { detail })),
     render: (state, message) => {
@@ -323,6 +365,12 @@ export function mountCamera(root, platform = window, { onState = () => {} } = {}
       find('status').textContent = state.camera;
       root.querySelector('#detection-status').textContent = state.detection;
       find('distance').textContent = state.distance;
+      const objects = find('objects');
+      if (objects) objects.textContent = state.result
+        ? state.detections.length ? state.detections.map(item => `${item.label} ${Math.round(item.confidence * 100)}%`).join(' · ')
+          : 'No supported objects in this frame. This does not mean the path is safe.'
+        : state.phase === 'off' ? 'Start scanning to see supported objects.' : 'No fresh detections to display.';
+      drawDetectionOverlay(find('overlay'), find('video'), state.detections, platform.devicePixelRatio, state.result);
       find('obstacle').textContent = state.obstacle || 'No alert. Keep watching your path.';
       find('start').disabled = state.pending || state.phase !== 'off';
       find('stop').disabled = state.phase === 'off';
@@ -365,6 +413,13 @@ export function mountCamera(root, platform = window, { onState = () => {} } = {}
       renderPermission(feature.state);
     }
   });
+  const redraw = () => drawDetectionOverlay(find('overlay'), feature.video, feature.state.detections, platform.devicePixelRatio, feature.state.result);
+  platform.addEventListener('resize', redraw);
+  feature.video.addEventListener?.('resize', redraw);
+  if (platform.ResizeObserver && find('overlay')) {
+    const observer = new platform.ResizeObserver(redraw);
+    observer.observe(find('overlay'));
+  }
   feature.update();
   try {
     const permissionQuery = platform.navigator.permissions?.query?.({ name: 'camera' });
