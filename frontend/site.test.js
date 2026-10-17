@@ -101,7 +101,7 @@ test('combined HTML has one camera, unique IDs, camera labels, and the integrate
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map(match => match[1]);
   assert.equal(new Set(ids).size, ids.length);
   assert.equal((html.match(/<video\b/g) || []).length, 1);
-  assert.match(html, /Eyes up\./);
+  assert.match(html, /<title>Clarity \| Home<\/title>/);
   assert.match(html, /data-mode="blindness"/);
   for (const id of ['camera-announcements', 'camera-cooldown']) assert.match(html, new RegExp(`label for="${id}"`));
   assert.match(html, /id="camera-feature"/);
