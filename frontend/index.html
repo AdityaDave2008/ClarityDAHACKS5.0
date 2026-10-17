@@ -35,54 +35,35 @@
         <section class="forum-section" aria-labelledby="forum-title">
           <div class="forum-heading">
             <div>
-              <p class="eyebrow">Community updates</p>
-              <h2 id="forum-title">City forum</h2>
+              <p class="eyebrow">AI street reports</p>
+              <h2 id="forum-title">Path issues</h2>
             </div>
-            <span class="forum-live"><span class="dot"></span>Local feed</span>
+            <span class="forum-live"><span class="dot"></span>Demo feed</span>
           </div>
 
           <p class="forum-intro">
-            Share sidewalk news and access updates with people nearby.
+            A list of reported roadblocks and damaged paths.
           </p>
 
-          <form id="forumForm" class="forum-form">
-            <label class="visually-hidden" for="forumInput">
-              Share a sidewalk or access update
-            </label>
-            <input
-              id="forumInput"
-              name="post"
-              type="text"
-              maxlength="180"
-              placeholder="Share a street update..."
-              required
-            >
-            <button class="primary forum-submit" type="submit">Post</button>
-          </form>
-
-          <div id="forumFeed" class="forum-feed" aria-live="polite">
-            <article class="forum-post">
-              <div class="post-meta">
-                <span class="post-tag">ACCESS UPDATE</span>
-                <time>Community board</time>
-              </div>
-              <p>
-                Report blocked sidewalks, construction barriers, or temporary
-                closures. Add the nearest cross street to help others plan.
-              </p>
-            </article>
-
-            <article class="forum-post">
-              <div class="post-meta">
-                <span class="post-tag">CITY NEWS</span>
-                <time>Community board</time>
-              </div>
-              <p>
-                Share neighborhood walking news and accessibility updates that
-                could help people nearby.
-              </p>
-            </article>
+          <div id="issueFeed" class="forum-feed" aria-label="Reported path issues" aria-live="polite" aria-relevant="additions">
           </div>
+
+          <dialog class="issue-dialog" id="issueDialog" aria-labelledby="issueDialogTitle">
+            <div class="issue-dialog-header">
+              <p class="eyebrow">AI path report</p>
+              <button class="issue-dialog-close" type="button" id="issueDialogClose" aria-label="Close issue details">Close</button>
+            </div>
+            <h2 id="issueDialogTitle">Issue details</h2>
+            <p id="issueDialogDescription"></p>
+            <dl class="issue-detail-list">
+              <div><dt>Type</dt><dd id="issueDialogCategory"></dd></div>
+              <div><dt>Urgency</dt><dd id="issueDialogSeverity"></dd></div>
+              <div><dt>Location</dt><dd id="issueDialogLocation"></dd></div>
+              <div><dt>Reported</dt><dd id="issueDialogTime"></dd></div>
+              <div><dt>Status</dt><dd id="issueDialogStatus"></dd></div>
+            </dl>
+            <p class="issue-dialog-note">AI reports can be wrong. Check your surroundings and use your judgment.</p>
+          </dialog>
         </section>
 
       </section>
@@ -300,105 +281,107 @@
     </main>
 
     <script>
-      const forumForm = document.getElementById("forumForm");
-      const forumInput = document.getElementById("forumInput");
-      const forumFeed = document.getElementById("forumFeed");
-      const forumSubmit = forumForm.querySelector("button[type='submit']");
-      let editingPostId = null;
-      let forumPosts = JSON.parse(localStorage.getItem("clearpath-forum") || "[]")
-        .map((post) => typeof post === "string"
-          ? { id: crypto.randomUUID(), message: post }
-          : post);
+      const issueFeed = document.getElementById("issueFeed");
+      const issueDialog = document.getElementById("issueDialog");
+      const issueFields = {
+        title: document.getElementById("issueDialogTitle"),
+        description: document.getElementById("issueDialogDescription"),
+        category: document.getElementById("issueDialogCategory"),
+        severity: document.getElementById("issueDialogSeverity"),
+        location: document.getElementById("issueDialogLocation"),
+        time: document.getElementById("issueDialogTime"),
+        status: document.getElementById("issueDialogStatus"),
+      };
 
-      function saveForumPosts() {
-        localStorage.setItem("clearpath-forum", JSON.stringify(forumPosts));
+      function addIssueReport(report = {}) {
+        const issue = {
+          title: String(report.title || "Path issue").trim().slice(0, 100),
+          description: String(report.description || "No details provided.").trim().slice(0, 500),
+          location: String(report.location || "Location unavailable").trim().slice(0, 120),
+          category: String(report.category || "Path issue").trim().slice(0, 60),
+          severity: String(report.severity || "Unrated").trim().slice(0, 30),
+          status: String(report.status || "Needs review").trim().slice(0, 50),
+          reported: report.createdAt ? new Date(report.createdAt).toLocaleString() : "Demo report",
+        };
+        if (!issue.title) return;
+
+        const post = document.createElement("article");
+        post.className = "forum-post ai-issue";
+        const openButton = document.createElement("button");
+        openButton.type = "button";
+        openButton.className = "issue-open";
+        openButton.setAttribute("aria-haspopup", "dialog");
+        openButton.setAttribute("aria-label", `View details: ${issue.title}`);
+        openButton.issueReport = issue;
+
+        const meta = document.createElement("div");
+        meta.className = "post-meta";
+        const tag = document.createElement("span");
+        tag.className = "post-tag";
+        tag.textContent = `AI REPORT · ${issue.category}`;
+        const time = document.createElement("time");
+        time.textContent = issue.reported;
+        meta.append(tag, time);
+
+        const heading = document.createElement("h3");
+        heading.textContent = issue.title;
+        const summary = document.createElement("p");
+        summary.textContent = issue.description;
+        const location = document.createElement("p");
+        location.className = "issue-location";
+        location.textContent = `Location: ${issue.location}`;
+        const urgency = document.createElement("span");
+        urgency.className = "issue-urgency";
+        urgency.textContent = `${issue.severity} urgency`;
+        const prompt = document.createElement("span");
+        prompt.className = "issue-view-prompt";
+        prompt.textContent = "View details";
+
+        openButton.append(meta, heading, summary, location, urgency, prompt);
+        post.append(openButton);
+        issueFeed.prepend(post);
       }
 
-      function renderForumPosts() {
-        forumFeed.querySelectorAll(".user-forum-post").forEach((post) => post.remove());
-        forumPosts.forEach((item) => {
-          const post = document.createElement("article");
-          post.className = "forum-post user-forum-post";
-          post.dataset.postId = item.id;
-
-          const meta = document.createElement("div");
-          meta.className = "post-meta";
-
-          const tag = document.createElement("span");
-          tag.className = "post-tag";
-          tag.textContent = "COMMUNITY POST";
-
-          const time = document.createElement("time");
-          time.textContent = item.updated ? "Edited" : "Community post";
-
-          const content = document.createElement("p");
-          content.textContent = item.message;
-          meta.append(tag, time);
-          post.append(meta, content);
-
-          const actions = document.createElement("div");
-          actions.className = "forum-post-actions";
-          const editButton = document.createElement("button");
-          editButton.type = "button";
-          editButton.className = "forum-action";
-          editButton.textContent = "Edit";
-          editButton.setAttribute("aria-label", "Edit your forum post");
-          editButton.addEventListener("click", () => {
-            editingPostId = item.id;
-            forumInput.value = item.message;
-            forumInput.focus();
-            forumSubmit.textContent = "Save edit";
-          });
-          const deleteButton = document.createElement("button");
-          deleteButton.type = "button";
-          deleteButton.className = "forum-action forum-delete";
-          deleteButton.textContent = "Delete";
-          deleteButton.setAttribute("aria-label", "Delete your forum post");
-          deleteButton.addEventListener("click", () => {
-            forumPosts = forumPosts.filter((saved) => saved.id !== item.id);
-            if (editingPostId === item.id) resetForumEditor();
-            saveForumPosts();
-            renderForumPosts();
-            showToast("Community post deleted");
-          });
-          actions.append(editButton, deleteButton);
-          post.append(actions);
-
-          forumFeed.append(post);
-        });
-      }
-
-      function resetForumEditor() {
-        editingPostId = null;
-        forumForm.reset();
-        forumSubmit.textContent = "Post";
-      }
-
-      saveForumPosts();
-      renderForumPosts();
-
-      forumForm.addEventListener("submit", (event) => {
-        event.preventDefault();
-
-        const message = forumInput.value.trim();
-        if (!message) return;
-
-        if (editingPostId) {
-          forumPosts = forumPosts.map((item) => item.id === editingPostId
-            ? { ...item, message, updated: true }
-            : item);
-          saveForumPosts();
-          renderForumPosts();
-          resetForumEditor();
-          showToast("Community post updated");
-        } else {
-          forumPosts.unshift({ id: crypto.randomUUID(), message });
-          saveForumPosts();
-          renderForumPosts();
-          resetForumEditor();
-          showToast("Community update posted");
-        }
+      issueFeed.addEventListener("click", (event) => {
+        const button = event.target.closest(".issue-open");
+        if (!button) return;
+        const issue = button.issueReport;
+        issueFields.title.textContent = issue.title;
+        issueFields.description.textContent = issue.description;
+        issueFields.category.textContent = issue.category;
+        issueFields.severity.textContent = issue.severity;
+        issueFields.location.textContent = issue.location;
+        issueFields.time.textContent = issue.reported;
+        issueFields.status.textContent = issue.status;
+        issueDialog.showModal();
       });
+
+      document.getElementById("issueDialogClose").addEventListener("click", () => issueDialog.close());
+      issueDialog.addEventListener("click", (event) => {
+        if (event.target === issueDialog) issueDialog.close();
+      });
+
+      [
+        {
+          title: "Sidewalk blocked",
+          category: "Sidewalk blockage",
+          severity: "High",
+          location: "Example intersection",
+          description: "A temporary barrier appears to block most of the sidewalk, leaving limited space to pass. The model flagged it as a likely obstruction.",
+          status: "Needs confirmation",
+        },
+        {
+          title: "Damaged pavement",
+          category: "Surface damage",
+          severity: "Medium",
+          location: "Example block",
+          description: "The walking surface appears uneven, with a broken section that may be difficult to navigate. The extent of the damage is not confirmed.",
+          status: "Needs confirmation",
+        },
+      ].forEach(addIssueReport);
+
+      // AI integration can add reports with window.clearPathIssueFeed.add(report).
+      window.clearPathIssueFeed = { add: addIssueReport };
       const screens = [...document.querySelectorAll(".screen")];
       const navButtons = [...document.querySelectorAll(".nav-btn")];
 
