@@ -1,4 +1,7 @@
 import http from 'node:http';
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
+import { handleDepthAsset } from '../worker/src/depth-assets.js';
 import https from 'node:https';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -153,6 +156,14 @@ export function createPreviewServer({ apiOrigin } = loadPreviewConfig()) {
         return;
       }
       const url = new URL(request.url, 'http://preview.local');
+      if (url.pathname === '/depth-assets' || url.pathname.startsWith('/depth-assets/')) {
+        const asset = await handleDepthAsset(new Request(url, { method: request.method }));
+        response.writeHead(asset.status, Object.fromEntries(asset.headers));
+        if (asset.body) {
+          await pipeline(Readable.fromWeb(asset.body), response);
+        } else response.end();
+        return;
+      }
       if (url.pathname.startsWith('/api/') || ['/ready', '/health'].includes(url.pathname)) {
         await proxyToApi(request, response, url, apiOrigin);
         return;

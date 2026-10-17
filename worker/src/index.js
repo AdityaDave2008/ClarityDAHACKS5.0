@@ -9,6 +9,7 @@
  */
 
 import { ApiError } from './sessions.js';
+import { handleDepthAsset } from './depth-assets.js';
 import { SessionClient, SessionObject, publicSession, validatePreferences } from './session-object.js';
 import { detectFrame, SUPPORTED_LABELS, ZONE } from './detection.js';
 
@@ -155,6 +156,10 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     const path = url.pathname.replace(/\/+$/, '') || '/';
+
+    if (url.pathname === '/depth-assets' || url.pathname.startsWith('/depth-assets/')) {
+      return handleDepthAsset(request);
+    }
 
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: corsHeaders(request, env) });
