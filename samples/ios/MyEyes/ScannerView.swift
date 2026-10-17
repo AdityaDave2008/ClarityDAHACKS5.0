@@ -1,5 +1,32 @@
 import AVFoundation
 import SwiftUI
+import UIKit
+
+// One palette for the SwiftUI preview and UIKit floating window. Color never implies safety.
+extension ProximityBand {
+    var overlayColor: UIColor {
+        switch self {
+        case .near: return .systemRed
+        case .intermediate: return .systemOrange
+        case .far: return .systemGreen
+        case .outOfRange: return UIColor(red: 0.40, green: 0.53, blue: 0.67, alpha: 1)
+        case .unknown: return .systemGray
+        }
+    }
+}
+
+/// Reject an invalid edit rather than silently resetting all distances to defaults.
+struct ProximitySettingsEditor {
+    static func setting(_ value: Double, at key: WritableKeyPath<ProximitySettings, Double>,
+                        in settings: ProximitySettings) -> ProximitySettings? {
+        var updated = settings
+        updated[keyPath: key] = value
+        guard updated.nearMeters.isFinite, updated.intermediateMeters.isFinite, updated.farMeters.isFinite,
+              updated.nearMeters >= 0.2, updated.nearMeters < updated.intermediateMeters,
+              updated.intermediateMeters < updated.farMeters, updated.farMeters <= 5 else { return nil }
+        return updated
+    }
+}
 
 struct ScannerView: View {
     @ObservedObject var model: ScanModel
@@ -77,6 +104,7 @@ struct ScannerView: View {
                 .foregroundStyle(Color.senseMuted)
 
                 cameraCard
+                proximityLegend
 
                 if model.preferences.isLidarEnabled {
                     VStack(alignment: .leading, spacing: 5) {
@@ -211,6 +239,20 @@ struct ScannerView: View {
         }
     }
 
+    private var proximityLegend: some View {
+        let settings = model.preferences.effectiveProximitySettings
+        return VStack(alignment: .leading, spacing: 5) {
+            Text("Approximate optical-axis depth · not a safety indication")
+                .font(.caption.weight(.semibold))
+            Text("Near ≤ \(settings.nearMeters, specifier: "%.1f") m · red · 2 Hz\nIntermediate ≤ \(settings.intermediateMeters, specifier: "%.1f") m · amber · 1 Hz\nFar ≤ \(settings.farMeters, specifier: "%.1f") m · green · 0.5 Hz\nOut of range > \(settings.farMeters, specifier: "%.1f") m · muted blue · no pulses\nUnknown · gray · depth unavailable")
+                .font(.caption.monospacedDigit())
+            Text("Cadence applies to selected sound/vibration alerts. Green means farther, not a clear path.")
+                .font(.caption)
+        }
+        .foregroundStyle(Color.senseMuted)
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
     private var pictureInPictureCard: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top, spacing: 11) {
@@ -267,9 +309,11 @@ struct ScannerView: View {
         ZStack {
             if model.cameraRunning {
                 CameraPreview(session: model.camera.session)
-                DetectionOverlay(zone: model.zone, detections: model.detections, imageSize: model.imageSize)
-                    .allowsHitTesting(false)
-                    .accessibilityHidden(true)
+                TimelineView(.periodic(from: .now, by: 0.1)) { _ in
+                    DetectionOverlay(zone: model.zone, detections: model.detections, imageSize: model.imageSize, now: ProcessInfo.processInfo.systemUptime)
+                }
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
             }
             if !model.cameraRunning {
                 Color.senseSurface
@@ -298,6 +342,7 @@ private struct DetectionOverlay: View {
     let zone: [NormalizedPoint]
     let detections: [Detection]
     let imageSize: CGSize
+    let now: TimeInterval
 
     var body: some View {
         GeometryReader { geometry in
@@ -322,18 +367,23 @@ private struct DetectionOverlay: View {
                                  y: rect.minY + CGFloat(detection.bbox.y) * rect.height,
                                  width: CGFloat(detection.bbox.width) * rect.width,
                                  height: CGFloat(detection.bbox.height) * rect.height)
-                let color: Color = detection.inZone ? .yellow : .senseTeal
+                let band = detection.freshProximityBand(at: now)
+                let color = Color(uiColor: band.overlayColor)
+                let labelWidth = min(rect.width, 250)
                 RoundedRectangle(cornerRadius: 7)
                     .stroke(color, lineWidth: 2)
                     .frame(width: box.width, height: box.height)
                     .position(x: box.midX, y: box.midY)
-                Text("\(detection.label)  \(Int(detection.confidence * 100))%" + (detection.depthLabel.map { " · " + $0 } ?? ""))
+                Text("\(detection.label)  \(Int(detection.confidence * 100))%\n\(band.title)" + (detection.depthLabel(at: now).map { " · axial " + $0 } ?? " · depth unavailable"))
                     .font(.system(size: 10, weight: .semibold, design: .monospaced))
                     .foregroundStyle(.black)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(3)
+                    .frame(width: max(0, labelWidth - 12))
                     .padding(.horizontal, 6)
                     .padding(.vertical, 4)
                     .background(color, in: RoundedRectangle(cornerRadius: 4))
-                    .position(x: min(max(box.midX, rect.minX + 65), rect.maxX - 65), y: max(rect.minY + 12, box.minY - 13))
+                    .position(x: min(max(box.midX, rect.minX + labelWidth / 2), rect.maxX - labelWidth / 2), y: max(rect.minY + 24, box.minY - 24))
                 Circle().fill(color).frame(width: 6, height: 6).position(point(detection.anchor, in: rect))
             }
         }
@@ -357,6 +407,7 @@ private struct SettingsView: View {
     @State private var preferences: ScanPreferences
     @State private var saving = false
     @State private var errorMessage: String?
+    @State private var proximityError: String?
 
     init(model: ScanModel) {
         self.model = model
@@ -408,6 +459,24 @@ private struct SettingsView: View {
                     Text("Automatic by default when no choice is saved. Your saved opt-out is preserved. Stop scanning to change hardware depth, then tap Apply. On supported rear cameras, labels show approximate axial depth in meters along the camera's forward axis, not radial distance to an object. Missing, mixed, unreliable, or stale depth is unavailable. Detection continues without LiDAR. Depth does not establish a clear or safe path.")
                 }
 
+                Section {
+                    distanceStepper("Near", key: \.nearMeters)
+                    distanceStepper("Intermediate", key: \.intermediateMeters)
+                    distanceStepper("Far", key: \.farMeters)
+                    Text("Near < Intermediate < Far. Limits: 0.2–5 m, edited in 0.1 m steps.")
+                        .font(.caption).foregroundStyle(.secondary)
+                    if let proximityError {
+                        Text(proximityError).font(.caption).foregroundStyle(.orange)
+                            .accessibilityAddTraits(.updatesFrequently)
+                    }
+                    Button("Restore distance defaults") {
+                        preferences.proximitySettings = ProximitySettings()
+                        proximityError = nil
+                    }
+                } header: { Text("Proximity distances") } footer: {
+                    Text("Approximate optical-axis depth, not radial distance or a safety indication. Near: red, 2 Hz. Intermediate: amber, 1 Hz. Far: green, 0.5 Hz. Beyond Far: muted blue, no pulses. Unknown: gray, no distance pulses. Each upper limit is inclusive. Cadence applies to selected sound/vibration alerts; speech remains an optional alert choice. Missing or stale depth cannot establish a distance band. Green does not mean a clear path.")
+                }
+
                 Section("Detection preferences") {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Confidence threshold · \(Int(preferences.confidenceThreshold * 100))%")
@@ -453,5 +522,22 @@ private struct SettingsView: View {
         }
         .preferredColorScheme(.dark)
         .tint(.senseTeal)
+    }
+
+    private func distanceStepper(_ title: String, key: WritableKeyPath<ProximitySettings, Double>) -> some View {
+        let value = preferences.effectiveProximitySettings[keyPath: key]
+        return Stepper("\(title) up to \(value, specifier: "%.1f") m", value: Binding(
+            get: { preferences.effectiveProximitySettings[keyPath: key] },
+            set: { proposed in
+                // Normalize stepper arithmetic before checking strict ordering.
+                let rounded = (proposed * 10).rounded() / 10
+                guard let updated = ProximitySettingsEditor.setting(rounded, at: key, in: preferences.effectiveProximitySettings) else {
+                    proximityError = "Distance unchanged. Keep 0.2 ≤ Near < Intermediate < Far ≤ 5 m. Adjust the neighboring limit first."
+                    return
+                }
+                preferences.proximitySettings = updated
+                proximityError = nil
+            }), in: 0.2...5, step: 0.1)
+            .accessibilityHint("Upper distance limit. Must stay ordered: Near, Intermediate, Far.")
     }
 }

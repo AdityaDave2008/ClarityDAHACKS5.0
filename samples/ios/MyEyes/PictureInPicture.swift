@@ -179,6 +179,7 @@ final class PiPContentView: UIView {
         zoneLayer.path = zonePath.cgPath
 
         overlayLayer.sublayers?.forEach { $0.removeFromSuperlayer() }
+        let now = ProcessInfo.processInfo.systemUptime
         for detection in state.detections {
             let box = CGRect(x: rect.minX + CGFloat(detection.bbox.x) * rect.width,
                              y: rect.minY + CGFloat(detection.bbox.y) * rect.height,
@@ -188,23 +189,21 @@ final class PiPContentView: UIView {
             shape.path = UIBezierPath(roundedRect: box, cornerRadius: 4).cgPath
             shape.fillColor = UIColor.clear.cgColor
             shape.lineWidth = 2
-            shape.strokeColor = detection.inZone
-                ? UIColor.systemYellow.cgColor
-                : UIColor(red: 0.29, green: 0.91, blue: 0.79, alpha: 0.9).cgColor
+            let band = detection.freshProximityBand(at: now)
+            shape.strokeColor = band.overlayColor.cgColor
             overlayLayer.addSublayer(shape)
-            if let depthLabel = detection.depthLabel {
-                let label = CATextLayer()
-                label.string = depthLabel
-                label.fontSize = 9
-                label.contentsScale = window?.screen.scale ?? 2
-                label.foregroundColor = UIColor.black.cgColor
-                label.backgroundColor = shape.strokeColor
-                label.alignmentMode = .center
-                let width = min(rect.width, 130)
-                label.frame = CGRect(x: min(max(box.midX - width / 2, rect.minX), rect.maxX - width),
-                                     y: max(rect.minY, box.minY - 14), width: width, height: 13)
-                overlayLayer.addSublayer(label)
-            }
+            let label = CATextLayer()
+            let depthLabel = detection.depthLabel(at: now).map { "axial " + $0 } ?? "depth unavailable"
+            label.string = "\(band.title)\n\(depthLabel)"
+            label.fontSize = 9
+            label.contentsScale = window?.screen.scale ?? 2
+            label.foregroundColor = UIColor.black.cgColor
+            label.backgroundColor = shape.strokeColor
+            label.alignmentMode = .center
+            let width = min(rect.width, 170)
+            label.frame = CGRect(x: min(max(box.midX - width / 2, rect.minX), rect.maxX - width),
+                                 y: max(rect.minY, box.minY - 27), width: width, height: 26)
+            overlayLayer.addSublayer(label)
         }
 
         let banner = CGRect(x: 4, y: bounds.height - 22, width: max(0, bounds.width - 8), height: 18)
