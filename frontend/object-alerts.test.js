@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { notifyPhone } from './phone-notifications.js';
-import { createObjectAlerts, vibrationPattern } from './object-alerts.js';
+import { createObjectAlerts, mountObjectAlerts, vibrationPattern } from './object-alerts.js';
 
 function fixture(permission = 'granted') {
   const notices = [], vibrations = [];
@@ -44,12 +44,13 @@ test('vibration off makes the notification silent and omits its vibration patter
 test('notifications off and unsupported or denied notifications use only selected page vibration without prompting', async () => {
   for (const permission of ['default', 'denied', 'granted']) {
     const f = fixture(permission); if (permission === 'granted') f.prefs.notifications = false;
-    assert.deepEqual(await f.alerts.send('Object ahead.'), { notification: false, vibration: true });
+    // Sound is a separate opt-in channel and stays off in this fixture.
+    assert.deepEqual(await f.alerts.send('Object ahead.'), { notification: false, vibration: true, sound: false });
     assert.deepEqual(f.notices, []);
     assert.deepEqual(f.vibrations, [[167, 98, 167]]);
   }
   const f = fixture(); delete f.platform.Notification; delete f.platform.navigator.vibrate;
-  assert.deepEqual(await f.alerts.send('Object ahead.'), { notification: false, vibration: false });
+  assert.deepEqual(await f.alerts.send('Object ahead.'), { notification: false, vibration: false, sound: false });
 });
 
 test('Stop or detector failure cancels pending notification lookup and vibration without late delivery', async () => {
@@ -97,4 +98,32 @@ test('zero strength disables vibration; repeated patterns maintain alternating p
   assert.deepEqual(pattern, [167, 98, 167, 200, 167, 98, 167]);
   assert.equal(pattern.length % 2, 1);
   assert.equal(vibrationPattern(100, 99).length, 19);
+});
+
+test('mounting arms sound from a real gesture without throwing a reference error', () => {
+  // mountObjectAlerts once referenced unlockSound across a scope boundary, which
+  // threw ReferenceError and aborted the whole inline startup script, so the
+  // scanner never mounted. Unit tests passed because none of them mounted it.
+  const listeners = [];
+  const node = () => ({ checked: false, value: '', textContent: '', addEventListener() {}, classList: { toggle() {}, add() {}, remove() {} } });
+  const doc = {
+    getElementById: () => node(),
+    querySelector: () => node(),
+    querySelectorAll: () => [],
+    addEventListener: (type, handler) => listeners.push([type, handler]),
+  };
+  const platform = {
+    localStorage: { getItem: () => null, setItem() {} },
+    navigator: {},
+    addEventListener() {},
+    AudioContext: function AudioContext() { return { state: 'suspended', resume: () => Promise.resolve() }; },
+  };
+  const feature = { registerAlertSink() {}, addEventListener() {}, snapshot: () => ({}) };
+  assert.doesNotThrow(() => mountObjectAlerts(doc, platform, feature));
+  const gestures = listeners.filter(([type]) => type === 'pointerdown' || type === 'keydown');
+  assert.equal(gestures.length, 2, 'both gesture listeners are registered');
+  for (const [, handler] of gestures) {
+    assert.equal(typeof handler, 'function');
+    assert.doesNotThrow(() => handler(), 'gesture handler must not throw a ReferenceError');
+  }
 });

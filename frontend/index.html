@@ -79,7 +79,7 @@
 
       <header>
         <div class="brand">
-          <span class="brand-logo-window" aria-hidden="true"><img src="icons/eye_logo_smooth.gif?v=smooth-6" width="220" height="120" alt="" loading="eager" fetchpriority="high" decoding="async"></span>
+          <img class="logo" src="/icons/clarity-eye.png" alt="" width="52" height="52">
           Clarity
         </div>
       </header>
@@ -1212,40 +1212,11 @@
       }
 
       document.getElementById("camera-start").addEventListener("click", async () => {
-        // The module owns scanning when it loaded. Keep a camera-preview fallback
-        // for a failed module download so Start still opens the browser permission prompt.
-        if (window.myEyesCamera || previewFallbackStream) return;
-        const status = document.getElementById("camera-status");
-        const startButton = document.getElementById("camera-start");
-        const stopButton = document.getElementById("camera-stop");
-        if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
-          status.textContent = "Camera access needs HTTPS or localhost. Open this page from a secure address, then try again.";
-          return;
-        }
-        startButton.disabled = true;
-        status.textContent = "Requesting camera permission…";
-        try {
-          previewFallbackStream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: "environment" } } });
-          const video = document.getElementById("camera-video");
-          video.srcObject = previewFallbackStream;
-          video.muted = true;
-          await video.play();
-          setDetectionStatusLight(true);
-          status.textContent = "Camera preview is on. Scanning could not load; refresh the page to retry detection.";
-          startButton.disabled = true;
-          stopButton.disabled = false;
-        } catch (error) {
-          previewFallbackStream?.getTracks().forEach((track) => track.stop());
-          previewFallbackStream = null;
-          setDetectionStatusLight(false);
-          startButton.disabled = false;
-          stopButton.disabled = true;
-          status.textContent = error.name === "NotAllowedError"
-            ? "Camera permission was denied. Allow camera access in your browser settings, then try again."
-            : error.name === "NotReadableError"
-              ? "Camera is busy. Close other apps using it, then try again."
-              : "Camera could not start. Check browser permissions and try again.";
-        }
+        if (window.myEyesCamera) return;
+        // Never bypass the model readiness gate if the module has not mounted.
+        // A live preview without a detector looks like a working scanner while
+        // detecting nothing, so the camera stays off instead.
+        document.getElementById("camera-status").textContent = "Scanner is not loaded. Camera stays off. Reload this page to retry.";
       });
 
       document.getElementById("camera-stop").addEventListener("click", () => {

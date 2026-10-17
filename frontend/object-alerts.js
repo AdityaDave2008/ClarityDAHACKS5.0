@@ -118,13 +118,16 @@ export function createObjectAlerts({ platform = globalThis, readPreferences = ()
     const prefs = readPreferences();
     const notifications = () => readPreferences().notifications === true;
     const soundTask = playSound(prefs, signal);
-    const vibrationValue = pattern();
     let notification = false, vibration = false;
     if (notifications()) {
-      notification = await notifyPhone(message, platform, { signal, enabled: notifications, vibration: () => vibrationValue,
+      // Re-read the pattern when the notification is actually posted. The service
+      // worker lookup is asynchronous, so a switch turned off while it was pending
+      // must not still deliver a vibrating notification.
+      notification = await notifyPhone(message, platform, { signal, enabled: notifications, vibration: pattern,
         ...(test ? { title: 'Clarity: test alert', tag: 'clarity-test-alert' } : {}) });
     }
-    if (signal.aborted) return { notification: false, vibration: false };
+    if (signal.aborted) return { notification: false, vibration: false, sound: false };
+    const vibrationValue = pattern();
     // Avoid a double vibration: the notification owns its pattern when posted.
     // Otherwise use the page API, which some browsers block in the background.
     if (notification) vibration = Boolean(vibrationValue);
@@ -136,7 +139,9 @@ export function createObjectAlerts({ platform = globalThis, readPreferences = ()
     onDelivery(delivery);
     return delivery;
   }
-  return { send, cancel };
+  // unlockSound is exposed so the mount can arm audio from a real user gesture;
+  // browsers only allow an AudioContext to resume inside one.
+  return { send, cancel, unlockSound };
 }
 
 export function mountObjectAlerts(doc, platform, feature) {
@@ -183,8 +188,8 @@ export function mountObjectAlerts(doc, platform, feature) {
   } });
   if (get('notifications')) get('notifications').checked = stored('clearpath-notifications', 'true') === 'true';
   if (get('vibrate')) get('vibrate').checked = stored('clearpath-vibrate', 'true') === 'true';
-  doc.addEventListener('pointerdown', unlockSound, { capture: true, passive: true });
-  doc.addEventListener('keydown', unlockSound, { capture: true });
+  doc.addEventListener('pointerdown', alerts.unlockSound, { capture: true, passive: true });
+  doc.addEventListener('keydown', alerts.unlockSound, { capture: true });
   for (const [id, key] of [['notifications', 'clearpath-notifications'], ['vibrate', 'clearpath-vibrate']]) {
     get(id)?.addEventListener('change', () => { store(key, get(id).checked); alerts.cancel(); refresh(); });
   }
