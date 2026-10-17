@@ -1,4 +1,5 @@
-﻿import { containRect, captureSize } from './logic.js';
+﻿import { notifyPhone } from './phone-notifications.js';
+import { containRect, captureSize } from './logic.js';
 
 const $ = (id) => document.getElementById(id);
 const ui = Object.fromEntries(['camera-stage', 'camera', 'overlay', 'demo-scene', 'demo-tab', 'live-tab', 'source-badge', 'feed-label', 'feed-counter', 'feed-caption', 'stage-prompt', 'status-orb', 'status-title', 'status-detail', 'status-word', 'start-button', 'start-label', 'start-icon', 'test-alert', 'demo-controls', 'add-obstacle', 'move-obstacle', 'remove-obstacle', 'preferences', 'standard-preset', 'accessible-preset', 'sound-mode', 'speech-mode', 'vibration-mode', 'vibration-note', 'speech-note', 'settings-hint', 'activity-live', 'frame-count', 'frame-metric-label', 'latency', 'activity-log', 'how-dialog', 'toast'].map((id) => [id, $(id)]));
@@ -202,6 +203,7 @@ async function playSelectedAlertSound() {
 }
 
 function notify(message, modes = selectedModes()) {
+  void notifyPhone(message);
   let delivered = 0;
   if (modes.includes('sound') && state.audio?.state === 'running') {
     playSelectedAlertSound().catch(() => playTonePreset('ping'));

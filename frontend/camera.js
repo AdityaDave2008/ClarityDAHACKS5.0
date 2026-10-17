@@ -1,3 +1,5 @@
+import { notifyPhone } from './phone-notifications.js';
+
 // Camera/speech controller. Detection is supplied by a separate adapter.
 export class CameraFeature {
   constructor({ video, mediaDevices, secure = true, speech, Utterance, emit = () => {}, render = () => {},
@@ -191,6 +193,9 @@ export class CameraFeature {
     // Render without automatic speech so there is only one spoken obstacle message.
     this.render({ ...this.state, pending: Boolean(this.pending), speechSupported: this.speechSupported }, this.state.obstacle);
     this.emit('camera:obstacle', { simulated });
+    void notifyPhone(simulated
+      ? 'Demo alert: an object is in the camera zone. Check your surroundings.'
+      : 'An object may be close ahead. Check your walking path.');
     if (this.state.speechEnabled) this.speak('Object ahead.', this.repeatCount);
     this.obstacleTimer = this.schedule(() => { this.state.obstacle = ''; this.update(); }, 5000);
     return true;
