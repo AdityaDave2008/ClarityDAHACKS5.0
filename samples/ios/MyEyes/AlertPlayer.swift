@@ -31,7 +31,8 @@ final class AlertPlayer: NSObject, AVAudioPlayerDelegate, AVSpeechSynthesizerDel
     /// Root supplies every fresh result. Nil or unvalidated depth stops feedback immediately.
     func updateProximity(target: Detection?, modes: [AlertMode]) {
         let now = ProcessInfo.processInfo.systemUptime
-        guard let target, let depth = target.freshProximityDepth(at: now),
+        guard let target, target.proximityConfirmed == true,
+              let depth = target.freshProximityDepth(at: now),
               let expiry = target.depthExpiresAt else {
             stopProximity()
             return
