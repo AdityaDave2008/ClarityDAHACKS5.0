@@ -42,6 +42,8 @@ Every tier produces the same per-detection fields: `distanceM`, `band` (very clo
 
 ### Tier 3: geometry only (every phone, both clients, no model) — do this first, 2 to 4 h
 
+The sensor side of this tier (gravity-vector pitch, step gating, gyro ego-motion compensation, FOV calibration) is specified with code in [SENSOR_FUSION.md](SENSOR_FUSION.md).
+
 - Keep the ground-plane estimate in `frontend/sample/index.html` (`estimateDistance`, lines 274 to 282).
 - Add class-height priors: `Z = f_px * H_real / h_px`. Person 1.7 m, bicycle 1.0, car 1.45, chair 0.9, bench 0.45, suitcase 0.6, backpack 0.45. Use the prior when the box touches the image bottom (ground anchor unreliable); otherwise take the more conservative of the two when they agree within 2x.
 - Add time-to-contact: the backend already pairs same-label boxes across frames for confirmation. Compute `tau = dt / (h2/h1 - 1)`; if tau is under 2 s and the box is in the zone, escalate one band. Treat it as an escalation signal, not a distance.
