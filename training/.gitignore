@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+artifacts/
+coco/
+*.pth
+*.onnx
+*.log
+.venv/
+YOLOX/
