@@ -1,4 +1,4 @@
-const CACHE = 'myeyes-pwa-v7-depth';
+const CACHE = 'myeyes-pwa-v8-yolox-51661711';
 const ASSETS = [
   '/',
   '/index.html',
@@ -13,6 +13,13 @@ const ASSETS = [
   '/phone-notifications.js',
   '/backend-detector.js',
   '/local-detector.js',
+  '/candidate-model.js',
+  '/yolox.js',
+  '/tracking.js',
+  '/vendor/yolox-51661711/candidate.onnx',
+  '/vendor/yolox-51661711/ort.wasm.min.js',
+  '/vendor/yolox-51661711/ort-wasm-simd-threaded.mjs',
+  '/vendor/yolox-51661711/ort-wasm-simd-threaded.wasm',
   '/depth-controller.js',
   '/depth-ui.js',
   '/depth-sensors.js',
@@ -38,7 +45,7 @@ self.addEventListener('fetch', (event) => {
   if (!ASSETS.includes(url.pathname) && !isRuntime(url.pathname)) return;
   // Model files are immutable and large, so a cache hit is served without a network round trip.
   if (isRuntime(url.pathname)) {
-    event.respondWith(caches.match(event.request).then((hit) => hit || fetch(event.request).then((response) => {
+    event.respondWith(caches.open(CACHE).then(cache => cache.match(event.request)).then((hit) => hit || fetch(event.request).then((response) => {
       if (response.ok) { const copy = response.clone(); event.waitUntil(caches.open(CACHE).then((cache) => cache.put(event.request, copy))); }
       return response;
     })));
@@ -47,7 +54,7 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(fetch(event.request).then((response) => {
     if (response.ok) { const copy = response.clone(); event.waitUntil(caches.open(CACHE).then((cache) => cache.put(event.request, copy))); }
     return response;
-  }).catch(async () => (await caches.match(event.request)) || Response.error()));
+  }).catch(async () => (await caches.open(CACHE).then(cache => cache.match(event.request))) || Response.error()));
 });
 
 self.addEventListener('notificationclick', (event) => {

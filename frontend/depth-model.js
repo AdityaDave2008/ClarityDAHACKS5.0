@@ -57,6 +57,9 @@ function createLocalDepthModel({
       check(token);
       runtime = imported;
       runtime.env.allowLocalModels = false;
+      // The server only streams three allowlisted public assets, never frame data.
+      runtime.env.remoteHost = new URL('/depth-assets/', import.meta.url).href;
+      runtime.env.remotePathTemplate = '{model}/resolve/{revision}/';
       runtime.env.backends.onnx.wasm.numThreads = 1;
       runtime.env.backends.onnx.wasm.proxy = false;
       runtime.env.backends.onnx.wasm.wasmPaths = new URL('./vendor-depth/', import.meta.url).href;
