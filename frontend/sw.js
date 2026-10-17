@@ -1,4 +1,4 @@
-const CACHE = 'myeyes-pwa-v10-pip-depth-assets';
+const CACHE = 'myeyes-pwa-v12-orange-logo';
 const ASSETS = [
   '/',
   '/index.html',
@@ -23,10 +23,8 @@ const ASSETS = [
   '/gradient.js',
   '/manifest.webmanifest',
   '/demo-scene.svg',
-  '/icons/icon.svg',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png',
-  '/icons/apple-touch-icon.png',
+  '/icons/logo-orange.svg',
+  '/icons/eye_logo_smooth.gif',
 ];
 self.addEventListener('install', (event) => event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(ASSETS)).then(() => self.skipWaiting())));
 self.addEventListener('activate', (event) => event.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((key) => (key.startsWith('myeyes-sample-') || key.startsWith('myeyes-pwa-') || key.startsWith('clearpath-pwa-') || key.startsWith('stepsense-sample-')) && key !== CACHE).map((key) => caches.delete(key)))).then(() => self.clients.claim())));

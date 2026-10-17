@@ -6,8 +6,8 @@ export async function notifyPhone(message, platform = globalThis) {
   const title = 'Clarity: object nearby';
   const options = {
     body: message || 'An object may be in your path. Check your surroundings.',
-    icon: '/icons/icon-192.png',
-    badge: '/icons/icon-192.png',
+    icon: new URL('icons/logo-orange.svg', document.baseURI).href,
+    badge: new URL('icons/logo-orange.svg', document.baseURI).href,
     tag: `myeyes-obstacle-${Date.now()}`,
     renotify: true,
     vibrate: [220, 100, 220],
