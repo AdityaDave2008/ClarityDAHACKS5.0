@@ -34,6 +34,11 @@ This review copy is a snapshot. Later edits in the original checkout do not auto
 Use the **original repository root** for running the app. Stop any old server with Ctrl+C first.
 
 This computer has a temporary Node runtime in `.cache/camera-qa/`. Add it to this PowerShell terminal's PATH:
+Save or commit unfinished work on your own branch first. Do not commit `.cache`, `node_modules`, or `.env`. Pushing to GitHub shares source code; it does not host the AI server.
+
+## Run on this computer
+
+Use PowerShell in the repository root. Install Node.js 24+ or use this computer's temporary runtime, if it is still present:
 
 ```powershell
 $env:PATH = "$PWD\.cache\camera-qa\node-v24.22.0-win-x64;$env:PATH"
@@ -46,6 +51,13 @@ npm ci --prefix backend
 ```
 
 Then run both servers with the existing helper:
+Install backend dependencies once:
+
+```powershell
+npm.cmd ci --prefix backend
+```
+
+Previous installation attempts on this computer failed with `ECONNRESET`. A successful install is required for live AI detection. Then start both servers:
 
 ```powershell
 $env:SURFACE_MODEL = 'off'
@@ -67,6 +79,15 @@ winget install --id Cloudflare.cloudflared --exact
 ```
 
 Open a **new PowerShell terminal** after installing, then run:
+Open **http://127.0.0.1:5180/camera.html**. Wait for the backend model to be ready, choose **Live camera**, select **Accessibility** for spoken alerts, then **Start camera scan** and allow camera permission. The first model startup needs an Internet connection to download weights. Keep the terminal open; Ctrl+C stops the servers started by the helper.
+
+For frontend-only work, run `npm.cmd --prefix frontend start`. Walkthrough uses simulated detections without backend AI; Live camera requires the backend. Test alert checks the selected alert channels. No simulation or automated route check verifies real model accuracy.
+
+## Open on a phone or another laptop
+
+Phone camera access requires **trusted HTTPS**. `localhost` on a phone refers to the phone itself. Keep the servers running on this computer and expose frontend port **5180** through your team's HTTPS preview or tunnel. The preview already proxies requests to the backend on port 3001.
+
+If Cloudflare's tunnel client is installed, run in a second PowerShell terminal:
 
 ```powershell
 cloudflared tunnel --url http://127.0.0.1:5180
@@ -77,3 +98,12 @@ Open the printed **https://...trycloudflare.com** URL in iPhone Safari or Androi
 The computer is hosting the website and AI backend. Cloudflare forwards the HTTPS traffic, including uploaded camera frames, to it. A basic Quick Tunnel URL is publicly reachable; share it only with the intended testers. The URL changes when the tunnel restarts. Keep the computer awake, connected to the Internet, and both the app and tunnel terminals running. Ctrl+C in the tunnel terminal ends access through that link. No router port forwarding is needed.
 
 Pushing code to GitHub shares the source; it does not start these servers or create this HTTPS link. Real-device camera/speech/screen-reader testing and real model inference still need verification after the backend dependencies install. See [the camera guide](../frontend/camera/README.md) for the test checklist.
+Open the printed `https://...trycloudflare.com/camera.html` address in iPhone Safari or Android Chrome. Another laptop can use the same address. Keep this computer awake and both terminals running. The temporary tunnel URL is publicly reachable, carries uploaded frames to this computer, and changes when restarted.
+
+## Device checklist - still requires real-device testing
+
+- iPhone Safari with VoiceOver: navigate controls by label, select Live camera and Accessibility, test speech, allow/deny permission, start/stop, and leave/return to the page. Verify no stale alerts after Stop and readable controls at enlarged text sizes.
+- Android Chrome with TalkBack: repeat permission, speech, start/stop, background/return, and enlarged-text checks. Check vibration only on devices that support it.
+- Test Walkthrough separately as a simulation. For real AI, wait for model readiness and use a supported object; verify network failures are visible. Do not infer distance or a safe path from detection results.
+
+Run `npm.cmd run check` at the root and `npm.cmd --prefix frontend test` for automated validation. These checks do not verify a physical camera, screen reader, mobile speech playback, or live AI inference. See [PWA and device checks](PWA_INTEGRATION.md) and the [backend guide](../backend/README.md).
