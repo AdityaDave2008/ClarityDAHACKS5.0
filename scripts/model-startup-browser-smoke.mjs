@@ -38,8 +38,23 @@ async function setup() {
   return { context, page };
 }
 
-async function screenshot(page, name) {
-  if (screenshotDirectory) await page.screenshot({ path: resolve(screenshotDirectory, name), fullPage: true });
+async function assertStartupScreen(page, phase) {
+  for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport);
+    const selectors = ['#camera-startup', '#camera-startup-status', '#camera-startup-cancel'];
+    if (phase === 'error') selectors.push('#camera-startup-retry');
+    for (const selector of selectors) {
+      const element = page.locator(selector);
+      assert.equal(await element.isVisible(), true, `${selector} must be visible`);
+      const box = await element.boundingBox();
+      assert.ok(box && box.x >= 0 && box.y >= 0 && box.width > 0 && box.height > 0 &&
+        box.x + box.width <= viewport.width && box.y + box.height <= viewport.height,
+      `${selector} must fit inside ${viewport.width}x${viewport.height}, got ${JSON.stringify(box)}`);
+    }
+    assert.equal(await page.evaluate(() => document.querySelector('#camera-video').srcObject), null,
+      'The startup screen must never hide active capture');
+    if (screenshotDirectory) await page.screenshot({ path: resolve(screenshotDirectory, `web-${phase}-${viewport.width}.png`) });
+  }
 }
 
 async function openScanner(page, url) {
@@ -77,8 +92,8 @@ try {
   }
   assert.equal(await page.evaluate(() => cameraRequests.length), 0);
   assert.equal(await page.locator('#camera-stop').textContent(), 'Cancel');
-  await screenshot(page, 'web-loading.png');
-  await page.locator('#camera-stop').click();
+  await assertStartupScreen(page, 'loading');
+  await page.locator('#camera-startup-cancel').click();
   releaseHeldRequest();
   // Observe actual production readiness, never substitute a fake model or marker.
   await page.evaluate(() => {
@@ -96,6 +111,7 @@ try {
   await page.waitForFunction(() => document.querySelector('#camera-status').textContent === 'Camera active.', null, { timeout });
   await page.waitForFunction(() => !/^Start scanning|^No fresh/.test(document.querySelector('#camera-objects').textContent), null, { timeout });
   assert.equal(await page.evaluate(() => cameraRequests.length), 1);
+  assert.equal(await page.locator('#camera-startup').isVisible(), false);
   console.log('PASS: restart reuses actual loaded model and produces fresh inference results');
   await page.locator('#camera-stop').click();
   await context.close();
@@ -108,9 +124,9 @@ try {
   assert.equal(await failed.page.evaluate(() => cameraRequests.length), 0);
   assert.equal(await failed.page.locator('#camera-stop').textContent(), 'Cancel');
   assert.equal(await failed.page.locator('#camera-stop').isEnabled(), true);
-  await screenshot(failed.page, 'web-error.png');
+  await assertStartupScreen(failed.page, 'error');
   await failed.page.unroute('**/vendor/model/model.json');
-  await failed.page.locator('#camera-start').click();
+  await failed.page.locator('#camera-startup-retry').click();
   await failed.page.waitForFunction(() => document.querySelector('#camera-status').textContent === 'Camera active.', null, { timeout });
   assert.equal(await failed.page.evaluate(() => cameraRequests.length), 1);
   console.log('PASS: real model network failure keeps camera off with Retry/Cancel; explicit Retry loads actual model before camera');

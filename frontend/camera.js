@@ -482,6 +482,13 @@ export function mountCamera(root, platform = window, { onState = () => {} } = {}
     emit: (name, detail) => platform.dispatchEvent(new CustomEvent(name, { detail })),
     render: (state, message) => {
       renderPermission(state);
+      const startup = find('startup');
+      if (startup) {
+        startup.hidden = !(state.phase === 'loading' || state.startupError);
+        find('startup-title').textContent = state.startupError ? 'Model unavailable' : 'Loading detection model';
+        find('startup-status').textContent = state.camera;
+        find('startup-retry').hidden = !state.startupError;
+      }
       find('status').textContent = state.camera;
       find('status').setAttribute('aria-busy', String(state.phase === 'loading'));
       const performanceNode = find('performance');
@@ -527,6 +534,8 @@ export function mountCamera(root, platform = window, { onState = () => {} } = {}
       }
     },
   });
+  find('startup-retry')?.addEventListener('click', () => void feature.start());
+  find('startup-cancel')?.addEventListener('click', () => feature.stop());
   find('start').addEventListener('click', () => void feature.start());
   find('stop').addEventListener('click', () => feature.stop());
   find('pip')?.addEventListener('click', () => {

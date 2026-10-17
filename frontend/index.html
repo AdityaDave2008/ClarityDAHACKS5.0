@@ -110,6 +110,14 @@
       <section id="camera" class="screen active blindness-screen" aria-label="Camera scanner">
         <div class="camera-feature" id="camera-feature">
           <p id="permission-help">Point the camera ahead. Alerts may miss hazards.</p>
+          <section id="camera-startup" class="camera-startup-panel" aria-label="Detection model startup" hidden>
+            <h2 id="camera-startup-title">Loading detection model</h2>
+            <p id="camera-startup-status" role="status" aria-live="polite" aria-atomic="true"></p>
+            <div class="camera-startup-actions">
+              <button type="button" id="camera-startup-retry" hidden>Retry</button>
+              <button type="button" id="camera-startup-cancel">Cancel</button>
+            </div>
+          </section>
           <div class="camera-preview">
           <video id="camera-video" autoplay muted playsinline aria-label="Live camera preview. Controls work without viewing the preview."></video>
             <canvas id="camera-overlay" aria-hidden="true"></canvas>

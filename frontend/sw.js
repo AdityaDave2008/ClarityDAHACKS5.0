@@ -1,4 +1,4 @@
-const CACHE = 'myeyes-pwa-v12-model-first';
+const CACHE = 'myeyes-pwa-v13-model-first-screen';
 const ASSETS = [
   '/',
   '/index.html',

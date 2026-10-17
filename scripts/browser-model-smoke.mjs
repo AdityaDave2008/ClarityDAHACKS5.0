@@ -31,7 +31,7 @@ const cacheName = productionSources['sw.js'].match(/^const CACHE = '([^']+)';/m)
 assert.ok(cacheName, 'Production service-worker cache declaration must be identifiable');
 const confidenceThreshold = Number(productionSources['local-detector.js'].match(/function assessDetections\(predictions, width, height, threshold = ([\d.]+)\)/)?.[1]);
 assert.equal(confidenceThreshold, 0.45, 'Team-selected COCO threshold changed; review acceptance contract');
-const oldCaches = ['myeyes-pwa-v9-depth-assets', 'myeyes-pwa-v9-pip-yolox-51661711', 'myeyes-pwa-v10-pip-depth-assets'].filter(name => name !== cacheName);
+const oldCaches = ['myeyes-pwa-v12-model-first', 'myeyes-pwa-v11-pip-object-alerts', 'myeyes-pwa-v9-depth-assets', 'myeyes-pwa-v9-pip-yolox-51661711', 'myeyes-pwa-v10-pip-depth-assets'].filter(name => name !== cacheName);
 const target = process.env.MODEL_APP_URL ? new URL(process.env.MODEL_APP_URL) : null;
 if (target) assert.ok(['http:', 'https:'].includes(target.protocol) && !target.username && !target.password,
   'MODEL_APP_URL must be an HTTP(S) app URL without embedded credentials');

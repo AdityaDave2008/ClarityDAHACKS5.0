@@ -642,3 +642,24 @@ test('cancel then restart during shared preparation only allows the newest run t
   assert.equal(loads, 1); assert.equal(f.calls.length, 2);
   f.feature.stop();
 });
+
+test('dedicated startup screen exposes Cancel/Retry and disappears before camera capture', async () => {
+  const dom = fakeDOM(); const ready = deferred();
+  dom.platform.navigator.mediaDevices = { async getUserMedia() { throw new Error('camera must stay off'); } };
+  const feature = mountCamera(dom.root, dom.platform);
+  feature.registerDetector({ prepare: () => ready.promise, async start() {} });
+  const panel = dom.root.querySelector('#camera-startup');
+  try {
+    assert.equal(panel.hidden, true);
+    const starting = feature.start();
+    assert.equal(panel.hidden, false);
+    assert.match(dom.nodes.get('#camera-startup-status').textContent, /Loading detection model/);
+    assert.equal(dom.nodes.get('#camera-startup-retry').hidden, true);
+    ready.reject(new Error('offline')); await starting;
+    assert.equal(panel.hidden, false);
+    assert.equal(dom.nodes.get('#camera-startup-retry').hidden, false);
+    dom.nodes.get('#camera-startup-cancel').listeners.click();
+    assert.equal(panel.hidden, true);
+    assert.equal(feature.state.phase, 'off');
+  } finally { feature.destroy(); }
+});
