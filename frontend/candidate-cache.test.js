@@ -20,6 +20,17 @@ test('activation removes old app caches but leaves unrelated caches alone',async
  const w=worker();w.cacheFor('myeyes-pwa-v7-depth');w.cacheFor('unrelated-app');await w.dispatch('install');await w.dispatch('activate');
  assert.ok(!w.stores.has('myeyes-pwa-v7-depth'));assert.ok(w.stores.has('unrelated-app'));
 });
+test('PiP module is available offline and superseded v8 caches are removed', async () => {
+ const w = worker();
+ w.cacheFor('myeyes-pwa-v8-yolox-51661711');
+ w.cacheFor('myeyes-pwa-v8-depth-assets');
+ await w.dispatch('install');
+ await w.dispatch('activate');
+ assert.ok(!w.stores.has('myeyes-pwa-v8-yolox-51661711'));
+ assert.ok(!w.stores.has('myeyes-pwa-v8-depth-assets'));
+ const assets = [...w.stores.values()][0];
+ assert.ok(assets.has('/picture-in-picture.js'));
+});
 test('runtime requests use current cache only, not stale entries in other caches',async()=>{
  const w=worker();const url='https://example.test/vendor/yolox-51661711/candidate.onnx';
  await w.cacheFor('unrelated-app').put({url},new Response('stale'));await w.dispatch('install');

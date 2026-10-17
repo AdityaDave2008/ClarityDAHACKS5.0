@@ -18,7 +18,7 @@ try {
  assert.ok((await page.evaluate(()=>caches.keys())).includes('myeyes-pwa-v7-depth'));
  await page.goto(url,{waitUntil:'domcontentloaded'});
  await page.evaluate(async()=>{await navigator.serviceWorker.register('/sw.js');});
- await page.waitForFunction(async()=>{const keys=await caches.keys();return navigator.serviceWorker.controller&&keys.includes('myeyes-pwa-v8-yolox-51661711')&&!keys.includes('myeyes-pwa-v7-depth');},null,{timeout:90000});
+ await page.waitForFunction(async()=>{const keys=await caches.keys();return navigator.serviceWorker.controller&&keys.includes('myeyes-pwa-v9-pip-yolox-51661711')&&!keys.includes('myeyes-pwa-v7-depth');},null,{timeout:90000});
  observations.push({check:'previous-version cache removal on real service-worker activation',pass:true});
  console.log('JCODE_PROGRESS '+JSON.stringify({message:'Cache upgrade passed'}));
  async function infer() {
@@ -37,7 +37,8 @@ try {
  for(const n of Object.values(cat.bbox))assert.ok(n>=0&&n<=1);
  observations.push({check:'real ONNX positive and policy/geometry',pass:true,...first});
  const expected=['candidate.onnx','ort.wasm.min.js','ort-wasm-simd-threaded.mjs','ort-wasm-simd-threaded.wasm'];
- const cached=await page.evaluate(async()=>{const c=await caches.open('myeyes-pwa-v8-yolox-51661711');return (await c.keys()).map(r=>new URL(r.url).pathname);});
+ const cached=await page.evaluate(async()=>{const c=await caches.open('myeyes-pwa-v9-pip-yolox-51661711');return (await c.keys()).map(r=>new URL(r.url).pathname);});
+ assert.ok(cached.includes('/picture-in-picture.js'));
  for(const name of expected)assert.ok(cached.includes('/vendor/yolox-51661711/'+name));
  if(await page.locator('#firstRunDialog').evaluate(el=>el.open)) {await page.locator('#setupNext').click();await page.locator('#setupNext').click();await page.locator('#setupFinish').click();}
  await page.locator('#camera-start').click();

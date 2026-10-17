@@ -48,6 +48,22 @@ No provider/model credentials belong in browser assets. The preview does not log
 
 ## Physical phones and installation
 
+### Live camera picture in picture
+
+On the main Camera tab, start scanning and select **Picture in picture**. When the browser supports this live camera source, the existing video opens in a native floating window. It shows only the raw camera preview, not detection boxes, depth maps, or application controls.
+
+Switching to another browser tab while this window is open retains the preview where the browser permits, but **pauses inference, uploads, and alerts** and clears old detections. Returning to the visible page starts a fresh detector using the same camera stream. Closing PiP while hidden releases the camera. Stop, navigation to another app screen, and leaving the page release both camera and PiP. Browser/OS suspension can still interrupt the live preview, so this is not background navigation or a safety feature.
+
+Support is checked for the current browser and video source. Unsupported browsers show a disabled control and instructions to keep the page open. In particular, ordinary video PiP support on iPhone/iPad does not guarantee PiP for a live camera stream. Installing the PWA does not grant background camera privileges. A rejected PiP request leaves the inline preview and scanning controls usable.
+
+Automated native acceptance, using an isolated Chromium profile, synthetic camera, and deterministic inference adapter:
+
+```sh
+PLAYWRIGHT_MODULE=/absolute/path/to/playwright/index.mjs node scripts/pip-browser-smoke.mjs
+```
+
+Run from the repository root. `PIP_CHROME_PATH` optionally selects an installed Chromium executable. The default is headful, so it exercises the actual native window. The test covers entry, hidden preview/inference pause, foreground resume, hidden close, Stop, and unavailable-API fallback. It does not validate real-model inference or physical iOS support. Before claiming mobile support, test live-source entry/rejection, tab/app switching, interruption, return, and Stop on actual Safari/iOS and Android devices.
+
 Camera permission requires a secure context. Desktop loopback HTTP is a development exception; opening `http://<laptop-LAN-IP>:5180` on a phone does not provide that exception. A phone's `127.0.0.1` also refers to the phone itself. Use a properly trusted HTTPS deployment or approved HTTPS development endpoint. Setting `HOST=0.0.0.0` makes the server reachable on a network but does not add TLS or make camera capture available by itself.
 
 For deployment, expose the frontend and its same-origin API proxy through HTTPS, or configure the frontend's HTTPS API URL and the backend's exact CORS allowlist. An HTTPS page cannot rely on an HTTP remote backend. Adding the site to the home screen does not grant background camera access. Manifest/service-worker files support only the functionality actually implemented; a remote detector still requires a network connection.

@@ -1,5 +1,4 @@
-const CACHE = 'myeyes-pwa-v8-depth-assets';
-const CACHE = 'myeyes-pwa-v8-yolox-51661711';
+const CACHE = 'myeyes-pwa-v9-pip-yolox-51661711';
 const ASSETS = [
   '/',
   '/index.html',
@@ -11,6 +10,7 @@ const ASSETS = [
   '/app.js',
   '/logic.js',
   '/camera.js',
+  '/picture-in-picture.js',
   '/phone-notifications.js',
   '/backend-detector.js',
   '/local-detector.js',
