@@ -30,8 +30,8 @@ for (const project of projects) {
   child.on('exit', (code, signal) => { if (!shuttingDown) { console.error(`${project} stopped${signal ? ` (${signal})` : ''}.`); stop(code || 1); } });
 }
 console.log('Starting the combined Clarity website at http://localhost:5180');
-console.log('Open Camera, then Start. AI detection needs the backend model to finish loading. The original walkthrough is at /camera.html.');
-console.log('For AI detection, open /camera.html, choose Live camera, then Start camera. Wait for the backend model to finish loading. Walkthrough mode uses simulated detections.');
+console.log('Open Camera, then Start. The default detector runs the experimental YOLOX model locally in your browser.');
+console.log('For optional Node backend detection, open /?detector=backend, or /camera.html and choose Live camera. Wait for backend readiness. Walkthrough mode uses simulated detections.');
 if (lan) {
   if (reuseBackend) console.log('An existing API is being reused. Native phones can reach it only if it was started with HOST=0.0.0.0.');
   for (const entries of Object.values(networkInterfaces())) for (const address of entries || []) {
