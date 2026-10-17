@@ -18,6 +18,13 @@ export function detectionRect(fit, box) {
     width: box.width * fit.width, height: box.height * fit.height };
 }
 
+// Visual size is only a rough proximity cue, not a distance measurement.
+function appearsClose(box) {
+  if (!box || ![box.y, box.width, box.height].every(Number.isFinite)) return false;
+  const bottom = box.y + box.height;
+  return box.height >= 0.32 || box.width * box.height >= 0.12 || bottom >= 0.82;
+}
+
 export function drawDetectionOverlay(canvas, video, detections, pixelRatio = 1, source = null) {
   if (!canvas?.getContext) return;
   const bounds = canvas.getBoundingClientRect();
@@ -37,20 +44,22 @@ export function drawDetectionOverlay(canvas, video, detections, pixelRatio = 1, 
   context.clip();
   for (const detection of detections) {
     const box = detectionRect(fit, detection.bbox);
-    context.strokeStyle = '#ffffff';
+    const near = appearsClose(detection.bbox);
+    const highlight = near ? '#ffd43b' : '#ffffff';
+    context.strokeStyle = highlight;
     context.lineWidth = 4;
     context.strokeRect(box.x, box.y, box.width, box.height);
-    context.strokeStyle = '#101c25';
+    context.strokeStyle = near ? '#ffd43b' : '#101c25';
     context.lineWidth = 2;
     context.strokeRect(box.x, box.y, box.width, box.height);
-    const label = `${detection.label} ${Math.round(detection.confidence * 100)}%`;
+    const label = `${near ? 'NEAR - ' : ''}${detection.label} ${Math.round(detection.confidence * 100)}%`;
     context.font = '600 13px system-ui, sans-serif';
     const labelWidth = Math.min(fit.width, context.measureText(label).width + 12);
     const x = Math.max(fit.x, Math.min(box.x, fit.x + fit.width - labelWidth));
     const y = Math.max(fit.y, Math.min(box.y - 24, fit.y + fit.height - 24));
-    context.fillStyle = '#101c25';
+    context.fillStyle = near ? '#ffd43b' : '#101c25';
     context.fillRect(x, y, labelWidth, 24);
-    context.fillStyle = '#ffffff';
+    context.fillStyle = near ? '#101820' : '#ffffff';
     context.fillText(label, x + 6, y + 17, Math.max(1, labelWidth - 12));
   }
   context.restore();

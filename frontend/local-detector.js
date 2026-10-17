@@ -15,8 +15,19 @@
 import { captureSize } from './logic.js';
 
 const SUPPORTED_LABELS = Object.freeze([
-  'person', 'bicycle', 'car', 'motorcycle', 'bus', 'truck', 'bench', 'cat',
-  'dog', 'backpack', 'handbag', 'suitcase', 'bottle', 'cup', 'chair', 'potted plant',
+  // Keep the full COCO-SSD label set. A narrow whitelist silently discarded many
+  // valid predictions (for example umbrellas, traffic signs, and small objects).
+  'person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck', 'boat',
+  'traffic light', 'fire hydrant', 'stop sign', 'parking meter', 'bench', 'bird', 'cat',
+  'dog', 'horse', 'sheep', 'cow', 'elephant', 'bear', 'zebra', 'giraffe', 'backpack',
+  'umbrella', 'handbag', 'tie', 'suitcase', 'frisbee', 'skis', 'snowboard', 'sports ball',
+  'kite', 'baseball bat', 'baseball glove', 'skateboard', 'surfboard', 'tennis racket',
+  'bottle', 'wine glass', 'cup', 'fork', 'knife', 'spoon', 'bowl', 'banana', 'apple',
+  'sandwich', 'orange', 'broccoli', 'carrot', 'hot dog', 'pizza', 'donut', 'cake', 'chair',
+  'couch', 'potted plant', 'bed', 'dining table', 'toilet', 'tv', 'laptop', 'mouse',
+  'remote', 'keyboard', 'cell phone', 'microwave', 'oven', 'toaster', 'sink',
+  'refrigerator', 'book', 'clock', 'vase', 'scissors', 'teddy bear', 'hair drier',
+  'toothbrush',
 ]);
 const supported = new Set(SUPPORTED_LABELS);
 
@@ -41,7 +52,7 @@ export function pointInZone(point, polygon = ZONE) {
 }
 
 /** Converts model pixel boxes into the normalized boxes the overlay draws. */
-export function assessDetections(predictions, width, height, threshold = 0.6) {
+export function assessDetections(predictions, width, height, threshold = 0.45) {
   if (!(width > 0 && height > 0) || !Number.isFinite(width + height)) return [];
   return predictions.flatMap((prediction) => {
     const { class: label, score: confidence, bbox } = prediction;
@@ -152,7 +163,7 @@ export function createLocalDetector({
   now = () => performance.now(),
   schedule = setTimeout,
   unschedule = clearTimeout,
-  preferences = { confidenceThreshold: 0.6, cooldownMs: 3000 },
+  preferences = { confidenceThreshold: 0.45, cooldownMs: 3000 },
   minIntervalMs = 90,
   maxResultAgeMs = 2500,
 } = {}) {
