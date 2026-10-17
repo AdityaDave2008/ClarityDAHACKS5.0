@@ -19,10 +19,75 @@ enum AlertMode: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+/// Ordered absolute-meter thresholds. Invalid configurations fall back as a unit.
+struct ProximitySettings: Codable, Equatable {
+    var nearMeters: Double
+    var intermediateMeters: Double
+    var farMeters: Double
+
+    init(nearMeters: Double = 1, intermediateMeters: Double = 2, farMeters: Double = 3) {
+        if Self.isValid(nearMeters, intermediateMeters, farMeters) {
+            self.nearMeters = nearMeters
+            self.intermediateMeters = intermediateMeters
+            self.farMeters = farMeters
+        } else {
+            self.nearMeters = 1
+            self.intermediateMeters = 2
+            self.farMeters = 3
+        }
+    }
+
+    var validated: ProximitySettings {
+        Self(nearMeters: nearMeters, intermediateMeters: intermediateMeters, farMeters: farMeters)
+    }
+
+    private static func isValid(_ near: Double, _ intermediate: Double, _ far: Double) -> Bool {
+        [near, intermediate, far].allSatisfy { $0.isFinite }
+            && near >= 0.2 && near < intermediate && intermediate < far && far <= 5
+    }
+
+    private enum CodingKeys: String, CodingKey { case nearMeters, intermediateMeters, farMeters }
+    init(from decoder: Decoder) throws {
+        guard let values = try? decoder.container(keyedBy: CodingKeys.self),
+              let near = try? values.decode(Double.self, forKey: .nearMeters),
+              let intermediate = try? values.decode(Double.self, forKey: .intermediateMeters),
+              let far = try? values.decode(Double.self, forKey: .farMeters) else {
+            self.init()
+            return
+        }
+        self.init(nearMeters: near, intermediateMeters: intermediate, farMeters: far)
+    }
+}
+
+enum ProximityBand: String, Codable {
+    case unknown, near, intermediate, far, outOfRange
+
+    var title: String {
+        switch self {
+        case .unknown: return "Unknown"
+        case .near: return "Near"
+        case .intermediate: return "Intermediate"
+        case .far: return "Far"
+        case .outOfRange: return "Out of range"
+        }
+    }
+
+    var pulseInterval: TimeInterval? {
+        switch self {
+        case .near: return 0.5
+        case .intermediate: return 1
+        case .far: return 2
+        case .unknown, .outOfRange: return nil
+        }
+    }
+}
+
 struct ScanPreferences: Codable, Equatable {
     var alertModes: [AlertMode] = [.sound]
     var confidenceThreshold: Double = 0.7874982953071594
     var cooldownMs: Int = 3000
+    var proximitySettings: ProximitySettings? = nil
+    var effectiveProximitySettings: ProximitySettings { (proximitySettings ?? ProximitySettings()).validated }
     // Missing storage enables automatic hardware depth; explicit saved choices are preserved.
     private var lidarEnabled: Bool? = nil
     var isLidarEnabled: Bool {
@@ -68,6 +133,28 @@ struct Detection: Decodable, Equatable {
     var depthMeters: Double? = nil
     var depthRequested: Bool? = nil
     var depthExpiresAt: TimeInterval? = nil
+    // Local policy output only, never accepted from detector JSON.
+    var proximityBand: ProximityBand? = nil
+    var proximityTrackID: Int? = nil
+    private enum CodingKeys: String, CodingKey {
+        case label, confidence, bbox, anchor, inZone, depthMeters, depthRequested, depthExpiresAt
+    }
+
+    /// Expiry is capture uptime + 0.75s. Reject future captures as well as expired ones.
+    var proximityMaximumAge: TimeInterval { 0.75 }
+    func freshProximityDepth(at now: TimeInterval) -> Double? {
+        guard depthRequested == true,
+              let depthMeters, depthMeters.isFinite, (0.2...5).contains(depthMeters),
+              let depthExpiresAt, depthExpiresAt.isFinite, now.isFinite,
+              now < depthExpiresAt, depthExpiresAt - now <= proximityMaximumAge else { return nil }
+        return depthMeters
+    }
+
+    func freshProximityBand(at now: TimeInterval) -> ProximityBand {
+        guard freshProximityDepth(at: now) != nil else { return .unknown }
+        return proximityBand ?? .unknown
+    }
+
     var depthLabel: String? { depthLabel(at: ProcessInfo.processInfo.systemUptime) }
     func depthLabel(at now: TimeInterval) -> String? {
         guard depthRequested == true else { return nil }
