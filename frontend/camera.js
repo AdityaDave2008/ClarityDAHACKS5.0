@@ -9,7 +9,7 @@ export class CameraFeature {
     Object.assign(this, { video, mediaDevices, secure, speech, Utterance, emit, render, now, schedule, unschedule, development, isVisible });
     this.state = { phase: 'off', camera: 'Camera off. Tap Start when ready.', detection: 'Detection not connected.',
       distance: 'Not available', detections: [], result: null, obstacle: '', speechEnabled: false, announcements: 'screen-reader',
-      speechStatus: 'Spoken alerts off.' };
+      speechStatus: 'Spoken alerts off.', performance: 'No measurements yet.' };
     this.generation = 0;
     this.pending = null;
     this.stream = null;
@@ -18,6 +18,8 @@ export class CameraFeature {
     this.cooldownMs = 3000;
     this.repeatCount = 1;
     this.lastObstacleAt = -Infinity;
+    this.stallCheckMs = 1000;
+    this.stallLimitMs = 4000;
     this.speechSupported = Boolean(speech && Utterance);
     this.voices = [];
     this.refreshVoices = () => {
@@ -77,6 +79,7 @@ export class CameraFeature {
       this.state.phase = 'active';
       this.state.camera = 'Camera active.';
       this.update('Camera active.');
+      this.watchForStall(run);
       this.emit('camera:started', { video: this.video, runId: run });
       // A listener may stop the camera synchronously.
       if (run === this.generation) void this.startDetection(run);
@@ -101,6 +104,8 @@ export class CameraFeature {
   stop(message = 'Camera off. Tap Start to restart.') {
     const runId = this.generation;
     this.generation++;
+    this.unschedule(this.stallTimer);
+    this.stallTimer = null;
     this.stopDetection();
     this.stream?.getTracks().forEach(track => track.stop());
     this.stream = null;
@@ -114,6 +119,36 @@ export class CameraFeature {
     this.cancelSpeech();
     this.update(this.state.camera);
     this.emit('camera:stopped', { video: this.video, runId, reason: message });
+  }
+
+  // The preview can freeze after prolonged use or an OS interruption while the
+  // track still reports live. Detect a frozen preview and attempt one recovery.
+  watchForStall(run) {
+    this.unschedule(this.stallTimer);
+    this.lastFrameTime = Number(this.video?.currentTime) || 0;
+    this.lastFrameAt = this.now();
+    this.recoveryAttempts = 0;
+    const check = () => {
+      if (run !== this.generation || this.state.phase !== 'active') return;
+      const currentTime = Number(this.video?.currentTime) || 0;
+      if (currentTime !== this.lastFrameTime) {
+        this.lastFrameTime = currentTime;
+        this.lastFrameAt = this.now();
+        this.recoveryAttempts = 0;
+      } else if (this.now() - this.lastFrameAt >= this.stallLimitMs) {
+        this.lastFrameAt = this.now();
+        this.recoveryAttempts += 1;
+        if (this.recoveryAttempts > 2) {
+          this.stop('Camera preview froze and could not recover. Tap Start to restart the camera.');
+          return;
+        }
+        this.state.camera = `Camera preview stalled. Recovering (attempt ${this.recoveryAttempts} of 2).`;
+        this.update(this.state.camera);
+        try { void Promise.resolve(this.video.play?.()).catch(() => {}); } catch { /* Restart remains available. */ }
+      }
+      this.stallTimer = this.schedule(check, this.stallCheckMs);
+    };
+    this.stallTimer = this.schedule(check, this.stallCheckMs);
   }
 
   registerDetector(detector) {
@@ -137,6 +172,7 @@ export class CameraFeature {
           if (run === this.generation && !controller.signal.aborted && this.state.phase === 'active' && this.isVisible()) this.acceptResult(result);
         },
         onDistance: meters => { if (run === this.generation) this.distance(meters); },
+        onMetrics: metrics => { if (run === this.generation && !controller.signal.aborted) this.performance(metrics); },
         onStatus: message => {
           if (run === this.generation && this.detectionRunning && !controller.signal.aborted) {
             const changed = this.state.detection !== message;
@@ -205,6 +241,7 @@ export class CameraFeature {
     this.detectionController?.abort();
     this.detectionController = null;
     this.state.detection = this.detector ? 'Detection stopped.' : 'Detection not connected.';
+    this.state.performance = 'No measurements yet.';
     this.unschedule(this.distanceTimer);
     this.state.distance = 'Not available';
     this.unschedule(this.obstacleTimer);
@@ -212,6 +249,13 @@ export class CameraFeature {
     this.lastObstacleAt = -Infinity;
     this.cancelSpeech();
     this.emit('camera:detection-stopped', {});
+  }
+
+  performance(metrics) {
+    const { lastMs, averageMs, captureMaxSide } = metrics || {};
+    if (![lastMs, averageMs, captureMaxSide].every(value => Number.isFinite(value) && value >= 0)) return;
+    this.state.performance = `Capture to result: ${Math.round(lastMs)} ms (recent average ${Math.round(averageMs)} ms) at ${Math.round(captureMaxSide)} px capture.`;
+    this.update();
   }
 
   distance(meters) {
@@ -364,6 +408,8 @@ export function mountCamera(root, platform = window, { onState = () => {} } = {}
     render: (state, message) => {
       renderPermission(state);
       find('status').textContent = state.camera;
+      const performanceNode = find('performance');
+      if (performanceNode) performanceNode.textContent = state.performance;
       root.querySelector('#detection-status').textContent = state.detection;
       const distance = find('distance');
       if (distance) distance.textContent = state.distance;

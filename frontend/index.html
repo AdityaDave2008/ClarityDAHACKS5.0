@@ -70,7 +70,7 @@
 
       <header>
         <div class="brand">
-          <span class="logo">C</span>
+          <span class="logo">CP</span>
           Clarity
         </div>
       </header>
@@ -109,8 +109,12 @@
       <!-- Home: camera scanner -->
       <section id="camera" class="screen active blindness-screen" aria-label="Camera scanner">
         <div class="camera-feature" id="camera-feature">
+          <p class="candidate-notice" role="note"><strong>Experimental YOLOX candidate · V2 preview.</strong> Browser-local inference, not a safety or navigation aid. Empty results do not mean a clear path.</p>
           <p id="permission-help">Point the camera ahead. Alerts may miss hazards.</p>
+          <div class="camera-preview">
           <video id="camera-video" autoplay muted playsinline aria-label="Live camera preview. Controls work without viewing the preview."></video>
+            <canvas id="camera-overlay" aria-hidden="true"></canvas>
+          </div>
           <div class="camera-actions" role="group" aria-label="Camera controls">
             <button type="button" id="camera-start" aria-describedby="permission-help">Start scanning</button>
             <button type="button" id="camera-stop" disabled>Stop scanning</button>
@@ -119,6 +123,57 @@
             <p id="camera-status" role="status" aria-live="polite">Camera off. Tap Start when ready.</p>
             <p class="detection-status-line"><span id="detection-status-light" class="dot needs-permission" aria-hidden="true"></span><span id="detection-status">Detection stopped.</span></p>
           </section>
+          <section class="camera-results" aria-label="Detected objects">
+            <p id="camera-objects" aria-live="polite">Start scanning to see supported objects.</p>
+            <p class="camera-result-note">Browser camera does not measure distance. Alerts may miss hazards.</p>
+          </section>
+          <details class="depth-panel">
+            <summary>Experimental depth</summary>
+            <p>No LiDAR in this browser. Calibrated camera estimates are experimental, not measured clearance. Accuracy is unverified. They never change alerts.</p>
+            <label class="depth-check"><input type="checkbox" id="depth-enable"> Enable experimental depth (off by default)</label>
+            <p id="depth-status" role="status">Depth unavailable. Experimental depth off.</p>
+            <div id="depth-controls" hidden>
+              <p>Use a confirmed rear camera in upright portrait orientation. Keep its lens at the measured height above flat, level ground. No camera frames leave this device.</p>
+              <button type="button" id="depth-motion">Enable motion orientation</button>
+              <p id="depth-motion-status">No fresh motion sample. Permission alone does not establish orientation.</p>
+              <p id="depth-calibration-status" role="status">Start scanning, enable motion, then measure a projection reference.</p>
+              <canvas id="depth-preview" width="256" height="384" aria-label="Full uncropped depth frame. Tap a ground-contact point, or use the position fields. When frozen, select reference endpoints."></canvas>
+              <fieldset>
+                <legend>1. Measure camera projection</legend>
+                <p>Hold the camera level. Place a measured vertical reference centered in the full image, perpendicular to the optical axis. Measure its axial distance from the camera lens (not a slanted tape distance). Freeze the image, then mark its top and bottom. Do not change lens, zoom, resolution or height afterward.</p>
+                <label>Camera lens height above ground (m)<input id="depth-height" type="number" min="0.2" max="3" step="0.01" inputmode="decimal" required></label>
+                <label>Reference height (m)<input id="depth-reference-height" type="number" min="0.05" step="0.01" inputmode="decimal" required></label>
+                <label>Reference axial distance (m)<input id="depth-reference-distance" type="number" min="0.05" step="0.01" inputmode="decimal" required></label>
+                <label>Measurement uncertainty ± (cm), applies to all three measurements<input id="depth-tolerance" type="number" min="1" max="20" step="0.5" value="2" inputmode="decimal" required></label>
+                <button type="button" id="depth-freeze">Freeze reference image</button>
+                <p>Tap both reference endpoints above, or enter their positions below (0% = image top). The reference must be vertically centered.</p>
+                <label>Reference top (% of image height)<input id="depth-reference-top" type="number" min="0" max="100" step="0.1" inputmode="decimal"></label>
+                <label>Reference bottom (% of image height)<input id="depth-reference-bottom" type="number" min="0" max="100" step="0.1" inputmode="decimal"></label>
+                <label class="depth-check"><input id="depth-reference-declared" type="checkbox"> I measured this centered, perpendicular reference and its axial distance with the camera level.</label>
+                <button type="button" id="depth-calibrate">Apply measured calibration</button>
+                <button type="button" id="depth-reset">Reset calibration</button>
+              </fieldset>
+              <fieldset>
+                <legend>2. Select a ground-contact point</legend>
+                <p>Tap the live depth image to place the crosshair at a visible ground-contact point. This is not an automatic distance to a detected object. Keep the selected point on flat, level ground.</p>
+                <label>Point X (% from image left)<input id="depth-point-x" type="number" min="0" max="100" step="1" value="50"></label>
+                <label>Point Y (% from image top)<input id="depth-point-y" type="number" min="0" max="100" step="1" value="80"></label>
+                <label class="depth-check"><input id="depth-ground-contact" type="checkbox"> I confirm the selected point is a visible contact on flat, level ground, and the camera remains at its measured height. Uncheck if this changes.</label>
+                <p>Intervals describe optical-axis depth, not nearest-obstacle clearance. Bounds assume ±2° motion error and measured tolerances, not a validated confidence probability. Stop and recalibrate after any camera-height or projection change.</p>
+              </fieldset>
+              <fieldset>
+                <legend>Optional relative scene map</legend>
+                <p id="depth-download-notice">Optional download: approximately 50 MB on first use (model and runtime). Geometry works without it. Downloads may fail offline.</p>
+                <label class="depth-check"><input id="depth-model" type="checkbox"> Download and enable relative depth model</label>
+                <p id="depth-model-status" role="status">Depth unavailable. Optional model off.</p>
+                <button type="button" id="depth-analyze">Analyze depth snapshot</button>
+                <p id="depth-snapshot-caption" hidden>Snapshot, not live. Relative depth only.</p>
+                <canvas id="depth-snapshot" width="256" height="384" hidden aria-label="Frozen source frame paired with the relative depth map. Not a live camera image."></canvas>
+                <canvas id="depth-map" width="256" height="256" hidden aria-label="Relative depth visualization. Brighter indicates relatively closer pixels, not distance in metres."></canvas>
+                <p>Historical snapshot only, not live depth or metres. Analysis may take several seconds. The frozen source image and map remain paired until cleared. No same-frame metric reference fit is applied.</p>
+              </fieldset>
+            </div>
+          </details>
           <section class="speech-controls" aria-label="Spoken alerts">
             <button type="button" id="camera-speech" aria-pressed="false">Turn on spoken alerts</button>
             <div class="camera-actions">
@@ -198,7 +253,7 @@
           </div>
           <div class="setting-row alert-control-setting">
             <div>
-              <b>Voice announcements</b>
+              <label for="camera-announcements"><b>Voice announcements</b></label>
               <small id="announcement-help">Choose screen reader or app voice</small>
             </div>
             <select id="camera-announcements" aria-describedby="announcement-help">
@@ -208,7 +263,7 @@
           </div>
           <div class="setting-row alert-control-setting">
             <div>
-              <b>Alert delay</b>
+              <label for="camera-cooldown"><b>Alert delay</b></label>
               <small>Delay between repeated alerts, in seconds</small>
             </div>
             <input id="camera-cooldown" type="number" min="1" max="5" step="1" value="3" inputmode="numeric" aria-label="Alert delay in seconds">

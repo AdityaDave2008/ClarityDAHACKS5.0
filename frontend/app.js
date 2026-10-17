@@ -4,7 +4,7 @@ import { containRect, captureSize } from './logic.js';
 const $ = (id) => document.getElementById(id);
 const ui = Object.fromEntries(['camera-stage', 'camera', 'overlay', 'demo-scene', 'demo-tab', 'live-tab', 'source-badge', 'feed-label', 'feed-counter', 'feed-caption', 'stage-prompt', 'status-orb', 'status-title', 'status-detail', 'status-word', 'start-button', 'start-label', 'start-icon', 'test-alert', 'demo-controls', 'add-obstacle', 'move-obstacle', 'remove-obstacle', 'preferences', 'standard-preset', 'accessible-preset', 'sound-mode', 'speech-mode', 'vibration-mode', 'vibration-note', 'speech-note', 'settings-hint', 'activity-live', 'frame-count', 'frame-metric-label', 'latency', 'activity-log', 'how-dialog', 'toast'].map((id) => [id, $(id)]));
 const DEMO_ZONE = [{ x: .38, y: .42 }, { x: .62, y: .42 }, { x: .95, y: 1 }, { x: .05, y: 1 }];
-const state = { mode: 'demo', phase: 'idle', generation: 0, timer: null, controller: null, stream: null, session: null, sequence: 0, frames: 0, detections: [], zone: DEMO_ZONE, preset: 'standard', obstacle: 'none', demoSeen: 0, lastDemoAlert: -Infinity, events: [], audio: null, oscillators: new Set(), toastTimer: null, lastResultAt: 0 };
+const state = { mode: 'demo', phase: 'idle', generation: 0, timer: null, controller: null, stream: null, session: null, sequence: 0, frames: 0, detections: [], zone: DEMO_ZONE, preset: 'standard', obstacle: 'none', demoSeen: 0, lastDemoAlert: -Infinity, events: [], audio: null, oscillators: new Set(), toastTimer: null, lastResultAt: 0, captureMaxSide: 640, latencySamples: [], lastFrameTime: -1, lastFrameAt: 0, stallStrikes: 0 };
 const frameCanvas = document.createElement('canvas');
 const context = ui.overlay.getContext('2d');
 const supports = { sound: Boolean(window.AudioContext || window.webkitAudioContext), speech: 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window, vibration: typeof navigator.vibrate === 'function' };
@@ -67,6 +67,11 @@ function renderControls() {
 }
 function resetMetrics() {
   state.frames = 0;
+  state.captureMaxSide = 640;
+  state.latencySamples = [];
+  state.lastFrameTime = -1;
+  state.lastFrameAt = performance.now();
+  state.stallStrikes = 0;
   state.sequence = 0;
   state.lastResultAt = 0;
   ui['frame-count'].textContent = '0';
@@ -358,7 +363,7 @@ async function start() {
 }
 
 function captureFrame() {
-  const size = captureSize(ui.camera.videoWidth, ui.camera.videoHeight);
+  const size = captureSize(ui.camera.videoWidth, ui.camera.videoHeight, state.captureMaxSide);
   frameCanvas.width = size.width;
   frameCanvas.height = size.height;
   frameCanvas.getContext('2d').drawImage(ui.camera, 0, 0, size.width, size.height);
@@ -367,9 +372,17 @@ function captureFrame() {
 async function liveTick(generation) {
   if (generation !== state.generation || state.phase !== 'running') return;
   const started = performance.now();
-  let nextDelay = 350;
+  // Pace from measured round-trip time instead of a fixed interval.
+  let nextDelay = 120;
   try {
     flow('capture');
+    if (!previewAdvancing()) {
+      setStatus('Camera preview stalled', 'The preview stopped updating. Recovering the camera…', 'WAITING');
+      try { await ui.camera.play(); } catch { /* Stop and Start remains available. */ }
+      if (state.stallStrikes > 3) { stop('Camera preview froze', 'The preview stopped updating and could not recover. Start again.', true); log('Camera preview froze'); return; }
+      state.timer = setTimeout(() => liveTick(generation), 500);
+      return;
+    }
     const blob = await captureFrame();
     if (generation !== state.generation) return;
     flow('detect');
@@ -381,6 +394,7 @@ async function liveTick(generation) {
     state.detections = ageMs <= 2500 ? result.detections : [];
     state.lastResultAt = performance.now();
     ui.latency.textContent = `${Math.round(ageMs)}ms`;
+    adaptCaptureSize(ageMs);
     updateMetrics();
     if (ageMs > 2500) {
       setStatus('Late result skipped', 'Capturing a fresh frame. No alert was played from the delayed result.', 'WAITING');
@@ -417,6 +431,31 @@ async function liveTick(generation) {
   if (generation === state.generation && state.phase === 'running') state.timer = setTimeout(() => liveTick(generation), Math.max(60, nextDelay - (performance.now() - started)));
 }
 
+// A frozen preview must not be analyzed as if it were a fresh view of the path.
+function previewAdvancing() {
+  const currentTime = Number(ui.camera.currentTime) || 0;
+  if (currentTime !== state.lastFrameTime) {
+    state.lastFrameTime = currentTime;
+    state.lastFrameAt = performance.now();
+    state.stallStrikes = 0;
+    return true;
+  }
+  if (performance.now() - state.lastFrameAt < 4000) return true;
+  state.stallStrikes += 1;
+  state.lastFrameAt = performance.now();
+  return false;
+}
+// Slow devices and slow links get smaller frames rather than a growing backlog.
+const CAPTURE_SIZES = [640, 512, 384];
+function adaptCaptureSize(ageMs) {
+  state.latencySamples.push(ageMs);
+  if (state.latencySamples.length > 10) state.latencySamples.shift();
+  if (state.latencySamples.length < 3) return;
+  const average = state.latencySamples.reduce((total, value) => total + value, 0) / state.latencySamples.length;
+  const index = CAPTURE_SIZES.indexOf(state.captureMaxSide);
+  if (average > 700 && index < CAPTURE_SIZES.length - 1) { state.captureMaxSide = CAPTURE_SIZES[index + 1]; state.latencySamples = []; }
+  else if (average < 280 && index > 0) { state.captureMaxSide = CAPTURE_SIZES[index - 1]; state.latencySamples = []; }
+}
 function updateMetrics() {
   ui['frame-count'].textContent = String(state.frames);
   ui['feed-counter'].textContent = String(state.frames).padStart(4, '0');

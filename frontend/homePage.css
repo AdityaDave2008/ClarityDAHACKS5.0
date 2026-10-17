@@ -2479,3 +2479,18 @@ html *::after {
   font-size: 0.85rem;
   margin-top: 6px;
 }
+
+/* Opt-in experimental tools retain Clarity's palette and leave the scanner intact. */
+#camera .depth-panel { border: 1px solid var(--line); border-radius: 16px; padding: 14px; text-align: left; }
+#camera .depth-panel summary { cursor: pointer; font-weight: 700; min-height: 44px; }
+#camera .depth-panel p { font-size: .9rem; line-height: 1.5; margin: 10px 0; }
+#camera .depth-panel fieldset { border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin-top: 16px; min-width: 0; }
+#camera .depth-panel legend { font-weight: 700; }
+#camera .depth-panel label { display: grid; gap: 6px; margin: 12px 0; line-height: 1.5; }
+#camera .depth-panel .depth-check { display: flex; align-items: flex-start; gap: 10px; }
+#camera .depth-panel input[type="number"] { width: 100%; min-height: 44px; padding: 8px; border: 1px solid var(--line); border-radius: 8px; color: inherit; background: transparent; font: inherit; box-sizing: border-box; }
+#camera .depth-panel input[type="checkbox"] { width: 22px; height: 22px; flex: 0 0 22px; margin-top: 2px; }
+#camera .depth-panel button { min-height: 44px; margin: 6px 0; }
+#camera .depth-panel canvas { display: block; width: 100%; max-width: 384px; height: auto; margin: 12px auto; background: #000; touch-action: manipulation; }
+#camera .depth-panel [hidden] { display: none !important; }
+#camera #depth-status { font-weight: 700; }

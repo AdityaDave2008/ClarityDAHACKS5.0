@@ -1,0 +1,8 @@
+# Deployment includes application/runtime assets, not local tooling and tests.
+/server.js
+/*.test.js
+/*.test.mjs
+/depth-model-smoke.mjs
+/package.json
+/package-lock.json
+/README.md

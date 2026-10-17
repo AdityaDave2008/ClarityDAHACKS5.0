@@ -1,0 +1,7 @@
+# Isolated static preview only. Never deploy this under stepsense-detection.
+name = "stepsense-yolox-v2-preview"
+compatibility_date = "2026-10-17"
+workers_dev = true
+[assets]
+directory = "../frontend"
+not_found_handling = "none"
