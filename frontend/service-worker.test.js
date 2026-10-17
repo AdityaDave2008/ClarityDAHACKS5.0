@@ -48,7 +48,7 @@ test('model-neutral PiP precache installs only assets served by this baseline', 
   const w = worker();
   await w.dispatch('install');
   const [name, assets] = [...w.stores][0];
-  assert.match(name, /^myeyes-pwa-v11-/);
+  assert.match(name, /^myeyes-pwa-v12-model-first$/);
   const paths = [...assets.keys()].map(url => new URL(url).pathname);
   for (const path of ['/index.html', '/camera.js', '/picture-in-picture.js', '/local-detector.js', '/depth-ui.js']) assert.ok(paths.includes(path), path);
   assert.ok(paths.every(path => !/candidate|yolox|tracking/.test(path)), 'Removed experimental assets must not return through precache');
@@ -65,11 +65,12 @@ test('model-neutral PiP precache installs only assets served by this baseline', 
 
 test('activation removes both prior app cache histories without deleting unrelated caches', async () => {
   const w = worker();
-  for (const name of ['myeyes-pwa-v9-depth-assets', 'myeyes-pwa-v9-pip-yolox-51661711', 'unrelated-app']) w.cacheFor(name);
+  for (const name of ['myeyes-pwa-v11-pip-object-alerts', 'myeyes-pwa-v9-depth-assets', 'myeyes-pwa-v9-pip-yolox-51661711', 'unrelated-app']) w.cacheFor(name);
   await w.dispatch('install');
   await w.dispatch('activate');
   assert.equal(w.stores.size, 2);
   assert.ok(w.stores.has('unrelated-app'));
+  assert.ok(!w.stores.has('myeyes-pwa-v11-pip-object-alerts'));
   assert.ok(!w.stores.has('myeyes-pwa-v9-depth-assets'));
   assert.ok(!w.stores.has('myeyes-pwa-v9-pip-yolox-51661711'));
 });

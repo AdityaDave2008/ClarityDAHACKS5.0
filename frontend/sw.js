@@ -1,4 +1,4 @@
-const CACHE = 'myeyes-pwa-v11-pip-object-alerts';
+const CACHE = 'myeyes-pwa-v12-model-first';
 const ASSETS = [
   '/',
   '/index.html',
