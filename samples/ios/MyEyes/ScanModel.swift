@@ -10,6 +10,7 @@ final class ScanModel: ObservableObject {
     private var cameraInitialized = false
     let pip = PictureInPictureController()
     private let alerts = AlertPlayer()
+    private var proximityPolicy = ProximityPolicy()
     @Published private(set) var cameraRunning = false
     @Published private(set) var cameraStopping = false
     /// True while capture is interrupted but expected to resume on its own.
@@ -83,6 +84,7 @@ final class ScanModel: ObservableObject {
         alertCount = 0
         checkedFrames = 0
         detectorRecovery.reset()
+        proximityPolicy.reset()
         detectorRecoveryDeferred = false
 
         startTask = Task { [weak self] in
@@ -314,6 +316,8 @@ final class ScanModel: ObservableObject {
                             depthRejections[reason, default: 0] += 1
                         }
                     }
+                    detections = proximityPolicy.update(detections, settings: preferences.effectiveProximitySettings,
+                                                        now: ProcessInfo.processInfo.systemUptime)
                     if preferences.isLidarEnabled, frame.depth != nil {
                         let accepted = detections.filter { $0.depthMeters != nil }.count
                         let reasons = depthRejections.keys.sorted().map { "\($0): \(depthRejections[$0]!)" }.joined(separator: ", ")
@@ -331,11 +335,7 @@ final class ScanModel: ObservableObject {
                     case "cooldown": detail = "Object remains in zone. Alert cooldown active."
                     default: detail = "No supported object in the image zone in the last frame."
                     }
-                    if result.alert.triggered {
-                        alertCount += 1
-                        let enabled = result.alert.modalities.filter { self.preferences.alertModes.contains($0) }
-                        alerts.deliver(enabled, message: result.alert.message ?? "Object in camera zone. Check your surroundings.")
-                    }
+                    updateProximityFeedback(genericAlert: result.alert)
                 }
                 refreshPiPOverlay()
             } catch {
@@ -415,6 +415,31 @@ final class ScanModel: ObservableObject {
         }
     }
 
+    private func updateProximityFeedback(genericAlert: FrameAnalysis.Alert) {
+        let now = ProcessInfo.processInfo.systemUptime
+        switch ProximityAlertRoute.select(detections, now: now, genericTriggered: genericAlert.triggered) {
+        case .proximity(let target):
+            alerts.updateProximity(target: target, modes: preferences.alertModes)
+            alertReason = "proximity"
+            detail = "\(target.label): \(target.freshProximityBand(at: now).title.lowercased()), \(target.depthLabel(at: now) ?? "depth unavailable"). Approximate camera-axis depth, not clearance."
+        case .confirmingProximity(let target):
+            alerts.stop()
+            alertReason = "confirming"
+            detail = "Confirming \(target.label) across fresh matched frames before distance feedback."
+        case .outsideRange(let target):
+            alerts.stop()
+            alertReason = "outside-range"
+            detail = "\(target.label): beyond the configured proximity alert range. Not a clear-path indication."
+        case .detectionOnly(let shouldAlert):
+            alerts.stopProximity()
+            if shouldAlert {
+                alertCount += 1
+                let enabled = genericAlert.modalities.filter { preferences.alertModes.contains($0) }
+                alerts.deliver(enabled, message: genericAlert.message ?? "Object in camera zone. Check your surroundings.")
+            }
+        }
+    }
+
     private func expireDisplayedResult(sequence: Int, capturedAt: TimeInterval, generation current: UUID) {
         overlayExpirationTask?.cancel()
         displayedSequence = sequence
@@ -423,8 +448,7 @@ final class ScanModel: ObservableObject {
             do { try await Task.sleep(nanoseconds: UInt64(remaining * 1_000_000_000)) } catch { return }
             guard let self, generation == current, phase == .scanning,
                   displayedSequence == sequence, !Task.isCancelled else { return }
-            detections = []
-            displayedSequence = nil
+            clearDisplayedResult()
             alertReason = "unavailable"
             detail = "Waiting for a fresh analysis result. Previous boxes cleared."
             refreshPiPOverlay()
@@ -442,7 +466,16 @@ final class ScanModel: ObservableObject {
                 var expired = detection
                 expired.depthMeters = nil
                 expired.depthExpiresAt = nil
+                expired.proximityBand = .unknown
+                expired.proximityTrackID = nil
+                expired.proximityConfirmed = nil
                 return expired
+            }
+            alerts.stopProximity()
+            proximityPolicy.reset()
+            if alertReason == "proximity" || alertReason == "outside-range" {
+                alertReason = "depth-unavailable"
+                detail = "Object depth expired. Proximity feedback paused until a fresh matched estimate."
             }
             refreshPiPOverlay()
         }
@@ -455,6 +488,8 @@ final class ScanModel: ObservableObject {
     }
 
     private func clearDisplayedResult() {
+        alerts.stop()
+        proximityPolicy.reset()
         depthExpirationTask?.cancel()
         depthExpirationTask = nil
         overlayExpirationTask?.cancel()

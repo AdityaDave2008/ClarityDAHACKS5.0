@@ -23,6 +23,9 @@
 		B10000000000000000000016 /* CenterDepthSensor.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000016 /* CenterDepthSensor.swift */; };
 		B10000000000000000000017 /* DetectorRecovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000017 /* DetectorRecovery.swift */; };
 		B10000000000000000000018 /* ModelFirstStartup.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000018 /* ModelFirstStartup.swift */; };
+		B10000000000000000000019 /* ProximityPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000019; };
+		B10000000000000000000020 /* ProximityFeedback.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000020; };
+		B10000000000000000000021 /* ProximityAlertRouting.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000021; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -44,6 +47,9 @@
 		F10000000000000000000016 /* CenterDepthSensor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CenterDepthSensor.swift; sourceTree = "<group>"; };
 		F10000000000000000000017 /* DetectorRecovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetectorRecovery.swift; sourceTree = "<group>"; };
 		F10000000000000000000018 /* ModelFirstStartup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelFirstStartup.swift; sourceTree = "<group>"; };
+		F10000000000000000000019 /* ProximityPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProximityPolicy.swift; sourceTree = "<group>"; };
+		F10000000000000000000020 /* ProximityFeedback.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProximityFeedback.swift; sourceTree = "<group>"; };
+		F10000000000000000000021 /* ProximityAlertRouting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProximityAlertRouting.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -82,6 +88,9 @@
 				F10000000000000000000016 /* CenterDepthSensor.swift */,
 				F10000000000000000000017 /* DetectorRecovery.swift */,
 				F10000000000000000000018 /* ModelFirstStartup.swift */,
+				F10000000000000000000021 /* ProximityAlertRouting.swift */,
+				F10000000000000000000020 /* ProximityFeedback.swift */,
+				F10000000000000000000019 /* ProximityPolicy.swift */,
 				F10000000000000000000007 /* Info.plist */,
                 F10000000000000000000010,
                 F10000000000000000000011,
@@ -169,6 +178,9 @@
 			files = (
 				B10000000000000000000017 /* DetectorRecovery.swift in Sources */,
 				B10000000000000000000018 /* ModelFirstStartup.swift in Sources */,
+				B10000000000000000000021 /* ProximityAlertRouting.swift in Sources */,
+				B10000000000000000000020 /* ProximityFeedback.swift in Sources */,
+				B10000000000000000000019 /* ProximityPolicy.swift in Sources */,
 				B10000000000000000000016 /* CenterDepthSensor.swift in Sources */,
 				B10000000000000000000001 /* MyEyesApp.swift in Sources */,
 				B10000000000000000000002 /* APIClient.swift in Sources */,

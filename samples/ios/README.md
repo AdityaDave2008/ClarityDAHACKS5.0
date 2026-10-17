@@ -42,6 +42,10 @@ Initialization times out after 60 seconds and inference after 15 seconds. Result
 
 **Limitations:** COCO categories do not include potholes, curbs, stairs, generic barriers, or every obstacle. The zone is an image-coordinate heuristic, not depth, collision prediction, or a measured walking corridor. An empty detection result is not evidence that travel is safe. Do not rely on this prototype for navigation or personal safety.
 
+## Distance-dependent feedback
+
+Fresh matched LiDAR object estimates now drive adjustable near/red, intermediate/amber, far/green and out-of-range/blue bands. Missing or expired distance is gray/unknown. Selected beeps and haptics scale from 0.5 to 2 pulses per second after two distinct fresh in-zone observations. Text labels accompany colors, and Stop/interruption cancels output. See [exact behavior, tests and physical-phone limitations](../../docs/PROXIMITY_ACCEPTANCE.md). This is approximate axial depth, not safe-path or collision prediction.
+
 ## Floating window
 
 The existing video-call Picture in Picture camera implementation is retained. It requires an active PiP window, the declared `voip` background mode, and granted `AVCaptureSession.isMultitaskingCameraAccessEnabled`. Where background camera access is unavailable the camera pauses rather than implying live frames.
