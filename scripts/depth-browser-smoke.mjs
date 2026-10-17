@@ -39,7 +39,7 @@ try {
   const frameUploads = [];
   page.on('pageerror', error => errors.push(error.message));
   page.on('request', request => {
-    if (/vendor-depth|huggingface\.co|depth-model-worker/.test(request.url())) modelRequests.push(request.url());
+    if (/vendor-depth|depth-assets|huggingface\.co|depth-model-worker/.test(request.url())) modelRequests.push(request.url());
     if (request.method() === 'POST' && /\/frames(?:\?|$)|\/api\/v1\/sessions/.test(request.url())) frameUploads.push(request.url());
   });
   await page.goto(url, { waitUntil: 'domcontentloaded' });
@@ -100,7 +100,8 @@ try {
 
   if (process.env.DEPTH_TEST_MODEL === '1') {
     await page.locator('#depth-model').check();
-    await page.waitForFunction(() => /model ready/i.test(document.querySelector('#depth-model-status').textContent), null, { timeout: 150000 });
+    await page.waitForFunction(() => /model ready|Optional model unavailable/i.test(document.querySelector('#depth-model-status').textContent), null, { timeout: 150000 });
+    assert.match(await page.locator('#depth-model-status').textContent(), /model ready/i, 'Real model must initialize, not fall back to unavailable');
     await page.locator('#depth-analyze').click();
     await page.locator('#depth-map').waitFor({ state: 'visible', timeout: 25000 });
     const caption = await page.locator('#depth-snapshot-caption').textContent();

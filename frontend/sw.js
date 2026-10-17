@@ -1,4 +1,4 @@
-const CACHE = 'myeyes-pwa-v7-depth';
+const CACHE = 'myeyes-pwa-v8-depth-assets';
 const ASSETS = [
   '/',
   '/index.html',
