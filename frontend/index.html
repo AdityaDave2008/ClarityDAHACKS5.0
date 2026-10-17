@@ -79,6 +79,10 @@
       <!-- Camera: accessible scanner integrated into the shared app shell -->
       <section id="camera" class="screen blindness-screen" aria-label="Camera scanner">
         <div class="camera-feature" id="camera-feature">
+          <nav class="camera-screen-nav" aria-label="Camera screen navigation">
+            <button type="button" data-camera-screen="home">Home</button>
+            <button type="button" data-camera-screen="settings">Settings</button>
+          </nav>
           <h1>Path scanner</h1>
           <div class="camera-permission" role="status" aria-live="polite">
             <span id="camera-permission-light" class="dot needs-permission" aria-hidden="true"></span>
@@ -431,11 +435,26 @@
       window.clearPathIssueFeed = { add: addIssueReport };
       const screens = [...document.querySelectorAll(".screen")];
       const navButtons = [...document.querySelectorAll(".nav-btn")];
+      let previewFallbackStream = null;
 
       function showScreen(id) {
         if (document.getElementById("camera").classList.contains("active") && id !== "camera") {
-          window.clearPathCamera?.stop();
+          // Navigation must still work if a phone/browser throws while releasing
+          // the camera. Stop each stream defensively, then always switch screens.
+          try { window.clearPathCamera?.stop(); } catch (error) { console.warn("Could not stop camera cleanly:", error); }
+          try {
+            previewFallbackStream?.getTracks().forEach((track) => track.stop());
+          } catch (error) { console.warn("Could not stop preview stream cleanly:", error); }
+          previewFallbackStream = null;
+          const video = document.getElementById("camera-video");
+          if (video) video.srcObject = null;
+          const startButton = document.getElementById("camera-start");
+          const stopButton = document.getElementById("camera-stop");
+          if (startButton) startButton.disabled = false;
+          if (stopButton) stopButton.disabled = true;
         }
+
+        if (!document.getElementById(id)?.classList.contains("screen")) return;
 
         screens.forEach((screen) => {
           screen.classList.toggle("active", screen.id === id);
@@ -461,6 +480,10 @@
           showScreen(screen);
 
         });
+      });
+
+      document.querySelectorAll("[data-camera-screen]").forEach((button) => {
+        button.addEventListener("click", () => showScreen(button.dataset.cameraScreen));
       });
 
       window.addEventListener("hashchange", () => {
@@ -830,7 +853,6 @@
         }
       }
 
-      let previewFallbackStream = null;
       document.getElementById("camera-start").addEventListener("click", async () => {
         if (window.clearPathCamera) return;
         const video = document.getElementById("camera-video");

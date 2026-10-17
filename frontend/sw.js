@@ -1,4 +1,4 @@
-const CACHE = 'clearpath-pwa-v2';
+const CACHE = 'clearpath-pwa-v3';
 const ASSETS = [
   '/',
   '/index.html',

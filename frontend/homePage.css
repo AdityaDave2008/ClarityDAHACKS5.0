@@ -342,8 +342,8 @@ select {
 }
 
 .bottom-nav {
-  position: fixed;
-  z-index: 5;
+  position: fixed !important;
+  z-index: 2147483000;
   bottom: 0;
   left: 50%;
   display: grid;
@@ -354,6 +354,18 @@ select {
   border-top: 1px solid var(--line);
   background: var(--nav-surface);
   backdrop-filter: blur(18px);
+  isolation: isolate;
+  pointer-events: auto;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Keep the shared navigation available while the camera screen is active,
+   including on mobile browsers that create a video/compositing layer. */
+#camera.active ~ .bottom-nav {
+  display: grid;
+  visibility: visible;
+  pointer-events: auto;
 }
 
 .nav-btn {
@@ -1286,6 +1298,23 @@ body.blindness-mode {
   line-height: 1.55;
 }
 
+#camera .camera-screen-nav {
+  position: sticky;
+  top: env(safe-area-inset-top, 0px);
+  z-index: 2;
+  display: flex;
+  gap: 10px;
+}
+
+#camera .camera-feature .camera-screen-nav button {
+  flex: 1;
+  min-height: 48px;
+  border: 1px solid var(--line);
+  background: var(--accent-wash);
+  color: var(--ink);
+  touch-action: manipulation;
+}
+
 #camera .camera-feature h1 {
   margin: 0;
   font-size: clamp(36px, 9vw, 48px);
@@ -1469,6 +1498,10 @@ body.blindness-mode {
 .app.blindness-mode #camera .camera-feature summary {
   min-height: 64px;
   font-size: 19px;
+}
+
+.app.blindness-mode #camera .camera-screen-nav button {
+  min-height: 60px;
 }
 
 .app.blindness-mode #camera #camera-video {
