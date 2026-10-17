@@ -1,7 +1,7 @@
 # Clarity capability-aware depth design
 
 Date: 2026-10-17
-Status: Proposed implementation specification following approval of the web + native direction. No accuracy claims have been established for the new non-LiDAR path.
+Status: Approved by the user on 2026-10-17 at 06:52 UTC. Implementation decisions and supported-domain limitations are recorded in `docs/DEPTH_IMPLEMENTATION_LOG.md`. No accuracy claims have been established for the new non-LiDAR path.
 
 ## Goal and scope
 

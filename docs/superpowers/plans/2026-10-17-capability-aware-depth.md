@@ -25,60 +25,60 @@
 Files: samples/ios/MyEyes/APIClient.swift, CameraCapture.swift, ScannerView.swift; samples/ios/tests/lidar-depth.test.mjs and focused capability tests.
 Interfaces: retain `isLidarEnabled: Bool`, `start(lidarEnabled:onFrame:)`, and existing synchronized DepthSnapshot contract.
 
-- [ ] Extend actual Swift preference decoding tests: missing field => automatic enabled, explicit false => false, explicit true => true. Run native tests to observe current missing-field false failure.
+- [x] Extend actual Swift preference decoding tests: missing field => automatic enabled, explicit false => false, explicit true => true. Run native tests to observe current missing-field false failure.
 ```swift
 let legacy = try JSONDecoder().decode(Preferences.self, from: Data("{}".utf8))
 assert(legacy.isLidarEnabled)
 ```
 Use the actual existing preference type and required JSON fields from its current test harness rather than creating copied production types.
-- [ ] Change only the missing preference default to true; preserve explicitly stored values. Verify hardware probing and configuration rollback already catch unsupported devices, improve source diagnostics if necessary.
+- [x] Change only the missing preference default to true; preserve explicitly stored values. Verify hardware probing and configuration rollback already catch unsupported devices, improve source diagnostics if necessary.
 ```swift
 get { lidarEnabled ?? true }
 ```
-- [ ] Label the toggle automatic hardware-depth preference and document fallback. Run `node --test samples/ios/tests/*.test.mjs`, including real Swift tests; commit only native paths.
+- [x] Label the toggle automatic hardware-depth preference and document fallback. Run `node --test samples/ios/tests/*.test.mjs`, including real Swift tests; commit only native paths.
 
 ### Task 2: Pure browser depth geometry and contracts
 
 Files: frontend/depth-geometry.js, frontend/depth-geometry.test.js.
 Interfaces: `estimateGroundDepth({anchor, calibration, attitude, frame, now})` returns `{kind, source, reason, meters?, lowerMeters?, upperMeters?}`. `fitInverseDepth(anchors)` and `estimateModelDepth(relative, fit)` reject insufficient references/poor fits. Calibration binds to width, height, deviceId and orientation.
 
-- [ ] Write tests for missing calibration, frame mismatch, stale attitude, near-horizon rays, false ground-contact declaration, finite output and known ray/plane geometry.
+- [x] Write tests for missing calibration, frame mismatch, stale attitude, near-horizon rays, false ground-contact declaration, finite output and known ray/plane geometry.
 ```js
 assert.equal(estimateGroundDepth({anchor:{x:.5,y:.8}, now:1000}).kind, 'unavailable');
 ```
-- [ ] Run `node --test frontend/depth-geometry.test.js` and observe failure.
-- [ ] Implement calibrated image-ray/flat-ground intersection. Compute uncertainty over bounded camera-height/pitch/FOV perturbations, reject invalid bounds, report rounded interval and optical-depth semantics explicitly.
-- [ ] Implement inverse-depth fit with positive slope/domain checks, reference spread, residual/hold-out checks. Never expose metric output without valid accepted fit.
-- [ ] Run tests for geometry, mixed invalid references and out-of-range extrapolation; commit module/tests.
+- [x] Run `node --test frontend/depth-geometry.test.js` and observe failure.
+- [x] Implement calibrated image-ray/flat-ground intersection. Compute uncertainty over bounded camera-height/pitch/FOV perturbations, reject invalid bounds, report rounded interval and optical-depth semantics explicitly.
+- [x] Implement inverse-depth fit with positive slope/domain checks, reference spread, residual/hold-out checks. Never expose metric output without valid accepted fit.
+- [x] Run tests for geometry, mixed invalid references and out-of-range extrapolation; commit module/tests.
 
 ### Task 3: Optional real model and browser sensor adapter
 
 Files: frontend/depth-model.js, frontend/depth-model.test.js, frontend/depth-sensors.js, frontend/depth-sensors.test.js, docs/DEPTH_MODEL_PROVENANCE.md; vendored pinned runtime files if needed.
 Interfaces: `createDepthModel().load({onStatus})`, `.estimate(canvas)` returns raw `{data,width,height}` relative inverse-depth map; `.dispose()`. `createDepthSensors(platform).request()` requests motion permission inside the original gesture; `.snapshot()` returns timestamped attitude or unavailable; `.stop()` removes listeners.
 
-- [ ] Tests first for unavailable platform, rejected permission, malformed model map, generation cancellation, bounded load failure and raw-output semantics.
+- [x] Tests first for unavailable platform, rejected permission, malformed model map, generation cancellation, bounded load failure and raw-output semantics.
 ```js
 assert.equal(normalizeDepthMap({data:[NaN],width:1,height:1}), null);
 ```
-- [ ] Record selected public runtime/model, versions, license, verified sizes and hashes. Pin model revision; avoid floating latest URLs.
-- [ ] Use actual raw predicted tensor, not normalized visualization. Verify model output dimensions and finite values on a real image. Benchmark runtime on available host and record device/browser gaps without claiming phone latency.
-- [ ] Prefer WebGPU after successful probe, use bounded WASM fallback; catch failures and report unavailable without stopping v1.
-- [ ] Run tests and real inference smoke test; commit only owned adapter/provenance paths.
+- [x] Record selected public runtime/model, versions, license, verified sizes and hashes. Pin model revision; avoid floating latest URLs.
+- [x] Use actual raw predicted tensor, not normalized visualization. Verify model output dimensions and finite values on a real image. Benchmark runtime on available host and record device/browser gaps without claiming phone latency.
+- [x] Prefer WebGPU after successful probe, use bounded WASM fallback; catch failures and report unavailable without stopping v1.
+- [x] Run tests and real inference smoke test; commit only owned adapter/provenance paths.
 
 ### Task 4: Browser calibration and frame-safe integration
 
 Files: frontend/depth-controller.js, frontend/depth-controller.test.js, frontend/depth-ui.js, frontend/depth-ui.test.js, frontend/local-detector.js, frontend/standalone.js, frontend/index.html, frontend/homePage.css, frontend/server.js, frontend/sw.js.
 Interfaces: controller captures no independent camera stream. Detector calls a synchronous `onFrame({canvas,sequence,capturedAt,sourceWidth,sourceHeight,detections})` extension only when needed; depth snapshot is copied before canvas reuse. UI owns enable, calibration and reset controls. Controller owns max one inference and invalidates on stop/hide/calibration change.
 
-- [ ] Write tests proving disabled depth does not load model, depth failure leaves object results intact, no overlapping inference, no stale/post-stop outputs, and relative output never renders metres.
+- [x] Write tests proving disabled depth does not load model, depth failure leaves object results intact, no overlapping inference, no stale/post-stop outputs, and relative output never renders metres.
 ```js
 assert.equal(formatDepth({kind:'relative',value:3}).includes(' m'), false);
 ```
-- [ ] Add explicit experimental depth enablement, model-download notice, source indicator, calibration controls and assumption labels in current Clarity design. Reuse one existing video stream.
-- [ ] Calibration collects camera height plus measured projection reference; motion samples are fresh and orientation conventions validated. Show unsupported or manual-calibration limitations honestly.
-- [ ] Integrate optional raw model map visualization/relative status and same-frame reference fit only with validated reference anchors; geometry can operate independently under declared ground-contact conditions.
-- [ ] On permission failure, no valid references, movement/configuration mismatch, or slow model, keep working v1 and show depth unavailable/relative-only. Do not escalate alerts using experimental depth.
-- [ ] Register all local modules in dev static server/service worker, bump cache, preserve lazy model loading. Run all frontend/Worker tests and commit scoped paths.
+- [x] Add explicit experimental depth enablement, model-download notice, source indicator, calibration controls and assumption labels in current Clarity design. Reuse one existing video stream.
+- [x] Calibration collects camera height plus measured projection reference; motion samples are fresh and orientation conventions validated. Show unsupported or manual-calibration limitations honestly.
+- [x] Integrate optional raw model map visualization/relative status and same-frame reference fit only with validated reference anchors; geometry can operate independently under declared ground-contact conditions.
+- [x] On permission failure, no valid references, movement/configuration mismatch, or slow model, keep working v1 and show depth unavailable/relative-only. Do not escalate alerts using experimental depth.
+- [x] Register all local modules in dev static server/service worker, bump cache, preserve lazy model loading. Run all frontend/Worker tests and commit scoped paths.
 
 ### Task 5: Acceptance, review and deployment
 
