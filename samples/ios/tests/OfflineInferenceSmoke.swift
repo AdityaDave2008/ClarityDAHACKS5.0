@@ -54,8 +54,8 @@ struct OfflineInferenceSmoke {
                     throw OfflineDetectorError.unavailable("Abandoned startup returned ready")
                 } catch is CancellationError { }
                 print("READY backend=\(detector.backend) zoneVertices=\(zone.count) seconds=\(ProcessInfo.processInfo.systemUptime - started)")
-                let coldView = detector.webView!
-                _ = try await coldView.evaluateJavaScript("window.smokeLoadedModel = detector; true")
+                var coldView = detector.webView
+                _ = try await coldView!.evaluateJavaScript("window.smokeLoadedModel = detector; true")
                 let jpeg = try Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[2]))
                 let defaults = ScanPreferences()
                 guard defaults.confidenceThreshold == 0.7874982953071594 else { throw OfflineDetectorError.unavailable("Wrong candidate default") }
@@ -88,6 +88,7 @@ struct OfflineInferenceSmoke {
                 guard detector.webView === coldView else { throw OfflineDetectorError.unavailable("User Stop discarded ready model") }
                 let warmStarted = ProcessInfo.processInfo.systemUptime
                 let warmZone = try await detector.start()
+                let warmSeconds = ProcessInfo.processInfo.systemUptime - warmStarted
                 let sameModel = try await detector.webView!.evaluateJavaScript("window.smokeLoadedModel === detector")
                 guard detector.webView === coldView, sameModel as? Bool == true, warmZone == zone else {
                     throw OfflineDetectorError.unavailable("Warm start reloaded WK/model or changed zone")
@@ -97,7 +98,8 @@ struct OfflineInferenceSmoke {
                 guard warmFirst.alert.reason == "confirming", warmSecond.alert.triggered else {
                     throw OfflineDetectorError.unavailable("Warm scan inherited confirmation or cooldown")
                 }
-                print("PASS warm start same WK/model identity and reset confirmation/cooldown seconds=\(ProcessInfo.processInfo.systemUptime - warmStarted)")
+                print("PASS warm start same WK/model identity and reset confirmation/cooldown seconds=\(warmSeconds)")
+                coldView = nil // Do not keep a destroyed model process alive during recovery tests.
                 let stale = try await detector.analyze(jpeg: jpeg, sequence: 4, preferences: ScanPreferences(confidenceThreshold: 0.4), capturedAt: ProcessInfo.processInfo.systemUptime - 3)
                 guard stale.detections.isEmpty, !stale.alert.triggered, stale.alert.reason == "stale" else { throw OfflineDetectorError.unavailable("Stale frame was not suppressed") }
                 let fresh = try await detector.analyze(jpeg: jpeg, sequence: 5, preferences: ScanPreferences(confidenceThreshold: 0.4), capturedAt: ProcessInfo.processInfo.systemUptime)
