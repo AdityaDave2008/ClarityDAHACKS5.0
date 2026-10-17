@@ -4,12 +4,23 @@ import { captureSize } from './logic.js';
 // and started; all uploads are same-origin and serialized, never recorded.
 export function createBackendDetector({ request = (...args) => fetch(...args),
   createCanvas = () => document.createElement('canvas'), now = () => performance.now(),
-  schedule = setTimeout, unschedule = clearTimeout, timeoutMs = 12000 } = {}) {
+  schedule = setTimeout, unschedule = clearTimeout, timeoutMs = 12000,
+  minIntervalMs = 120, maxIntervalMs = 1100, captureSizes = [640, 512, 384] } = {}) {
   return {
-    async start({ video, signal, onObstacle, onError, onStatus = () => {}, onResult = () => {} }) {
+    async start({ video, signal, onObstacle, onError, onStatus = () => {}, onResult = () => {}, onMetrics = () => {} }) {
       signal.throwIfAborted();
       let sessionId = null, sequence = 0, timer, deleted = false;
+      // Measured round-trip time drives pacing and capture size; device speed is never assumed.
+      let sizeIndex = 0, samples = [], transientFailures = 0;
       const canvas = createCanvas();
+      const recordLatency = (ms) => {
+        samples.push(ms);
+        if (samples.length > 10) samples.shift();
+        const average = samples.reduce((total, value) => total + value, 0) / samples.length;
+        if (samples.length >= 3 && average > 700 && sizeIndex < captureSizes.length - 1) { sizeIndex += 1; samples = []; }
+        else if (samples.length >= 3 && average < 280 && sizeIndex > 0) { sizeIndex -= 1; samples = []; }
+        onMetrics({ lastMs: Math.round(ms), averageMs: Math.round(average), captureMaxSide: captureSizes[sizeIndex] });
+      };
       const sessionPath = () => `/api/v1/sessions/${encodeURIComponent(sessionId)}`;
       const cleanup = () => {
         unschedule(timer);
@@ -52,7 +63,7 @@ export function createBackendDetector({ request = (...args) => fetch(...args),
         signal.throwIfAborted();
         const started = now();
         const sourceWidth = video.videoWidth, sourceHeight = video.videoHeight;
-        const size = captureSize(sourceWidth, sourceHeight);
+        const size = captureSize(sourceWidth, sourceHeight, captureSizes[sizeIndex]);
         canvas.width = size.width;
         canvas.height = size.height;
         const context = canvas.getContext('2d');
@@ -74,14 +85,18 @@ export function createBackendDetector({ request = (...args) => fetch(...args),
           onStatus('AI result delayed; old alert skipped. Waiting for a fresh result.');
           return null;
         }
-        return { ...result, ageMs: now() - started, sourceWidth, sourceHeight };
+        const elapsed = now() - started;
+        recordLatency(elapsed);
+        return { ...result, ageMs: elapsed, roundTripMs: elapsed, sourceWidth, sourceHeight };
       }
       async function tick() {
         if (signal.aborted) return;
-        let delay = 400;
+        const startedAt = now();
+        let delay = minIntervalMs;
         try {
           const result = await frame();
           if (signal.aborted) return;
+          transientFailures = 0;
           if (result) {
             onResult(result);
             if (result.alert.triggered) onObstacle();
@@ -89,15 +104,19 @@ export function createBackendDetector({ request = (...args) => fetch(...args),
         } catch (error) {
           if (signal.aborted) return;
           if ([409, 429].includes(error.status)) {
-            delay = 1100;
+            delay = maxIntervalMs;
             onStatus('AI detector busy. Waiting for a fresh frame.');
+          } else if (!error.status && ++transientFailures < 3) {
+            // A single dropped or timed-out request is common on phones; recover instead of ending the scan.
+            delay = maxIntervalMs;
+            onStatus(`AI connection interrupted. Retry ${transientFailures} of 2 in progress.`);
           } else {
             cleanup();
             onError(error);
             return;
           }
         }
-        if (!signal.aborted) timer = schedule(() => void tick(), delay);
+        if (!signal.aborted) timer = schedule(() => void tick(), Math.max(0, delay - (now() - startedAt)));
       }
       try {
         const ready = await api('/ready');
@@ -112,7 +131,7 @@ export function createBackendDetector({ request = (...args) => fetch(...args),
         const initial = await frame();
         signal.throwIfAborted();
         if (initial) onResult(initial);
-        timer = schedule(() => void tick(), 400);
+        timer = schedule(() => void tick(), minIntervalMs);
       } catch (error) {
         cleanup();
         signal.removeEventListener('abort', cleanup);
