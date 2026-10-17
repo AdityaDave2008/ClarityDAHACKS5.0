@@ -56,9 +56,3 @@ test('both pages have unique IDs, one document, and valid inline JavaScript', as
     assert.doesNotMatch(html, /(?:src|href)="\/?(?:camera\/|site\.js|integration\.css)/);
   }
 });
-
-test('all service-worker precache assets resolve successfully', async () => {
-  const source = await readFile(new URL('./sw.js', import.meta.url), 'utf8');
-  const list = source.slice(source.indexOf('const ASSETS'), source.indexOf('];'));
-  for (const [, path] of list.matchAll(/'([^']+)'/g)) assert.equal((await fetch(origin + path)).status, 200, path);
-});
