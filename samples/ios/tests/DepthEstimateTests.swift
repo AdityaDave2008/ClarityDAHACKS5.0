@@ -19,6 +19,11 @@ struct DepthEstimateTests {
             DepthSnapshot(width: width, height: height, meters: values, capturedAt: 10)
         }
         precondition(ScanPreferences(confidenceThreshold: 0.4).confidenceThreshold == 0.4)
+        let configured = ScanPreferences(alertModes: [.speech, .vibration], confidenceThreshold: 0.75, cooldownMs: 4000)
+        precondition(configured.alertModes == [.speech, .vibration] && configured.confidenceThreshold == 0.75 && configured.cooldownMs == 4000)
+        precondition(configured.isLidarEnabled, "custom construction keeps automatic hardware depth when no choice is saved")
+        let restoredConfiguration = try JSONDecoder().decode(ScanPreferences.self, from: JSONEncoder().encode(configured))
+        precondition(restoredConfiguration == configured, "custom construction preserves preference persistence")
         let good = snapshot(Array(repeating: 2, count: 400))
         let distribution = snapshot([.nan, .infinity, 0.1, 6, 2, 3], width: 3, height: 2).distributionSummary
         precondition(distribution.contains("valid=2"))

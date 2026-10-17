@@ -29,6 +29,14 @@ struct ScanPreferences: Codable, Equatable {
         get { lidarEnabled ?? true }
         set { lidarEnabled = newValue }
     }
+
+    // A private stored property makes Swift's generated memberwise initializer private.
+    // Keep configurable construction available without changing persisted LiDAR choices.
+    init(alertModes: [AlertMode] = [.sound], confidenceThreshold: Double = 0.6, cooldownMs: Int = 3000) {
+        self.alertModes = alertModes
+        self.confidenceThreshold = confidenceThreshold
+        self.cooldownMs = cooldownMs
+    }
 }
 
 struct ScanSession: Decodable {

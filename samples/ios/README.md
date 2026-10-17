@@ -34,6 +34,20 @@ On launch the scanner is stopped and the floating window is closed. The PiP cont
 
 ## Verification
 
+**Mac/Xcode testing required for the October 17 fixes.** The explicit `ScanPreferences` initializer and Node.js 24 action upgrades have not been executed on a Mac from this Windows workspace. Source/path and whitespace checks passed; earlier build results below do not confirm this revision.
+
+On a Mac with Node.js 24+ and Xcode, run:
+
+```sh
+node --test samples/ios/tests/*.test.mjs
+xcodebuild -project samples/ios/MyEyes.xcodeproj -scheme Clarity \
+  -configuration Debug -destination 'generic/platform=iOS Simulator' \
+  -derivedDataPath /tmp/clarity-simulator-validation \
+  CODE_SIGNING_ALLOWED=NO build
+```
+
+Confirm both commands pass, or confirm the `iPhone PiP build` workflow passes for the new commit, before marking these fixes verified. An earlier failure email describes an earlier run.
+
 ### PiP runtime diagnostics
 
 After installing a Debug build, launch with opt-in diagnostics and keep this command running:
