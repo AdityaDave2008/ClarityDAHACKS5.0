@@ -781,16 +781,6 @@ document.querySelectorAll("[data-profile]").forEach((button) => {
           window.dispatchEvent(new CustomEvent("clearpath:permissionchange", {
             detail: { kind, state },
           }));
-      document
-        .getElementById("requestMic")
-        .addEventListener("click", requestMicrophoneAccess);
-      document
-        .getElementById("requestMotion")
-        .addEventListener("click", requestMotionAccess);
-      async function startCamera() {
-        if (!navigator.mediaDevices?.getUserMedia) {
-          showToast("Camera needs HTTPS or localhost");
-          return;
         }
       }
 

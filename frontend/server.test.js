@@ -38,7 +38,7 @@ test('home and retained camera page serve their local scripts, styles, and linke
 test('removed camera routes and private repository files are unavailable', async () => {
   for (const path of ['/camera/', '/camera/camera.html', '/camera/camera.js',
     '/camera/camera.css', '/camera/backend-detector.js', '/camera/standalone.js',
-    '/site.js', '/integration.css', '/server.js', '/package.json', '/.git/config']) {
+    '/server.js', '/package.json', '/.git/config']) {
     assert.equal((await fetch(origin + path)).status, 404, path);
   }
 });

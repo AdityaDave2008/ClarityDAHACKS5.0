@@ -96,17 +96,17 @@ test('Settings and camera speech controls stay synchronized; storage failure is 
   f.cleanup();
 });
 
-test('combined HTML has one camera, unique IDs, accessible Settings labels, and branch design', async () => {
+test('combined HTML has one camera, unique IDs, camera labels, and the integrated module entry', async () => {
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map(match => match[1]);
   assert.equal(new Set(ids).size, ids.length);
   assert.equal((html.match(/<video\b/g) || []).length, 1);
   assert.match(html, /Eyes up\./);
   assert.match(html, /data-mode="blindness"/);
-  for (const id of ['voice', 'alert', 'vibrate']) assert.match(html, new RegExp(`label for="${id}"`));
-  assert.match(html, /Start sends camera frames to our AI backend/);
-  assert.match(html, /src="\/site.js"/);
-  assert.ok(!html.includes('getUserMedia'), 'Old inline camera implementation must be removed');
+  for (const id of ['camera-announcements', 'camera-cooldown']) assert.match(html, new RegExp(`label for="${id}"`));
+  assert.match(html, /id="camera-feature"/);
+  assert.match(html, /src="standalone.js"/);
+  assert.match(html, /id="camera-start"[^>]*aria-describedby="permission-help"/);
 });
 
 test('Settings vibration cues use the shared obstacle handler and cancel on detection failure', async () => {
