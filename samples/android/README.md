@@ -56,6 +56,21 @@ On Windows use `gradlew.bat`. The APK is written to `app/build/outputs/apk/debug
 
 Versions: Android Gradle plugin **8.13.2**, Gradle **8.13**, compile/target SDK **36**, Java source **17**. There are no third-party runtime dependencies. See Google's [AGP compatibility table](https://developer.android.com/build/releases/agp-8-13-0-release-notes).
 
+Do not upgrade the wrapper past Gradle 9.5 while AGP stays on 8.x: Gradle 9.6 removed an internal API that `com.android.application` 8.x uses, and configuration fails with `Plugin 'com.android.internal.application' relies on 'org.gradle.api.problems.internal.InternalProblems'`. If a tool rewrites `gradle/wrapper/gradle-wrapper.properties`, restore `distributionUrl=https\://services.gradle.org/distributions/gradle-8.13-bin.zip` (the pinned `distributionSha256Sum` is the 8.13 checksum).
+
+### VS Code (Gradle for Java / Language Support for Java)
+
+`.vscode/` is git-ignored, so create `.vscode/settings.json` at the repository root with:
+
+```json
+{
+  "java.import.gradle.wrapper.enabled": true,
+  "java.import.gradle.java.home": "C:\\Program Files\\Java\\jdk-23"
+}
+```
+
+Leave `java.import.gradle.version` and `java.import.gradle.home` unset so the wrapper's Gradle 8.13 is used. `java.import.gradle.java.home` must point at a JDK **17 to 23**; Gradle 8.13 cannot run on the Java 25 runtime bundled with the Java extension or on Android Studio's JetBrains Runtime 25. The Gradle configure phase also needs the SDK location: either set `ANDROID_HOME` or create `samples/android/local.properties` containing `sdk.dir=C\:\\Users\\<you>\\AppData\\Local\\Android\\Sdk`.
+
 ## What runs after switching apps
 
 - `MainActivity` requests Camera and starts a camera foreground service only from a visible, resumed screen. It does not auto-start on boot, from background callbacks, or after process death.
