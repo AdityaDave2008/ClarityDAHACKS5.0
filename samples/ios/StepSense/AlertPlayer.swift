@@ -9,6 +9,7 @@ private struct CompletedAudioObject: @unchecked Sendable {
 
 @MainActor
 final class AlertPlayer: NSObject, AVAudioPlayerDelegate, AVSpeechSynthesizerDelegate {
+    var keepsAudioSessionActive = false
     private let speech = AVSpeechSynthesizer()
     private let haptics = UINotificationFeedbackGenerator()
     private var player: AVAudioPlayer?
@@ -60,7 +61,7 @@ final class AlertPlayer: NSObject, AVAudioPlayerDelegate, AVSpeechSynthesizerDel
     }
 
     private func deactivateWhenFinished() {
-        guard activePlayer == nil, activeUtterance == nil else { return }
+        guard !keepsAudioSessionActive, activePlayer == nil, activeUtterance == nil else { return }
         try? AVAudioSession.sharedInstance().setActive(false, options: [.notifyOthersOnDeactivation])
     }
 

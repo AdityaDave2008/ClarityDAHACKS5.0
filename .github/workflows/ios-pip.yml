@@ -1,0 +1,29 @@
+name: iPhone PiP build
+on:
+  push:
+    branches: [feature/iphone-pip-test]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  simulator-build:
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the native iPhone app without signing
+        run: >-
+          xcodebuild
+          -project samples/ios/StepSense.xcodeproj
+          -scheme StepSense
+          -configuration Debug
+          -destination 'generic/platform=iOS Simulator'
+          -derivedDataPath DerivedData
+          CODE_SIGNING_ALLOWED=NO
+          build
+      - name: Upload simulator app
+        uses: actions/upload-artifact@v4
+        with:
+          name: StepSense-iOS-Simulator
+          path: DerivedData/Build/Products/Debug-iphonesimulator/StepSense.app
+          if-no-files-found: error

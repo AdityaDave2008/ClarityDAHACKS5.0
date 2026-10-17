@@ -35,7 +35,7 @@ struct ScannerView: View {
                     Circle().fill(model.phase == .scanning ? Color.senseTeal : Color.senseMuted).frame(width: 6, height: 6)
                     Text(model.phase == .scanning ? "LIVE SCAN" : "CAMERA SCANNER")
                     Spacer()
-                    Label("Foreground only", systemImage: "iphone")
+                    Label("Camera scanner", systemImage: "iphone")
                 }
                 .font(.system(size: 10, weight: .semibold, design: .monospaced))
                 .foregroundStyle(Color.senseMuted)
@@ -90,6 +90,14 @@ struct ScannerView: View {
                     .tint(.senseTeal)
                     .accessibilityLabel("Test selected alert modes")
                 }
+
+                Button("Use floating camera") { model.startFloatingCamera() }
+                    .buttonStyle(.bordered)
+                    .frame(maxWidth: .infinity, minHeight: 56)
+                    .disabled(model.phase != .scanning)
+                Text("Start a scan, then open the floating camera before switching apps. Requires iOS background camera support; otherwise scanning pauses.")
+                    .font(.body)
+                    .foregroundStyle(Color.senseMuted)
 
                 HStack(spacing: 14) {
                     if model.preferences.alertModes.isEmpty {
@@ -155,7 +163,7 @@ struct ScannerView: View {
 
     private var cameraCard: some View {
         ZStack {
-            CameraPreview(session: model.camera.session)
+            FloatingCameraPreview(camera: model.camera.floatingCamera)
             if model.phase == .scanning {
                 DetectionOverlay(zone: model.zone, detections: model.detections, imageSize: model.imageSize)
                     .allowsHitTesting(false)
@@ -312,7 +320,7 @@ private struct SettingsView: View {
 
                 Section("Camera diagnostics") {
                     LabeledContent("Multitasking API support", value: model.multitaskingSupported.map { $0 ? "Yes" : "No" } ?? "Not queried")
-                    Text("Queried from AVCaptureSession after starting the camera. This diagnostic does not authorize background scanning. This sample releases the camera when it leaves the foreground.")
+                    Text("Queried after camera startup. Floating camera requires this support and active Picture in Picture. Otherwise switching apps pauses scanning.")
                         .font(.caption).foregroundStyle(.secondary)
                     Text("No VoIP mode or video-call Picture in Picture is used.")
                         .font(.caption).foregroundStyle(.secondary)

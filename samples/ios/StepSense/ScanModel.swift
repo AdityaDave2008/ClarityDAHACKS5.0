@@ -1,6 +1,7 @@
 import AVFoundation
 import Foundation
 import SwiftUI
+import UIKit
 
 @MainActor
 final class ScanModel: ObservableObject {
@@ -123,8 +124,39 @@ final class ScanModel: ObservableObject {
     }
 
     func pauseForBackground() {
+        if phase == .scanning, multitaskingSupported == true, camera.floatingCamera.isActive { return }
         guard isBusy else { alerts.stop(); return }
         stop(nextPhase: .paused, message: "Paused when the app left the foreground. Tap Start to resume.")
+    }
+
+    func startFloatingCamera() {
+        guard phase == .scanning else { detail = "Start scanning before opening the floating camera."; return }
+        guard multitaskingSupported == true else {
+            detail = "iOS has not enabled background camera access for this installation. Keep StepSense open to scan."
+            return
+        }
+        camera.floatingCamera.onEnd = { [weak self] in
+            Task { @MainActor in
+                guard let self else { return }
+                if UIApplication.shared.applicationState == .background { self.pauseForBackground() }
+                self.alerts.keepsAudioSessionActive = false
+                self.alerts.stop()
+            }
+        }
+        camera.floatingCamera.onFailure = { [weak self] message in
+            Task { @MainActor in
+                guard let self else { return }
+                self.alerts.keepsAudioSessionActive = false
+                self.alerts.stop()
+                self.detail = "Floating camera could not start. \(message)"
+                if UIApplication.shared.applicationState == .background { self.pauseForBackground() }
+            }
+        }
+        do {
+            try camera.floatingCamera.start()
+            alerts.keepsAudioSessionActive = true
+            detail = "Wait for the floating camera to appear before switching apps. Closing it pauses background scanning."
+        } catch { detail = error.localizedDescription }
     }
 
     func testAlert() {
@@ -241,6 +273,7 @@ final class ScanModel: ObservableObject {
         startTask = nil
         frameTask = nil
         camera.stop()
+        alerts.keepsAudioSessionActive = false
         alerts.stop()
         let previousClient = client
         let previousID = sessionID

@@ -1,4 +1,5 @@
 import AVFoundation
+import AVKit
 import CoreImage
 import Foundation
 import SwiftUI
@@ -29,6 +30,7 @@ enum CameraFailure: LocalizedError {
 /// Capture runs on dedicated queues. The lock protects the small request/handler state only.
 final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate, @unchecked Sendable {
     let session = AVCaptureSession()
+    let floatingCamera = FloatingCameraController()
     private let sessionQueue = DispatchQueue(label: "stepsense.camera.session", qos: .userInitiated)
     private let frameQueue = DispatchQueue(label: "stepsense.camera.frames", qos: .userInitiated)
     private let context = CIContext(options: [.cacheIntermediates: false])
@@ -66,8 +68,8 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
             sessionQueue.async { [self] in
                 do {
                     if !configured { try configure() }
-                    // Diagnostic only: no VoIP background mode, PiP, or background-camera enablement.
                     let supported = session.isMultitaskingCameraAccessSupported
+                    if supported { session.isMultitaskingCameraAccessEnabled = true }
                     lock.lock()
                     active = true
                     frameRequested = false
@@ -93,6 +95,7 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
 
     func stop() {
         clearHandlers()
+        DispatchQueue.main.async { [self] in floatingCamera.stop() }
         sessionQueue.async { [self] in
             if session.isRunning { session.stopRunning() }
         }
@@ -140,6 +143,14 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
 
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
         lock.lock()
+        let isCapturing = active
+        lock.unlock()
+        guard isCapturing else { return }
+        // Display every delivered frame; inference remains independently rate limited.
+        // Enqueue directly on the serial capture queue to avoid retaining a backlog on main.
+        if floatingCamera.layer.status == .failed { floatingCamera.layer.flush() }
+        if floatingCamera.layer.isReadyForMoreMediaData { floatingCamera.layer.enqueue(sampleBuffer) }
+        lock.lock()
         guard active, frameRequested, let handler = frameHandler else { lock.unlock(); return }
         frameRequested = false
         lock.unlock()
@@ -168,6 +179,76 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
         lock.unlock()
         handler?(message)
     }
+}
+
+/// Native live-video PiP. Camera eligibility is checked separately from PiP availability.
+/// No VoIP mode or video-call impersonation is used to obtain camera access.
+final class FloatingCameraController: NSObject, AVPictureInPictureSampleBufferPlaybackDelegate, AVPictureInPictureControllerDelegate {
+    let layer = AVSampleBufferDisplayLayer()
+    private var controller: AVPictureInPictureController?
+    var onEnd: (() -> Void)?
+    var onFailure: ((String) -> Void)?
+    var isActive: Bool { controller?.isPictureInPictureActive == true }
+
+    func prepare() {
+        guard controller == nil, AVPictureInPictureController.isPictureInPictureSupported() else { return }
+        layer.videoGravity = .resizeAspect
+        var timebase: CMTimebase?
+        CMTimebaseCreateWithSourceClock(allocator: kCFAllocatorDefault, sourceClock: CMClockGetHostTimeClock(), timebaseOut: &timebase)
+        if let timebase {
+            CMTimebaseSetTime(timebase, time: CMClockGetTime(CMClockGetHostTimeClock()))
+            CMTimebaseSetRate(timebase, rate: 1)
+            layer.controlTimebase = timebase
+        }
+        controller = AVPictureInPictureController(contentSource: .init(sampleBufferDisplayLayer: layer, playbackDelegate: self))
+        controller?.delegate = self
+        controller?.requiresLinearPlayback = true
+        // Explicit user action is required; leaving the app alone does not start PiP.
+        controller?.canStartPictureInPictureAutomaticallyFromInline = false
+    }
+
+    func start() throws {
+        prepare()
+        guard let controller, controller.isPictureInPicturePossible else {
+            throw NSError(domain: "StepSense.PiP", code: 1, userInfo: [NSLocalizedDescriptionKey: "Floating camera is not ready on this device. Keep StepSense open."])
+        }
+        try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: [.mixWithOthers])
+        try AVAudioSession.sharedInstance().setActive(true)
+        controller.startPictureInPicture()
+    }
+
+    func stop() {
+        controller?.stopPictureInPicture()
+        layer.flushAndRemoveImage()
+    }
+    func pictureInPictureController(_ controller: AVPictureInPictureController, setPlaying playing: Bool) {
+        if !playing { onEnd?() }
+    }
+    func pictureInPictureControllerTimeRangeForPlayback(_ controller: AVPictureInPictureController) -> CMTimeRange {
+        CMTimeRange(start: .zero, duration: .positiveInfinity)
+    }
+    func pictureInPictureControllerIsPlaybackPaused(_ controller: AVPictureInPictureController) -> Bool { false }
+    func pictureInPictureController(_ controller: AVPictureInPictureController, didTransitionToRenderSize newRenderSize: CMVideoDimensions) {}
+    func pictureInPictureController(_ controller: AVPictureInPictureController, skipByInterval skipInterval: CMTime, completionHandler: @escaping () -> Void) { completionHandler() }
+    func pictureInPictureControllerDidStopPictureInPicture(_ controller: AVPictureInPictureController) { onEnd?() }
+    func pictureInPictureController(_ controller: AVPictureInPictureController, failedToStartPictureInPictureWithError error: Error) { onFailure?(error.localizedDescription) }
+    func pictureInPictureController(_ controller: AVPictureInPictureController, restoreUserInterfaceForPictureInPictureStopWithCompletionHandler completionHandler: @escaping (Bool) -> Void) { completionHandler(true) }
+}
+
+struct FloatingCameraPreview: UIViewRepresentable {
+    let camera: FloatingCameraController
+    func makeUIView(context: Context) -> UIView {
+        let view = FloatingCameraUIView()
+        view.displayLayer = camera.layer
+        view.layer.addSublayer(camera.layer)
+        camera.prepare()
+        return view
+    }
+    func updateUIView(_ view: UIView, context: Context) { view.setNeedsLayout() }
+}
+private final class FloatingCameraUIView: UIView {
+    var displayLayer: AVSampleBufferDisplayLayer?
+    override func layoutSubviews() { super.layoutSubviews(); displayLayer?.frame = bounds }
 }
 
 private final class CameraPreviewUIView: UIView {

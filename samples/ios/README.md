@@ -2,7 +2,7 @@
 
 A dependency-free SwiftUI application using the repository's real Node backend. It shows a rear-camera preview, the backend's image zone and object boxes, editable alert settings, and Start/Stop controls. Sound, speech, and haptics are delivered on the phone only when the backend returns `alert.triggered: true`.
 
-**This is a foreground scanner.** Switching to another app or locking the phone pauses scanning, cancels requests, releases the camera, and ends the API session. Returning requires an explicit Start. Scanning while Instagram is foreground is not established by this sample.
+**Native PiP prototype added:** see [iPhone PiP implementation and hardware checks](../../docs/IPHONE_PIP.md). Background capture is gated by Apple's runtime camera multitasking support and active PiP. Without both, switching apps pauses scanning. This source has not been compiled or verified on iPhone; the foreground instructions below predate the PiP prototype.
 
 ## Run one sample at a time
 
@@ -47,7 +47,7 @@ Requirements: a Mac with Xcode and the iOS SDK, plus an iPhone running iOS 16 or
 5. Connect and select your iPhone. Complete Xcode's device pairing, trust, and Developer Mode prompts if required.
 6. Run the **StepSense** scheme. Approve camera and local-network access when asked.
 
-The app is portrait-only to keep preview, frame orientation, and normalized overlays consistent. No VoIP background mode, PiP entitlement, or fake video call is configured.
+The app is portrait-only to keep preview, frame orientation, and normalized overlays consistent. The audio background mode is configured for native PiP. No VoIP mode, Apple-approved camera entitlement, or fake video call is configured.
 
 #### iPhone 18 running iOS 27
 
@@ -94,7 +94,7 @@ The backend confirms matching detections within 2.5 seconds, measured at backend
 
 Sound and speech use a temporary audio session with ducking. Audio-player and speech delegates track each current alert independently; other audio recovers after both outputs complete. Queued speech counts as pending so a short beep cannot deactivate the session before speech starts. Stop invalidates those completions, stops both outputs, and deactivates immediately.
 
-Settings show the runtime value of `AVCaptureSession.isMultitaskingCameraAccessSupported` after camera startup. The sample deliberately does not enable multitasking camera access. A true value does not establish eligibility for a non-call background scanner. Apple's [support conditions](https://developer.apple.com/documentation/avfoundation/avcapturesession/ismultitaskingcameraaccesssupported) and [video-call PiP documentation](https://developer.apple.com/documentation/avkit/adopting-picture-in-picture-for-video-calls) describe specific supported cases.
+Settings show `AVCaptureSession.isMultitaskingCameraAccessSupported` after startup. The prototype enables multitasking camera access only when supported, and keeps a background scan only with active PiP. Apple's [support conditions](https://developer.apple.com/documentation/avfoundation/avcapturesession/ismultitaskingcameraaccesssupported) still govern eligibility. PiP playback and the audio background mode alone do not grant camera access.
 
 ## Build verification
 
