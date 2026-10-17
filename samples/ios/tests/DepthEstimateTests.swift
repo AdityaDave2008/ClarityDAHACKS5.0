@@ -19,6 +19,7 @@ struct DepthEstimateTests {
             DepthSnapshot(width: width, height: height, meters: values, capturedAt: 10)
         }
         precondition(ScanPreferences(confidenceThreshold: 0.4).confidenceThreshold == 0.4)
+        precondition(ScanPreferences().confidenceThreshold == 0.7874982953071594, "preserve the current native candidate default")
         let configured = ScanPreferences(alertModes: [.speech, .vibration], confidenceThreshold: 0.75, cooldownMs: 4000)
         precondition(configured.alertModes == [.speech, .vibration] && configured.confidenceThreshold == 0.75 && configured.cooldownMs == 4000)
         precondition(configured.isLidarEnabled, "custom construction keeps automatic hardware depth when no choice is saved")

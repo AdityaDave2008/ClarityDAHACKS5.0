@@ -38,6 +38,8 @@ On launch the scanner is stopped and the floating window is closed. The PiP cont
 
 **Mac/Xcode testing required for the October 17 fixes.** The explicit `ScanPreferences` initializer and Node.js 24 action upgrades have not been executed on a Mac from this Windows workspace. Source/path and whitespace checks passed; earlier build results below do not confirm this revision.
 
+Windows checks for the integrated update: JavaScript syntax checks passed, and the browser/native-source regression suite passed 231 tests with zero failures. Two tests that compile and execute Swift were skipped because they require macOS. These results do not replace the Mac/Xcode checks below.
+
 On a Mac with Node.js 24+ and Xcode, run:
 
 ```sh
