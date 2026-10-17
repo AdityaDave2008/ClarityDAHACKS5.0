@@ -101,6 +101,9 @@ export function createLocalDetector({
   minIntervalMs = 90,
   maxResultAgeMs = 2500,
 } = {}) {
+  // Abort suppresses delivery, but cannot cancel an already-running model. Keep
+  // its slot across Stop/Start and PiP resume without retaining captured frames.
+  let inFlight = null;
   return {
     async start({ video, signal, onObstacle, onError, onStatus = () => {}, onResult = () => {}, onMetrics = () => {}, onFrame }) {
       signal.throwIfAborted();
@@ -131,7 +134,11 @@ export function createLocalDetector({
         canvas.height = size.height;
         canvas.getContext('2d').drawImage(video, 0, 0, size.width, size.height);
 
-        const predictions = await model.detect(canvas, 20, preferences.confidenceThreshold);
+        const pending = Promise.resolve(model.detect(canvas, 20, preferences.confidenceThreshold));
+        inFlight = pending;
+        let predictions;
+        try { predictions = await pending; }
+        finally { if (inFlight === pending) inFlight = null; }
         if (signal.aborted || stopped) return null;
         const elapsed = now() - started;
         sequence += 1;
@@ -167,6 +174,12 @@ export function createLocalDetector({
 
       async function tick() {
         if (signal.aborted || stopped) return;
+        while (inFlight) {
+          // Wait before timestamping/capture. A waiting run may have been stopped
+          // in turn; only a still-live run may acquire the released inference slot.
+          await inFlight.catch(() => {});
+          if (signal.aborted || stopped) return;
+        }
         const startedAt = now();
         let delay = minIntervalMs;
         try {

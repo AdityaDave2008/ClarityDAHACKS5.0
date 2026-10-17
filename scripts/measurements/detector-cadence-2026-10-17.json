@@ -721,6 +721,248 @@
           ]
         }
       ]
+    },
+    {
+      "date": "2026-10-17T07:49:54.263Z",
+      "browser": "131.0.6778.33",
+      "node": "v24.16.0",
+      "host": {
+        "platform": "darwin",
+        "arch": "arm64",
+        "cpu": "Apple M4"
+      },
+      "fixtureSha256": "216d581e709e29c03197a9f30f5656676dfe91672f3f873b91ceef64ca6d14d0",
+      "baselineSourceSha256": "c8307bc026fbafed35454c3d00d3611d00828322592c01a42e59e3d967addc6b",
+      "currentSourceSha256": "9449c104ffc7343696164266f02752fd75cd973ddd426179835c9c1a81addec5",
+      "limitations": [
+        "Static fixture at sourceSize resolution, not live physical camera or PiP",
+        "Headless Chromium rAF gaps proxy main-thread responsiveness, not displayed frames",
+        "Short warm-run ABBA sample, not phone thermal/battery or accuracy validation"
+      ],
+      "modelHash": "516617114420ce3c2bac545869ee91bac8ff7a63e148a73afdb12f126433fab4",
+      "threshold": 0.7874982953071594,
+      "sourceSize": [
+        224,
+        224
+      ],
+      "warmups": [
+        68.5,
+        40.900000005960464,
+        38.29999999701977,
+        38.900000005960464,
+        42.099999994039536
+      ],
+      "runs": [
+        {
+          "variant": "before",
+          "frames": 40,
+          "captureIntervalMs": {
+            "count": 39,
+            "mean": 129.74102564117848,
+            "p50": 129.90000000596046,
+            "p95": 131.29999999701977,
+            "max": 132.1000000089407
+          },
+          "inferenceMs": {
+            "count": 40,
+            "mean": 37.74000000022352,
+            "p50": 37.79999999701977,
+            "p95": 39.1000000089407,
+            "max": 39.5
+          },
+          "scheduledDelayMs": {
+            "count": 39,
+            "mean": 90,
+            "p50": 90,
+            "p95": 90,
+            "max": 90
+          },
+          "rafGapMs": {
+            "count": 287,
+            "mean": 18.408013937282227,
+            "p50": 16.699999999999818,
+            "p95": 33.29999999999973,
+            "max": 266.6
+          },
+          "rafGapsOver50Ms": 1,
+          "maxPendingTimers": 1,
+          "firstTwoResultsMs": 170.70000000298023,
+          "detections": [
+            {
+              "label": "cat",
+              "confidence": 0.7931427443873815,
+              "bbox": {
+                "x": 0,
+                "y": 0.12703961592454177,
+                "width": 0.9147736842815694,
+                "height": 0.83825500194843
+              },
+              "anchor": {
+                "x": 0.4573868421407847,
+                "y": 0.9652946178729718
+              },
+              "inZone": true
+            }
+          ]
+        },
+        {
+          "variant": "after",
+          "frames": 40,
+          "captureIntervalMs": {
+            "count": 39,
+            "mean": 91.66410256387331,
+            "p50": 91.70000000298023,
+            "p95": 92.79999999701977,
+            "max": 92.90000000596046
+          },
+          "inferenceMs": {
+            "count": 40,
+            "mean": 37.92500000149012,
+            "p50": 36.80000001192093,
+            "p95": 40.79999999701977,
+            "max": 41.80000001192093
+          },
+          "scheduledDelayMs": {
+            "count": 39,
+            "mean": 52.10256410141786,
+            "p50": 53.1000000089407,
+            "p95": 53.6000000089407,
+            "max": 53.69999998807907
+          },
+          "rafGapMs": {
+            "count": 198,
+            "mean": 18.181313131313136,
+            "p50": 16.699999999999818,
+            "p95": 33.29999999999927,
+            "max": 66.69999999999982
+          },
+          "rafGapsOver50Ms": 1,
+          "maxPendingTimers": 1,
+          "firstTwoResultsMs": 129.59999999403954,
+          "detections": [
+            {
+              "label": "cat",
+              "confidence": 0.7931427443873815,
+              "bbox": {
+                "x": 0,
+                "y": 0.12703961592454177,
+                "width": 0.9147736842815694,
+                "height": 0.83825500194843
+              },
+              "anchor": {
+                "x": 0.4573868421407847,
+                "y": 0.9652946178729718
+              },
+              "inZone": true
+            }
+          ]
+        },
+        {
+          "variant": "after",
+          "frames": 40,
+          "captureIntervalMs": {
+            "count": 39,
+            "mean": 91.33076923053999,
+            "p50": 91.40000000596046,
+            "p95": 92.29999999701977,
+            "max": 92.79999999701977
+          },
+          "inferenceMs": {
+            "count": 40,
+            "mean": 39.93000000007451,
+            "p50": 40.1000000089407,
+            "p95": 41.099999994039536,
+            "max": 41.30000001192093
+          },
+          "scheduledDelayMs": {
+            "count": 39,
+            "mean": 50.05897436004419,
+            "p50": 49.80000001192093,
+            "p95": 52.29999999701977,
+            "max": 52.79999999701977
+          },
+          "rafGapMs": {
+            "count": 196,
+            "mean": 18.281632653061227,
+            "p50": 16.69999999999891,
+            "p95": 33.29999999999927,
+            "max": 66.70000000000073
+          },
+          "rafGapsOver50Ms": 1,
+          "maxPendingTimers": 1,
+          "firstTwoResultsMs": 129.29999999701977,
+          "detections": [
+            {
+              "label": "cat",
+              "confidence": 0.7931427443873815,
+              "bbox": {
+                "x": 0,
+                "y": 0.12703961592454177,
+                "width": 0.9147736842815694,
+                "height": 0.83825500194843
+              },
+              "anchor": {
+                "x": 0.4573868421407847,
+                "y": 0.9652946178729718
+              },
+              "inZone": true
+            }
+          ]
+        },
+        {
+          "variant": "before",
+          "frames": 40,
+          "captureIntervalMs": {
+            "count": 39,
+            "mean": 140.3564102565631,
+            "p50": 141.29999999701977,
+            "p95": 142.3999999910593,
+            "max": 142.59999999403954
+          },
+          "inferenceMs": {
+            "count": 40,
+            "mean": 48.054999999329446,
+            "p50": 49.20000000298023,
+            "p95": 50.3999999910593,
+            "max": 50.400000005960464
+          },
+          "scheduledDelayMs": {
+            "count": 39,
+            "mean": 90,
+            "p50": 90,
+            "p95": 90,
+            "max": 90
+          },
+          "rafGapMs": {
+            "count": 289,
+            "mean": 19.030449826989617,
+            "p50": 16.700000000000728,
+            "p95": 33.30000000000109,
+            "max": 66.59999999999854
+          },
+          "rafGapsOver50Ms": 1,
+          "maxPendingTimers": 1,
+          "firstTwoResultsMs": 177.1000000089407,
+          "detections": [
+            {
+              "label": "cat",
+              "confidence": 0.7931427443873815,
+              "bbox": {
+                "x": 0,
+                "y": 0.12703961592454177,
+                "width": 0.9147736842815694,
+                "height": 0.83825500194843
+              },
+              "anchor": {
+                "x": 0.4573868421407847,
+                "y": 0.9652946178729718
+              },
+              "inZone": true
+            }
+          ]
+        }
+      ],
+      "phase": "post-cross-start-gate"
     }
   ]
 }

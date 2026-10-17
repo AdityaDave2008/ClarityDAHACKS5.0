@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { assessDetections, createAlertPolicy, createLocalDetector, pointInZone } from './local-detector.js';
+import { CameraFeature } from './camera.js';
 
 // The detector is exercised through its real start() contract with a stubbed model, so the
 // frame loop, staleness rule, and alert behavior are covered. Actual COCO-SSD accuracy and
@@ -318,3 +319,91 @@ test('in-flight inference never queues captures and the next tick captures the l
   assert.equal(run.events.results.length, 1, 'Stopping discards the last in-flight result');
   assert.equal(stub.scheduled(), 0);
 });
+
+for (const rejectOld of [false, true]) {
+  test(`restart waits before fresh capture and releases the gate on ${rejectOld ? 'rejection' : 'success'}`, async () => {
+    const pending = [], captured = [];
+    let active = 0, maximum = 0;
+    const stub = harness({ detectImpl: () => {
+      active++;
+      maximum = Math.max(maximum, active);
+      return new Promise((resolve, reject) => pending.push({
+        finish() { active--; resolve([prediction()]); },
+        fail() { active--; reject(Error('old inference failed')); },
+      }));
+    } });
+    stub.canvas.getContext = () => ({ drawImage: video => captured.push(video.frameId) });
+    const detector = createLocalDetector(stub.options);
+    const old = session({ video: { videoWidth: 640, videoHeight: 480, frameId: 'old' } });
+    const cancelled = session({ video: { videoWidth: 640, videoHeight: 480, frameId: 'cancelled' } });
+    const video = { videoWidth: 640, videoHeight: 480, frameId: 'before-wait' };
+    const latest = session({ video });
+    const frames = [];
+    latest.context.onFrame = frame => frames.push(frame);
+    await detector.start(old.context);
+    old.controller.abort();
+    const stopCancelled = await detector.start(cancelled.context);
+    stopCancelled(); // Returned stop must fence waiting work even without abort.
+    await detector.start(latest.context);
+    assert.deepEqual(captured, ['old'], 'Waiting starts must not capture stale frames');
+    assert.equal(maximum, 1, 'All starts share a single inference slot');
+    video.frameId = 'latest-after-wait';
+    stub.advance(3000);
+    if (rejectOld) pending[0].fail(); else pending[0].finish();
+    await new Promise(resolve => setImmediate(resolve));
+    assert.deepEqual(captured, ['old', 'latest-after-wait']);
+    assert.equal(maximum, 1);
+    assert.equal(pending.length, 2, 'Cancelled waiting start must never invoke the model');
+    pending[1].finish();
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(latest.events.results.length, 1, 'Waiting time must not age a newly captured result');
+    assert.equal(latest.events.results[0].ageMs, 0);
+    assert.equal(frames[0].capturedAt, 3000);
+    assert.equal(old.events.results.length, 0);
+    assert.equal(old.events.errors.length, 0, 'Aborted old rejection must not affect the new session');
+    assert.equal(cancelled.events.results.length, 0);
+    latest.controller.abort();
+  });
+}
+
+for (const lifecycle of ['PiP hide/show', 'Stop/Start']) {
+  test(`rapid ${lifecycle} never overlaps inference or captures aborted waiting runs`, async () => {
+    let active = 0, maximum = 0, captures = 0, visible = true;
+    const pending = [];
+    const feature = new CameraFeature({
+      video: { videoWidth: 640, videoHeight: 480, async play() {}, pause() {} },
+      mediaDevices: { async getUserMedia() { return { getTracks: () => [{ stop() {}, addEventListener() {} }] }; } },
+      schedule: () => 0, unschedule() {}, isVisible: () => visible,
+    });
+    feature.registerDetector(createLocalDetector({
+      loader: async () => ({ detect: () => {
+        active++; maximum = Math.max(maximum, active);
+        return new Promise(resolve => pending.push(() => { active--; resolve([prediction()]); }));
+      } }),
+      createCanvas: () => ({ getContext: () => ({ drawImage() { captures++; } }) }),
+      schedule: () => 0, unschedule() {},
+    }));
+    try {
+      await feature.start();
+      await new Promise(resolve => setImmediate(resolve));
+      for (let i = 0; i < 5; i++) {
+        if (lifecycle === 'PiP hide/show') {
+          visible = false; feature.pauseForPictureInPicture();
+          visible = true; feature.resumeFromPictureInPicture();
+        } else { feature.stop(); await feature.start(); }
+        await new Promise(resolve => setImmediate(resolve));
+      }
+      assert.equal(maximum, 1, 'Restart must wait for the old inference without blocking Stop');
+      assert.equal(captures, 1, 'No capture queue for hidden/stopped sessions');
+      pending[0]();
+      await new Promise(resolve => setImmediate(resolve));
+      assert.equal(pending.length, 2, 'Only the latest non-aborted run invokes the model');
+      assert.equal(captures, 2);
+      assert.equal(feature.state.result, null, 'Old model result remains fenced after resume');
+      pending[1]();
+      await new Promise(resolve => setImmediate(resolve));
+      assert.equal(feature.state.result.sequence, 1);
+      assert.equal(maximum, 1);
+    } finally { feature.destroy(); }
+  });
+}
