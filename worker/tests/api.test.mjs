@@ -347,12 +347,49 @@ test('a failed inference breaks the confirmation streak', async () => {
   assert.equal(resumed.alert.triggered, false);
 });
 
-test('the bare origin explains the API instead of returning not found', async () => {
-  // Opening the deployed URL in a browser previously showed only NOT_FOUND.
-  const response = await worker.fetch(request('/'), env());
+test('the API describes itself under /api', async () => {
+  const response = await worker.fetch(request('/api'), env());
   assert.equal(response.status, 200);
   const body = await response.json();
   assert.equal(body.version, 'v1');
   assert.match(body.endpoints.sendFrame, /X-Frame-Sequence/);
-  assert.ok(body.notes.some((note) => /API only/i.test(note)));
+});
+
+test('the bare origin serves the web app, not an API error', async () => {
+  // Opening the deployed URL on a phone must load the camera client. It previously
+  // returned NOT_FOUND, which is useless to a person holding a phone.
+  const served = [];
+  const environment = env({
+    ASSETS: {
+      async fetch(assetRequest) {
+        served.push(new URL(assetRequest.url).pathname);
+        return new Response('<!doctype html><title>StepSense</title>', {
+          status: 200,
+          headers: { 'Content-Type': 'text/html; charset=utf-8' },
+        });
+      },
+    },
+  });
+  const response = await worker.fetch(request('/'), environment);
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get('Content-Type'), /text\/html/);
+  assert.deepEqual(served, ['/']);
+});
+
+test('a missing web app is reported rather than served as a blank 404', async () => {
+  const environment = env({ ASSETS: { async fetch() { return new Response(null, { status: 404 }); } } });
+  const response = await worker.fetch(request('/'), environment);
+  assert.equal(response.status, 503);
+  assert.equal((await response.json()).error.code, 'APP_NOT_DEPLOYED');
+});
+
+test('API routes are never shadowed by the web app', async () => {
+  const environment = env({
+    ASSETS: { async fetch() { return new Response('app', { status: 200 }); } },
+  });
+  const ready = await worker.fetch(request('/ready'), environment);
+  assert.equal(ready.headers.get('Content-Type'), 'application/json; charset=utf-8');
+  const unknownApi = await worker.fetch(request('/api/v1/nope'), environment);
+  assert.equal(unknownApi.status, 404, 'An unknown API path must not fall through to the app');
+  assert.equal((await unknownApi.json()).error.code, 'NOT_FOUND');
 });

@@ -6,6 +6,13 @@ compatibility_date = "2026-10-17"
 [ai]
 binding = "AI"
 
+# The web app ships from the same origin as the API, so the browser needs no CORS
+# permission and phones get one URL to open.
+[assets]
+directory = "../frontend"
+binding = "ASSETS"
+not_found_handling = "none"
+
 [vars]
 # Empty allows any origin, which suits a demo where phone and tunnel origins change.
 # Set exact origins such as "https://example.pages.dev" to restrict the API.

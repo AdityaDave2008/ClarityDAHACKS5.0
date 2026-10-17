@@ -161,9 +161,7 @@ export default {
     }
 
     try {
-      // Opening the bare origin in a browser is the first thing anyone does, so answer
-      // with the API's shape instead of a bare NOT_FOUND.
-      if (path === '/' && request.method === 'GET') {
+      if (path === '/api' && request.method === 'GET') {
         return json({
           service: 'StepSense detection API',
           version: 'v1',
@@ -240,6 +238,22 @@ export default {
         const sessions = new SessionClient(env.SESSIONS);
         await sessions.call(decodeURIComponent(sessionMatch[1]), 'delete');
         return new Response(null, { status: 204, headers: { 'Cache-Control': 'no-store', ...corsHeaders(request, env) } });
+      }
+
+      // Anything that is not an API route is the web app itself. Serving the browser
+      // client from this origin means the phone opens one HTTPS URL and the camera
+      // uploads are same-origin, so no CORS configuration is involved.
+      if (request.method === 'GET' && !path.startsWith('/api/')) {
+        const asset = await env.ASSETS?.fetch(request);
+        if (asset && asset.status !== 404) return asset;
+        if (path === '/' || path === '/index.html') {
+          return json({
+            error: {
+              code: 'APP_NOT_DEPLOYED',
+              message: 'The web app assets are missing from this deployment. See GET /api for the API.',
+            },
+          }, { status: 503, request, env });
+        }
       }
 
       return json({ error: { code: 'NOT_FOUND', message: 'Endpoint not found.' } }, { status: 404, request, env });
