@@ -25,7 +25,10 @@ Working root is `/workspace/broad80`. No deployment is performed by these script
 ```bash
 python -m venv --system-site-packages .venv
 .venv/bin/python -m pip install -r requirements.txt
-# Clone exact YOLOX revision into YOLOX and obtain the official Nano checkpoint.
+git clone --depth 1 --branch 0.3.0 https://github.com/Megvii-BaseDetection/YOLOX.git YOLOX
+test "$(git -C YOLOX rev-parse HEAD)" = 419778480ab6ec0590e5d3831b3afb3b46ab2aa3
+curl -fL --retry 2 -o yolox_nano.pth \
+  https://github.com/Megvii-BaseDetection/YOLOX/releases/download/0.1.1rc0/yolox_nano.pth
 export PYTHONPATH="$PWD/YOLOX"
 .venv/bin/python prepare_coco.py --root "$PWD/coco" --count 12000
 .venv/bin/python smoke_export.py --checkpoint yolox_nano.pth --output artifacts/preflight
@@ -57,3 +60,11 @@ bash -n training/run_training.sh
 ```
 
 Do not commit datasets, checkpoints, model binaries or credentials. Preserve original app code and model artifacts.
+
+## Recovery and completion
+
+The first real run saved epoch 1, then exposed an upstream compatibility issue: YOLOX removes COCO `info`, but pycocotools 2.0.10 requires it in `loadRes`. `train_entry.py` retains that metadata through a tested hook. `RESUME=1 bash run_training.sh` restores model and optimizer from the last atomic checkpoint. The epoch counter and changed tensors are verified separately. AMP scaler and exact random/data-loader state are not saved by upstream YOLOX, so resume is not bitwise identical.
+
+`finish_run.sh` waits for the PID recorded in `training.pid`, requires all 15 epochs by default (a recoverable partial run requires explicit `ALLOW_PARTIAL=1`), evaluates baseline and candidate on tuning only, freezes a model/threshold, evaluates final-test, and exports that selected checkpoint with SHA256-linked ONNX parity. If 93.5% tuning precision cannot be reached, it uses a predeclared score threshold 0.5 and marks target failure. A baseline checkpoint is never silently substituted. The coordinator verifies the off-pod mirror and stops billing as soon as these artifacts are ready, rather than waiting for the absolute budget deadline.
+
+The optional upstream C++ COCO evaluator is deliberately replaced by standard `pycocotools.COCOeval`, which is also used for standalone reports. This avoids runtime compiler/toolchain assumptions. `bash integration_cycle.sh` exercises a real 32-image train / 8-image tuning cycle through upstream training, evaluation, and atomic best-checkpoint saving under a three-minute timeout. Its outputs are compatibility artifacts only and never selected as the final detector.

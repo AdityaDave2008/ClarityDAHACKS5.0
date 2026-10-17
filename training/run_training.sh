@@ -3,6 +3,7 @@
 set -euo pipefail
 cd /workspace/broad80
 export PYTHONPATH="$PWD/YOLOX"
+export PATH="$PWD/.venv/bin:$PATH"
 export OMP_NUM_THREADS=4
 export OPENBLAS_NUM_THREADS=4
 PY="$PWD/.venv/bin/python"
@@ -25,8 +26,10 @@ SECONDS_LEFT=$(( CUTOFF - NOW ))
 if (( SECONDS_LEFT <= 600 )); then echo 'Insufficient budget time'; exit 1; fi
 if (( SECONDS_LEFT > 27000 )); then SECONDS_LEFT=27000; fi
 printf '%s\n' "$(date -u +%FT%TZ) training start, max ${SECONDS_LEFT}s" | tee run-status.log
+ARGS=(-c yolox_nano.pth)
+if [[ "${RESUME:-0}" == 1 ]]; then ARGS=(--resume -c artifacts/broad80_nano/latest_ckpt.pth); fi
 timeout --signal=TERM --kill-after=30 "$SECONDS_LEFT" "$PY" train_entry.py \
-  -f broad80_exp.py -d 1 -b 64 --fp16 -c yolox_nano.pth 2>&1 | tee train.log
+  -f broad80_exp.py -d 1 -b 64 --fp16 "${ARGS[@]}" 2>&1 | tee -a train.log
 # YOLOX logger catches some exceptions. Require a real final checkpoint as well.
 test -s artifacts/broad80_nano/latest_ckpt.pth
 "$PY" - <<'PY'

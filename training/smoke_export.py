@@ -2,6 +2,7 @@
 This uses synthetic boxes solely for compatibility and never reports training quality.
 """
 import argparse
+import hashlib
 import json
 import pathlib
 import time
@@ -61,6 +62,9 @@ def main():
     result = session.run(None, {'images':sample.numpy()})[0]
     np.testing.assert_allclose(result, reference, rtol=2e-3, atol=2e-3)
     report = {'synthetic_smoke_only':True, 'losses':losses, 'five_batches_seconds':seconds,
+              'checkpoint_path':str(pathlib.Path(args.checkpoint).resolve()),
+              'checkpoint_sha256':hashlib.sha256(pathlib.Path(args.checkpoint).read_bytes()).hexdigest(),
+              'onnx_sha256':hashlib.sha256(path.read_bytes()).hexdigest(),
               'output_shape':list(result.shape), 'onnx_max_abs_error':float(np.max(np.abs(result-reference))),
               'torch':torch.__version__, 'cuda':torch.version.cuda, 'gpu':torch.cuda.get_device_name(0)}
     (args.output/'preflight.json').write_text(json.dumps(report, indent=2))

@@ -11,6 +11,7 @@ from pycocotools.cocoeval import COCOeval
 from yolox.data.data_augment import preproc
 from yolox.exp import get_exp
 from yolox.utils import postprocess
+from coco_compat import category_id_for_json
 from operating_point import choose_threshold, fixed_threshold, matches_from_coco
 
 
@@ -62,7 +63,7 @@ def main():
         precision = evaluator.eval['precision'][:,:,k,0,-1]
         valid = precision[precision >= 0]
         valid50 = precision[0][precision[0] >= 0]
-        per_class.append({'category_id':category_id,'name':coco.cats[category_id]['name'],
+        per_class.append({'category_id':category_id_for_json(category_id),'name':coco.cats[category_id]['name'],
             'AP50_95':float(valid.mean()) if valid.size else None,
             'AP50':float(valid50.mean()) if valid50.size else None,
             **fixed_threshold(class_matches,support,threshold)})

@@ -18,15 +18,17 @@ while True:
     time.sleep(10)
 PY
 "$PY" - <<'PY'
-import torch,json,pathlib
+import torch,json,pathlib,os
 c=torch.load('artifacts/broad80_nano/latest_ckpt.pth',map_location='cpu',weights_only=False)
 assert c['start_epoch'] >= 1, 'No real-data completed epoch available'
+assert c['start_epoch'] >= 15 or os.environ.get('ALLOW_PARTIAL')=='1', 'Incomplete training. Explicit ALLOW_PARTIAL=1 required for recovery evaluation.'
 pathlib.Path('artifacts/training-completion.json').write_text(json.dumps({'completed_epochs':c['start_epoch'],
     'planned_epochs':15,'complete':c['start_epoch']>=15,'partial_recovery':c['start_epoch']<15},indent=2))
 PY
 for WHICH in baseline candidate; do
   if [[ "$WHICH" == baseline ]]; then CHECKPOINT=yolox_nano.pth; else CHECKPOINT=artifacts/broad80_nano/best_ckpt.pth; fi
-  if [[ ! -s "$CHECKPOINT" ]]; then CHECKPOINT=artifacts/broad80_nano/latest_ckpt.pth; fi
+  if [[ "$WHICH" == candidate && ! -s "$CHECKPOINT" ]]; then CHECKPOINT=artifacts/broad80_nano/latest_ckpt.pth; fi
+  test -s "$CHECKPOINT"
   if [[ "$WHICH" == baseline && -s artifacts/baseline-tune/metrics.json ]]; then continue; fi
   timeout 900 "$PY" evaluate.py --root coco --checkpoint "$CHECKPOINT" --output "artifacts/${WHICH}-tune" > "${WHICH}-eval.log" 2>&1
 done
