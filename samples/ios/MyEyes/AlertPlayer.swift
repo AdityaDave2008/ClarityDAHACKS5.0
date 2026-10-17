@@ -14,13 +14,81 @@ final class AlertPlayer: NSObject, AVAudioPlayerDelegate, AVSpeechSynthesizerDel
     private var player: AVAudioPlayer?
     private var activePlayer: ObjectIdentifier?
     private var activeUtterance: ObjectIdentifier?
+    private let proximityHaptic = UIImpactFeedbackGenerator(style: .medium)
+    private let proximitySpeech = AVSpeechSynthesizer()
+    private var proximityPlayer: AVAudioPlayer?
+    private var proximityAudioConfigured = false
+    private lazy var proximity = ProximityFeedback(
+        emit: { [weak self] event in self?.emitProximity(event) },
+        stopOutputs: { [weak self] in self?.stopProximityOutputs() }
+    )
 
     override init() {
         super.init()
         speech.delegate = self
     }
 
+    /// Root supplies every fresh result. Nil or unvalidated depth stops feedback immediately.
+    func updateProximity(target: Detection?, modes: [AlertMode]) {
+        let now = ProcessInfo.processInfo.systemUptime
+        guard let target, let depth = target.freshProximityDepth(at: now),
+              let expiry = target.depthExpiresAt else {
+            stopProximity()
+            return
+        }
+        let band = target.freshProximityBand(at: now)
+        guard band != .unknown else { stopProximity(); return }
+        let identity = target.proximityTrackID.map(String.init) ?? target.label
+        proximity.update(ProximityFeedbackInput(
+            interval: band.pulseInterval, expiry: expiry,
+            speechKey: "\(identity):\(target.label):\(band.title)",
+            message: String(format: "%@, approximately %.1f meters axial depth, %@", target.label, depth, band.title),
+            sound: modes.contains(.sound), haptic: modes.contains(.vibration),
+            speech: modes.contains(.speech)
+        ))
+    }
+
+    func stopProximity() { proximity.stop() }
+
+    private func emitProximity(_ event: ProximityFeedbackEvent) {
+        if (event.sound || event.message != nil) && !proximityAudioConfigured {
+            do {
+                try AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
+                try AVAudioSession.sharedInstance().setActive(true)
+                proximityAudioConfigured = true
+            } catch { PiPDiagnostics.error("audio.proximity.activate.failure", error) }
+        }
+        if event.haptic {
+            // One discrete impact per cadence tick, never the multi-pulse warning pattern.
+            proximityHaptic.prepare()
+            proximityHaptic.impactOccurred()
+        }
+        if event.sound {
+            proximityPlayer?.stop()
+            proximityPlayer = try? AVAudioPlayer(data: Self.beep())
+            proximityPlayer?.volume = 0.65
+            proximityPlayer?.play()
+        }
+        if let message = event.message {
+            // Replace rather than queue. Beeps never touch the independent speech channel.
+            proximitySpeech.stopSpeaking(at: .immediate)
+            let utterance = AVSpeechUtterance(string: message)
+            utterance.rate = AVSpeechUtteranceDefaultSpeechRate
+            utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
+            proximitySpeech.speak(utterance)
+        }
+    }
+
+    private func stopProximityOutputs() {
+        proximityPlayer?.stop()
+        proximityPlayer = nil
+        proximitySpeech.stopSpeaking(at: .immediate)
+        proximityAudioConfigured = false
+        // PiP owns the active audio session. Do not deactivate it here.
+    }
+
     func deliver(_ modes: [AlertMode], message: String) {
+        stopProximity()
         // Invalidate old completion callbacks before interrupting an earlier alert.
         activePlayer = nil
         activeUtterance = nil
@@ -58,6 +126,7 @@ final class AlertPlayer: NSObject, AVAudioPlayerDelegate, AVSpeechSynthesizerDel
     }
 
     func stop() {
+        stopProximity()
         activePlayer = nil
         activeUtterance = nil
         speech.stopSpeaking(at: .immediate)
