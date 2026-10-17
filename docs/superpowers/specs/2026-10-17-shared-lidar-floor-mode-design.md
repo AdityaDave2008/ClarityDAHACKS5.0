@@ -26,7 +26,7 @@ Initially expose **Automatic floor mode (experimental)** as an opt-in native set
 
 ## Tilt and motion gate
 
-Initial configurable prototype thresholds: enter at least 45° below horizontal for 300 ms; exit at or above 35° below horizontal for 300 ms (i.e. tilt decreases to 35° or less). The 10° hysteresis avoids rapid mode switching. Invalid/stale motion immediately disables geometric output rather than preserving the last tilt.
+Initial configurable prototype thresholds: enter at least 45° below horizontal for 300 ms; exit when downward tilt decreases to 35° or less for 300 ms. The 10° hysteresis avoids rapid mode switching. Invalid/stale motion immediately disables geometric output rather than preserving the last tilt.
 
 For the supported upright portrait, unmirrored rear-camera convention, camera-axis gravity is `(device.x, -device.y, -device.z)` and downward tilt is `asin(-device.z)`. This convention requires an executable known-pose test and a physical flat/vertical check before hardware acceptance. Do not guess an extra rotation from device model names.
 
@@ -38,7 +38,7 @@ The current `LiDARCapture.snapshot` only validates calibration and then discards
 
 Retain focal lengths, principal point, intrinsic reference dimensions, distortion center, both distortion tables and explicit delivered orientation/mirroring metadata. Validate finite positive focal lengths, canonical intrinsic structure, plausible principal point, bounded finite tables and positive radial scale. Require a documented same-aspect reference-to-delivered-image transform. Unknown rotation, crop, mirroring or absent required calibration produces `floor unavailable`, not a guessed transform. Do not rotate already-adjusted calibration twice.
 
-For a delivered depth pixel center: map it into intrinsic reference coordinates using the explicit transform, correct the distorted point into rectilinear coordinates, then compute the ray and multiply by its axial Z. Preserve the inverse mapping for projecting cluster boxes back into the original distorted preview.
+For a delivered depth pixel center: map it into intrinsic reference coordinates using the explicit transform, correct the distorted point into rectilinear coordinates, then compute the ray and multiply by its axial Z. Compute cluster boxes from their original distorted-map pixel coordinates, avoiding an unnecessary reprojection. Test both coordinate mappings for calibration round-trip consistency.
 
 **Apple SDK direction matters:** `AVCameraCalibrationData.h` reference implementation, lines 121–124 in the installed iPhoneOS 27.1 SDK, says a *distorted point → undistorted point* mapping uses **inverseLensDistortionLookupTable**. The forward table maps an *undistorted destination point → distorted source point* when resampling an image. `AVDepthData.h` documents that `applyingExifOrientation` transforms both the depth map and calibration. Tests must cover both directions and the orientation mapping; property names alone are not sufficient evidence.
 
@@ -48,9 +48,9 @@ Use a consistent pixel-center convention and test scaling/rotation round trips. 
 
 Bound computation to at most 4096 valid sampled points in the lower/central view. Only finite absolute 0.2–5 m returns are eligible. No interpolation across missing-depth holes.
 
-Fit a deterministic, bounded robust candidate plane with its normal within 15° of gravity-up. Initial acceptance requires at least 300 valid points, 60% inlier support, spatial support in at least six cells of a 3×3 image grid, and broad horizontal/vertical coverage. Reject competing similarly supported planes, excessive residuals, or an implausible camera-to-plane offset outside 0.3–2 m. A large tabletop can still resemble a supporting plane; this is a documented limitation, not verified floor semantics.
+Fit a deterministic robust candidate plane using at most 64 hypotheses, with its normal within 15° of gravity-up. Initial acceptance requires at least 300 valid points, 60% inlier support, spatial support in at least six cells of a 3×3 image grid, with normalized horizontal span at least 0.35 and vertical span at least 0.30. An inlier is within 0.025 m + 0.01 × axial depth of the plane; require median absolute residual no greater than 0.03 m. Reject an alternative admissible plane with at least 80% of the best support and an offset difference of at least 0.15 m, or an implausible camera-to-plane offset outside 0.3–2 m. A large tabletop can still resemble a supporting plane; this is a documented limitation, not verified floor semantics.
 
-Cluster spatially connected returns at least 8 cm above the accepted plane, requiring at least eight samples and a provisional minimum 4 cm extent in two axes. Use explicit 3D continuity bounds so separated surfaces do not become one obstacle. These minimums deliberately do not promise shoelace/coin/small-hole detection. Candidate geometry and plane support must persist across distinct fresh frames.
+Cluster spatially connected returns at least max(8 cm, twice the measured plane residual spread) above the accepted plane, requiring at least eight samples and a provisional minimum 4 cm extent in two axes. Use 8-neighbor image-grid connectivity and a 3D neighbor gap no greater than 0.15 m + 0.05 × axial depth, so separated surfaces do not become one obstacle. These minimums deliberately do not promise shoelace/coin/small-hole detection. Candidate geometry and plane support must persist across distinct fresh frames.
 
 Each candidate retains the source capture timestamp and a robust cluster axial-depth estimate. Do not feed a floor-containing bounding rectangle through the existing object-ROI estimator and call the two estimates identical. Geometry has its own validated support; both ultimately use the same physical LiDAR map and existing expiry/range limits.
 
