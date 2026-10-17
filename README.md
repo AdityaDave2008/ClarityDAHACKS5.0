@@ -6,7 +6,9 @@ Team project for De Anza Hacks 5.0, October 16–17, 2026.
 
 ## Start here
 
-The selected concept is StepSense, a camera obstacle-alert prototype. The Node.js 24/Fastify backend is implemented under `backend/`. A browser sample with a guided walkthrough and live camera is in `frontend/`; native iPhone and Android examples are in `samples/`. See [the three-sample walkthrough](samples/README.md) to try them in order.
+The selected concept is StepSense, a camera obstacle-alert prototype. **Prototype 1 — Alpha (α)** combines the team's website/browser frontend and the native Swift app. The browser in `frontend/` uses the Node.js/Fastify detection backend in `backend/`. The primary Swift app is the **StepSense** target in `samples/ios/StepSense.xcodeproj`, despite the historical `samples/` directory name. Its camera detection, alerts, preferences, and optional LiDAR run offline. An Android example also remains in `samples/`.
+
+See [Alpha architecture, verification, and limitations](docs/PROTOTYPE_1_ALPHA.md). Backend app/account features are the intended native-app architecture, not an implemented account system: no account/auth API exists yet, so Swift account integration is deferred. No camera or LiDAR data is uploaded by the Swift scanner.
 
 ## Try the browser sample
 
@@ -15,7 +17,7 @@ npm --prefix backend ci
 npm run demo
 ```
 
-Open **http://localhost:5180**. Try **Walkthrough → Start walkthrough → Add backpack**, then stop and select **Live camera** for actual camera/backend detection. The browser and native iPhone examples scan in the foreground. The Android example uses a camera foreground service for app switching and still needs an Android build/device check. [Setup and verification details](samples/README.md).
+Open **http://localhost:5180** for the integrated website and browser camera flow. Browser camera frames use backend detection only after Start. For the offline iPhone app and its floating-window behavior, follow [native setup and limitations](samples/ios/README.md). Background native object alerts are not guaranteed. The Android example uses a camera foreground service for app switching and still needs an Android build/device check.
 
 For iPhone Safari, see [launching over HTTPS](docs/PHONE_LAUNCH.md). [Related projects and tutorials](docs/RELATED_PROJECTS.md) collect the useful GitHub, YouTube, and Instructables references.
 

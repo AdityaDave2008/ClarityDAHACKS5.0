@@ -1,65 +1,970 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#101b18">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="description" content="Try StepSense: a camera obstacle-alert prototype for everyday city life.">
-  <link rel="manifest" href="/manifest.webmanifest">
-  <link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
-  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
-  <link rel="stylesheet" href="/styles.css">
-  <title>StepSense · A little more awareness</title>
-</head>
-<body>
-  <div class="app-shell">
-    <aside class="sidebar" aria-label="About StepSense">
-      <a class="brand" href="/" aria-label="StepSense home"><img src="/icons/icon.svg" alt="" width="38" height="38"><span>stepsense<span class="brand-dot">.</span></span></a>
-      <div class="sidebar-middle"><span class="eyebrow">THE EVERYDAY, AWARE.</span><p>A little more<br>awareness.<br>A better walk.</p><div class="city-lines" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div></div>
-      <div class="sidebar-bottom"><span class="small-dot"></span> Built for city life<br><span class="muted">DA Hacks 2026 · Prototype</span></div>
-    </aside>
-    <main>
-      <header class="topbar"><span class="breadcrumb">THE LAB <span>/</span> OBSTACLE AWARENESS</span><button class="text-button" id="how-button">How it works <span aria-hidden="true">↗</span></button></header>
-      <section class="intro">
-        <div><div class="eyebrow green">YOUR WALK. A LITTLE MORE CONNECTED.</div><h1>See what’s<br><span>in your way.</span></h1><p>A camera, a second look, and a timely heads-up.<br class="desktop-break"> Try the idea below, then give your camera a go.</p></div>
-        <div class="prototype-tag"><span class="small-dot"></span> WORKING PROTOTYPE<span>01 / BROWSER</span></div>
-      </section>
-      <div class="workspace">
-        <section class="scanner-card" aria-label="Scanner preview">
-          <div class="card-toolbar"><div class="tabs" aria-label="Camera source"><button class="tab active" id="demo-tab" aria-pressed="true">Walkthrough</button><button class="tab" id="live-tab" aria-pressed="false">Live camera</button></div><span id="source-badge" class="source-badge">SIMULATED</span></div>
-          <div class="camera-stage" id="camera-stage">
-            <img class="demo-scene" id="demo-scene" src="/demo-scene.svg" alt="Illustrated city sidewalk used for the simulated walkthrough">
-            <video id="camera" autoplay muted playsinline hidden aria-label="Live camera preview"></video>
-            <canvas id="overlay" aria-label="Detection zone and object boxes"></canvas>
-            <div class="camera-corner top-left" aria-hidden="true"></div><div class="camera-corner bottom-right" aria-hidden="true"></div>
-            <div class="feed-top"><span class="feed-label" id="feed-label"><span></span> GUIDED DEMO</span><span class="feed-counter" id="feed-counter">0000</span></div>
-            <div class="feed-bottom"><span id="feed-caption">Simulated camera & detections</span><span>StepSense / 01</span></div>
-            <div class="stage-prompt" id="stage-prompt"><span class="prompt-icon" aria-hidden="true">↗</span><strong>A second look, before your next step.</strong><span>Start the walkthrough to see how an alert happens.</span></div>
+  <head>
+    <meta charset="utf-8">
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    >
+    <meta name="theme-color" content="#101c25">
+    <meta name="description" content="ClearPath helps you stay aware of walking path issues and customize alerts.">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="ClearPath">
+    <title>ClearPath | Walk with confidence</title>
+    <link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="stylesheet" href="homePage.css">
+  </head>
+
+  <body>
+    <main class="app">
+      <header>
+        <div class="brand">
+          <span class="logo">CP</span>
+          ClearPath
+        </div>
+        <div class="status" id="ready-to-walk" role="status" aria-label="Camera permission needed">
+          <span class="dot needs-permission" id="ready-permission-light" aria-hidden="true"></span>
+          <span id="ready-to-walk-label">Not ready to walk</span>
+        </div>
+      </header>
+
+      <!-- Home -->
+      <section id="home" class="screen active">
+        <p class="eyebrow">Move through the city</p>
+        <h1>Eyes up.<br>Feel confident.</h1>
+        <p class="intro">
+          Find local access updates and choose alerts that fit your needs.
+        </p>
+
+        <section class="forum-section" aria-labelledby="forum-title">
+          <div class="forum-heading">
+            <div>
+              <p class="eyebrow">AI street reports</p>
+              <h2 id="forum-title">Path issues</h2>
+            </div>
+            <span class="forum-live"><span class="dot"></span>Demo feed</span>
           </div>
-          <div class="scanner-status" role="status" aria-live="polite"><span class="status-orb" id="status-orb"></span><div><strong id="status-title">Ready when you are</strong><span id="status-detail">No camera permission needed for the walkthrough.</span></div><span class="status-word" id="status-word">IDLE</span></div>
-          <div class="scan-actions"><button class="primary-button" id="start-button"><span id="start-icon" aria-hidden="true">▷</span><span id="start-label">Start walkthrough</span></button><button class="secondary-button" id="test-alert">Test alert <span aria-hidden="true">♪</span></button></div>
-          <div class="demo-controls" id="demo-controls"><span>SET THE SCENE</span><button id="add-obstacle" disabled>＋ Add backpack</button><button id="move-obstacle" disabled>Move to edge</button><button id="remove-obstacle" disabled>Remove</button></div>
+
+          <p class="forum-intro">
+            A list of reported roadblocks and damaged paths.
+          </p>
+
+          <div id="issueFeed" class="forum-feed" aria-label="Reported path issues" aria-live="polite" aria-relevant="additions">
+          </div>
+
+          <dialog class="issue-dialog" id="issueDialog" aria-labelledby="issueDialogTitle">
+            <div class="issue-dialog-header">
+              <p class="eyebrow">AI path report</p>
+              <button class="issue-dialog-close" type="button" id="issueDialogClose" aria-label="Close issue details">Close</button>
+            </div>
+            <h2 id="issueDialogTitle">Issue details</h2>
+            <p id="issueDialogDescription"></p>
+            <dl class="issue-detail-list">
+              <div><dt>Type</dt><dd id="issueDialogCategory"></dd></div>
+              <div><dt>Urgency</dt><dd id="issueDialogSeverity"></dd></div>
+              <div><dt>Location</dt><dd id="issueDialogLocation"></dd></div>
+              <div><dt>Reported</dt><dd id="issueDialogTime"></dd></div>
+              <div><dt>Status</dt><dd id="issueDialogStatus"></dd></div>
+            </dl>
+            <p class="issue-dialog-note">AI reports can be wrong. Check your surroundings and use your judgment.</p>
+          </dialog>
         </section>
-        <aside class="settings-column">
-          <section class="settings-card"><div class="section-label"><span>01</span> MAKE IT YOURS</div><h2>Your walk, your alerts.</h2><p class="card-description">Choose a starting point. Every setting is yours to adjust.</p>
-            <fieldset id="preferences"><legend class="sr-only">Alert preferences</legend><div class="preset-options"><button class="preset selected" id="standard-preset" type="button" aria-pressed="true"><span aria-hidden="true">↗</span><strong>Standard</strong><small>A simple heads-up</small></button><button class="preset" id="accessible-preset" type="button" aria-pressed="false"><span aria-hidden="true">◎</span><strong>Accessibility</strong><small>Spoken guidance</small></button></div>
-            <div class="field-label">LET ME KNOW WITH</div>
-            <label class="switch-row"><span><strong>Sound</strong><small>A short two-tone cue</small></span><input id="sound-mode" type="checkbox" checked role="switch"><span class="switch" aria-hidden="true"></span></label>
-            <label class="switch-row"><span><strong>Spoken alert</strong><small id="speech-note">A brief voice notification</small></span><input id="speech-mode" type="checkbox" role="switch"><span class="switch" aria-hidden="true"></span></label>
-            <label class="switch-row"><span><strong>Vibration</strong><small id="vibration-note">Checking device support…</small></span><input id="vibration-mode" type="checkbox" role="switch"><span class="switch" aria-hidden="true"></span></label>
-            </fieldset><p class="settings-hint" id="settings-hint">You can combine alert types.</p>
+
+      </section>
+
+      <!-- Camera: accessible scanner integrated into the shared app shell -->
+      <section id="camera" class="screen blindness-screen" aria-label="Camera scanner">
+        <div class="camera-feature" id="camera-feature">
+          <nav class="camera-screen-nav" aria-label="Camera screen navigation">
+            <button type="button" data-camera-screen="home">Home</button>
+            <button type="button" data-camera-screen="settings">Settings</button>
+          </nav>
+          <h1>Path scanner</h1>
+          <div class="camera-permission" role="status" aria-live="polite">
+            <span id="camera-permission-light" class="dot needs-permission" aria-hidden="true"></span>
+            <span id="camera-permission-label">Camera permission needed — tap Start to allow</span>
+          </div>
+          <p id="permission-help">Point the camera ahead. Alerts may miss hazards.</p>
+          <section class="status-panel" aria-label="Camera and detection status">
+            <p id="camera-status">Camera off. Tap Start when ready.</p>
+            <p id="detection-status">Detection stopped.</p>
           </section>
-          <section class="activity-card"><div class="activity-header"><div class="section-label"><span>02</span> AT A GLANCE</div><span class="activity-live" id="activity-live">STANDBY</span></div><div class="metrics"><div><strong id="frame-count">0</strong><span id="frame-metric-label">Demo observations</span></div><div><strong id="latency">—</strong><span>Capture → result</span></div></div><ol id="activity-log" class="activity-log"><li><span></span><div>Waiting for your first scan<small>Start with the walkthrough or live camera.</small></div></li></ol></section>
-        </aside>
-      </div>
-      <section class="flow-card" aria-label="How detection works"><div class="flow-heading"><div class="section-label"><span>03</span> THE LITTLE THINGS BEHIND A HEADS-UP</div><p>One frame. One check. A little more awareness.</p></div><div class="flow-steps"><div data-step="capture"><span>01</span><strong>Capture</strong><small>Get a fresh frame</small></div><b aria-hidden="true">→</b><div data-step="detect"><span>02</span><strong>Detect</strong><small>Find supported objects</small></div><b aria-hidden="true">→</b><div data-step="confirm"><span>03</span><strong>Confirm</strong><small>Check another frame</small></div><b aria-hidden="true">→</b><div data-step="alert"><span>04</span><strong>Heads-up</strong><small>Use your chosen alert</small></div></div></section>
-      <footer><p><span class="small-dot"></span> Foreground scanning · Keep this page open</p><span>Look up. Stay connected.</span></footer>
+          <div class="camera-actions" role="group" aria-label="Camera controls">
+            <button type="button" id="camera-start" aria-describedby="permission-help">Start scanning</button>
+            <button type="button" id="camera-stop" disabled>Stop scanning</button>
+          </div>
+          <video id="camera-video" autoplay muted playsinline aria-label="Live camera preview. Controls work without viewing the preview."></video>
+          <div class="readings">
+            <section aria-label="Distance estimate"><h2>Distance</h2><p id="camera-distance">Not available</p></section>
+            <section aria-label="Obstacle alert"><h2>Alert</h2><p id="camera-obstacle">No alert. Keep watching your path.</p></section>
+          </div>
+          <section class="speech-controls" aria-label="Spoken alerts">
+            <button type="button" id="camera-speech" aria-pressed="false" aria-describedby="announcement-help">Turn on spoken alerts</button>
+            <div class="camera-actions">
+              <button type="button" id="camera-test">Test speech</button>
+              <button type="button" id="camera-repeat">Repeat status</button>
+            </div>
+            <p id="speech-status">Spoken alerts off.</p>
+          </section>
+          <details>
+            <summary>More settings</summary>
+            <label for="camera-announcements">Voice announcements</label>
+            <select id="camera-announcements" aria-describedby="announcement-help">
+              <option value="screen-reader">Screen reader</option>
+              <option value="app-voice">App voice</option>
+            </select>
+            <p id="announcement-help">Choose screen reader or app voice.</p>
+            <label for="camera-cooldown">Alert delay in seconds</label>
+            <input id="camera-cooldown" type="number" min="1" max="30" step="1" value="3" inputmode="numeric">
+          </details>
+          <button type="button" id="camera-simulate" hidden>Simulate obstacle — development only</button>
+          <p class="prototype-note sr-only">Alerts may miss hazards and do not measure collision risk.</p>
+          <div id="camera-announcer" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+        </div>
+      </section>
+
+      <!-- Settings -->
+      <section id="settings" class="screen">
+        <p class="eyebrow">Make it yours</p>
+        <h1>Your way<br>to move.</h1>
+        <p class="intro">
+          Change any setting whenever you need.
+        </p>
+
+        <div class="card">
+          <h2 class="section-title">Walking mode</h2>
+          <div class="mode-switch" role="group" aria-label="Choose walking mode">
+            <button
+              type="button"
+              class="mode-option active"
+              data-mode="normal"
+              aria-pressed="true"
+            >
+              Normal mode
+            </button>
+            <button
+              type="button"
+              class="mode-option"
+              data-mode="blindness"
+              aria-pressed="false"
+            >
+              Blindness mode
+            </button>
+          </div>
+          <p class="mode-description">
+            Blindness mode enlarges text and controls and strengthens contrast on every page.
+          </p>
+
+          <h2 class="section-title">Color vision preference</h2>
+          <div class="setting-row color-vision-setting">
+            <div>
+              <b>Color vision type</b>
+              <small>Change the app’s accent and background gradient</small>
+            </div>
+            <select id="colorVision" aria-label="Choose a color vision preference">
+              <option value="standard">Standard</option>
+              <option value="protanopia">Protanopia</option>
+              <option value="deuteranopia">Deuteranopia</option>
+              <option value="tritanopia">Tritanopia</option>
+              <option value="achromatopsia">Achromatopsia</option>
+            </select>
+          </div>
+          <p class="color-vision-note" id="colorVisionNote" aria-live="polite">
+            Standard palette: teal and mint accents.
+          </p>
+
+          <h2 class="section-title">Alert preferences</h2>
+
+          <div class="setting-row">
+            <div>
+              <b>Alert style</b>
+              <small>How ClearPath gets your attention</small>
+            </div>
+            <select id="alert">
+              <option value="vibration">Vibration</option>
+              <option value="sound">Sound</option>
+              <option value="voice">Spoken cue</option>
+              <option value="both">Sound + vibration</option>
+            </select>
+          </div>
+          <div class="setting-row">
+            <div>
+              <b>Repeat each alert</b>
+              <small>Choose how many times an alert plays</small>
+            </div>
+            <select id="alertRepeatCount" aria-label="Number of times to repeat each alert">
+              <option value="1">1 time</option>
+              <option value="2">2 times</option>
+              <option value="3">3 times</option>
+              <option value="4">4 times</option>
+              <option value="5">5 times</option>
+            </select>
+          </div>
+          <div class="setting-row">
+            <div>
+              <b>Alert sound</b>
+              <small>Choose the tone used for sound alerts</small>
+            </div>
+            <select id="alertSound" aria-label="Alert sound">
+              <option value="ping">Classic ping</option>
+              <option value="double">Double beep</option>
+              <option value="rising">Rising chime</option>
+              <option value="pulse">Low pulse</option>
+              <option value="soft">Soft chime</option>
+              <option value="custom">My custom sound</option>
+            </select>
+          </div>
+
+          <div class="custom-sound-row" id="customSoundRow" hidden>
+            <label for="customSound">Add your own sound</label>
+            <input id="customSound" type="file" accept="audio/*">
+            <small id="customSoundName">Choose an audio file to use as your alert.</small>
+          </div>
+
+          <div class="setting-row">
+            <div>
+              <b>Vibration alerts</b>
+              <small>Feel a pulse when a hazard is near</small>
+            </div>
+            <input id="vibrate" class="toggle" type="checkbox" checked>
+          </div>
+
+          <div class="setting-row">
+            <div>
+              <b>Spoken alerts</b>
+              <small>Hear a short heads-up</small>
+            </div>
+            <input id="voice" class="toggle" type="checkbox">
+          </div>
+
+          <div class="controls">
+            <button id="save" class="primary">Save preferences</button>
+          </div>
+          <section class="install-card" aria-labelledby="install-title">
+            <h2 id="install-title" class="section-title">Install ClearPath</h2>
+            <p id="install-help">iPhone or iPad: open this page in Safari, tap Share, then Add to Home Screen. Android: use your browser menu and choose Install app or Add to Home screen.</p>
+            <button type="button" id="installAppButton" hidden>Install app</button>
+          </section>
+          <section class="device-access" aria-labelledby="device-access-title">
+            <h2 class="section-title" id="device-access-title">Permissions & device tests</h2>
+            <p class="device-access-intro">Allow notifications to receive a phone alert when scanning detects an object nearby. Alerts run while the scanner is open. Speaker and vibration tests work without separate browser permissions. To revoke access later, use your browser’s site settings.</p>
+
+            <div class="notification-test-card">
+              <div><b>Phone notification test</b><small>Tap to send a test notification to this device.</small></div>
+              <button type="button" class="permission-button" id="testNotifications">Send test notification</button>
+            </div>
+
+            <div class="device-access-row">
+              <div><b>Camera</b><small id="cameraPermissionSetting" role="status">Checking camera access…</small></div>
+              <div class="permission-actions"><button type="button" class="permission-button" id="requestCamera">Allow</button><button type="button" class="permission-button" id="testCamera">Test</button></div>
+            </div>
+            <div class="device-access-row">
+              <div><b>Microphone</b><small id="microphonePermissionSetting" role="status">Checking microphone access…</small></div>
+              <div class="permission-actions"><button type="button" class="permission-button" id="requestMicrophone">Allow</button><button type="button" class="permission-button" id="testMicrophone">Test</button></div>
+            </div>
+            <div class="device-access-row">
+              <div><b>Notifications</b><small id="notificationPermissionSetting" role="status">Checking notification access…</small></div>
+              <div class="permission-actions"><button type="button" class="permission-button" id="requestNotifications">Allow</button></div>
+            </div>
+            <div class="device-access-row">
+              <div><b>Speaker</b><small id="speakerPermissionSetting">No separate browser permission</small></div>
+              <div class="permission-actions"><button type="button" class="permission-button" id="testSpeaker">Test sound</button></div>
+            </div>
+            <div class="device-access-row">
+              <div><b>Vibration</b><small id="vibrationPermissionSetting">Checking device support…</small></div>
+              <div class="permission-actions"><button type="button" class="permission-button" id="testVibration">Test vibration</button></div>
+            </div>
+          </section>
+        </div>
+      </section>
+
+
+      <!-- Navigation -->
+      <nav class="bottom-nav" aria-label="Main navigation">
+        <button class="nav-btn active" data-screen="home">
+          <span class="icon">H</span>
+          Home
+        </button>
+        <button class="nav-btn" data-screen="camera">
+          <span class="icon">C</span>
+          Camera
+        </button>
+        <button class="nav-btn" data-screen="settings">
+          <span class="icon">S</span>
+          Settings
+        </button>
+      </nav>
+
+      <div id="toast" class="toast" role="status" aria-live="polite"></div>
     </main>
-  </div>
-  <dialog id="how-dialog"><button class="dialog-close text-button" id="close-dialog" aria-label="Close explanation">✕</button><span class="eyebrow green">A SECOND LOOK</span><h2>Here’s what you’re trying.</h2><p><strong>Walkthrough</strong> uses an illustrated scene and simulated detections. Add a backpack, move it out of the marked zone, or remove it. Two matching observations produce an alert.</p><p><strong>Live camera</strong> sends small JPEG frames to your running backend. Its pretrained model returns supported objects and decides whether an alert should fire. Frames are processed without being saved.</p><p>The image zone is a prototype heuristic, not a distance measurement. This model recognizes people, chairs, bags, and other selected objects; it does not recognize every hazard, including curbs, stairs, or potholes.</p><p>Scanning pauses when you leave this page. This browser sample does not demonstrate background scanning behind Instagram.</p><button class="primary-button" id="understood-button">Got it — let’s try it <span aria-hidden="true">↗</span></button></dialog>
-  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
-  <script type="module" src="/app.js"></script>
-</body>
+
+    <script>
+      const installButton = document.getElementById("installAppButton");
+      const installHelp = document.getElementById("install-help");
+      let installPrompt = null;
+
+      if ("serviceWorker" in navigator && window.isSecureContext) {
+        navigator.serviceWorker.register("/sw.js").catch((error) => {
+          console.warn("ClearPath offline support could not start.", error);
+        });
+      }
+
+      window.addEventListener("beforeinstallprompt", (event) => {
+        event.preventDefault();
+        installPrompt = event;
+        installButton.hidden = false;
+      });
+
+      installButton.addEventListener("click", async () => {
+        if (!installPrompt) return;
+        const promptEvent = installPrompt;
+        installPrompt = null;
+        installButton.hidden = true;
+        await promptEvent.prompt();
+        await promptEvent.userChoice;
+      });
+
+      window.addEventListener("appinstalled", () => {
+        installButton.hidden = true;
+        installHelp.textContent = "ClearPath is installed on this device.";
+      });
+
+      if (window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true) {
+        installHelp.textContent = "ClearPath is installed on this device.";
+      }
+
+      const issueFeed = document.getElementById("issueFeed");
+      const issueDialog = document.getElementById("issueDialog");
+      const issueFields = {
+        title: document.getElementById("issueDialogTitle"),
+        description: document.getElementById("issueDialogDescription"),
+        category: document.getElementById("issueDialogCategory"),
+        severity: document.getElementById("issueDialogSeverity"),
+        location: document.getElementById("issueDialogLocation"),
+        time: document.getElementById("issueDialogTime"),
+        status: document.getElementById("issueDialogStatus"),
+      };
+
+      function addIssueReport(report = {}) {
+        const issue = {
+          title: String(report.title || "Path issue").trim().slice(0, 100),
+          description: String(report.description || "No details provided.").trim().slice(0, 500),
+          location: String(report.location || "Location unavailable").trim().slice(0, 120),
+          category: String(report.category || "Path issue").trim().slice(0, 60),
+          severity: String(report.severity || "Unrated").trim().slice(0, 30),
+          status: String(report.status || "Needs review").trim().slice(0, 50),
+          reported: report.createdAt ? new Date(report.createdAt).toLocaleString() : "Demo report",
+        };
+        if (!issue.title) return;
+
+        const post = document.createElement("article");
+        post.className = "forum-post ai-issue";
+        const openButton = document.createElement("button");
+        openButton.type = "button";
+        openButton.className = "issue-open";
+        openButton.setAttribute("aria-haspopup", "dialog");
+        openButton.setAttribute("aria-label", `View details: ${issue.title}`);
+        openButton.issueReport = issue;
+
+        const meta = document.createElement("div");
+        meta.className = "post-meta";
+        const tag = document.createElement("span");
+        tag.className = "post-tag";
+        tag.textContent = `AI REPORT · ${issue.category}`;
+        const time = document.createElement("time");
+        time.textContent = issue.reported;
+        meta.append(tag, time);
+
+        const heading = document.createElement("h3");
+        heading.textContent = issue.title;
+        const summary = document.createElement("p");
+        summary.textContent = issue.description;
+        const location = document.createElement("p");
+        location.className = "issue-location";
+        location.textContent = `Location: ${issue.location}`;
+        const urgency = document.createElement("span");
+        urgency.className = "issue-urgency";
+        urgency.textContent = `${issue.severity} urgency`;
+        const prompt = document.createElement("span");
+        prompt.className = "issue-view-prompt";
+        prompt.textContent = "View details";
+
+        openButton.append(meta, heading, summary, location, urgency, prompt);
+        post.append(openButton);
+        issueFeed.prepend(post);
+      }
+
+      issueFeed.addEventListener("click", (event) => {
+        const button = event.target.closest(".issue-open");
+        if (!button) return;
+        const issue = button.issueReport;
+        issueFields.title.textContent = issue.title;
+        issueFields.description.textContent = issue.description;
+        issueFields.category.textContent = issue.category;
+        issueFields.severity.textContent = issue.severity;
+        issueFields.location.textContent = issue.location;
+        issueFields.time.textContent = issue.reported;
+        issueFields.status.textContent = issue.status;
+        issueDialog.showModal();
+      });
+
+      document.getElementById("issueDialogClose").addEventListener("click", () => issueDialog.close());
+      issueDialog.addEventListener("click", (event) => {
+        if (event.target === issueDialog) issueDialog.close();
+      });
+
+      [
+        {
+          title: "Sidewalk blocked",
+          category: "Sidewalk blockage",
+          severity: "High",
+          location: "Example intersection",
+          description: "A temporary barrier appears to block most of the sidewalk, leaving limited space to pass. The model flagged it as a likely obstruction.",
+          status: "Needs confirmation",
+        },
+        {
+          title: "Damaged pavement",
+          category: "Surface damage",
+          severity: "Medium",
+          location: "Example block",
+          description: "The walking surface appears uneven, with a broken section that may be difficult to navigate. The extent of the damage is not confirmed.",
+          status: "Needs confirmation",
+        },
+      ].forEach(addIssueReport);
+
+      // AI integration can add reports with window.clearPathIssueFeed.add(report).
+      window.clearPathIssueFeed = { add: addIssueReport };
+      const screens = [...document.querySelectorAll(".screen")];
+      const navButtons = [...document.querySelectorAll(".nav-btn")];
+      let previewFallbackStream = null;
+
+      function showScreen(id) {
+        if (document.getElementById("camera").classList.contains("active") && id !== "camera") {
+          // Navigation must still work if a phone/browser throws while releasing
+          // the camera. Stop each stream defensively, then always switch screens.
+          try { window.clearPathCamera?.stop(); } catch (error) { console.warn("Could not stop camera cleanly:", error); }
+          try {
+            previewFallbackStream?.getTracks().forEach((track) => track.stop());
+          } catch (error) { console.warn("Could not stop preview stream cleanly:", error); }
+          previewFallbackStream = null;
+          const video = document.getElementById("camera-video");
+          if (video) video.srcObject = null;
+          const startButton = document.getElementById("camera-start");
+          const stopButton = document.getElementById("camera-stop");
+          if (startButton) startButton.disabled = false;
+          if (stopButton) stopButton.disabled = true;
+        }
+
+        if (!document.getElementById(id)?.classList.contains("screen")) return;
+
+        screens.forEach((screen) => {
+          screen.classList.toggle("active", screen.id === id);
+        });
+
+        navButtons.forEach((button) => {
+          const isActive = button.dataset.screen === id;
+          button.classList.toggle("active", isActive);
+
+          if (isActive) {
+            button.setAttribute("aria-current", "page");
+          } else {
+            button.removeAttribute("aria-current");
+          }
+        });
+
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+
+      navButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+          const screen = button.dataset.screen;
+          showScreen(screen);
+
+        });
+      });
+
+      document.querySelectorAll("[data-camera-screen]").forEach((button) => {
+        button.addEventListener("click", () => showScreen(button.dataset.cameraScreen));
+      });
+
+      window.addEventListener("hashchange", () => {
+        const target = document.getElementById(window.location.hash.slice(1));
+        if (target?.classList.contains("screen")) showScreen(target.id);
+      });
+      const initialScreen = document.getElementById(window.location.hash.slice(1));
+      if (initialScreen?.classList.contains("screen")) showScreen(initialScreen.id);
+
+      function showToast(message) {
+        const toast = document.getElementById("toast");
+        toast.textContent = message;
+        toast.classList.add("show");
+
+        clearTimeout(showToast.timer);
+        showToast.timer = setTimeout(() => {
+          toast.classList.remove("show");
+        }, 2300);
+      }
+
+      const modeButtons = [...document.querySelectorAll("[data-mode]")];
+
+      function setMode(mode, save = true) {
+        const blindnessEnabled = mode === "blindness";
+        document.querySelector(".app").classList.toggle("blindness-mode", blindnessEnabled);
+        document.body.classList.toggle("blindness-mode", blindnessEnabled);
+
+        modeButtons.forEach((button) => {
+          const isActive = button.dataset.mode === mode;
+          button.classList.toggle("active", isActive);
+          button.setAttribute("aria-pressed", String(isActive));
+        });
+
+        if (save) {
+          localStorage.setItem("clearpath-mode", mode);
+        }
+
+        const alertSelect = document.getElementById("alert");
+
+        if (mode === "blindness") {
+          document.getElementById("voice").checked = true;
+
+          if (alertSelect.value === "vibration") {
+            alertSelect.value = "voice";
+          }
+        }
+
+        if (save) {
+          showToast(
+            mode === "blindness"
+              ? "Blindness mode on"
+              : "Normal mode on"
+          );
+        }
+      }
+
+      modeButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+          setMode(button.dataset.mode);
+          // Switching modes returns to Home so the new version is immediately visible.
+          showScreen(button.dataset.mode === "blindness" ? "home" : "settings");
+        });
+      });
+
+      const colorVisionSelect = document.getElementById("colorVision");
+      const colorVisionNote = document.getElementById("colorVisionNote");
+      const colorVisionDescriptions = {
+        standard: "Standard palette: teal and mint accents.",
+        protanopia: "Protanopia palette: blue and amber accents with a deep blue gradient.",
+        deuteranopia: "Deuteranopia palette: cyan and gold accents with a deep teal gradient.",
+        tritanopia: "Tritanopia palette: coral and rose accents with a warm plum gradient.",
+        achromatopsia: "Achromatopsia palette: high-contrast grayscale accents and gradient.",
+      };
+
+      function setColorVision(mode, save = true) {
+        const preference = colorVisionDescriptions[mode] ? mode : "standard";
+        colorVisionSelect.value = preference;
+        document.documentElement.dataset.colorVision = preference;
+        colorVisionNote.textContent = colorVisionDescriptions[preference];
+        if (save) localStorage.setItem("clearpath-color-vision", preference);
+      }
+
+      colorVisionSelect.addEventListener("change", () => setColorVision(colorVisionSelect.value));
+      setColorVision(localStorage.getItem("clearpath-color-vision") || "standard", false);
+
+      const savedMode = localStorage.getItem("clearpath-mode") || "normal";
+      setMode(savedMode, false);
+
+      const savedAlert = localStorage.getItem("clearpath-alert");
+
+      if (savedAlert) {
+        document.getElementById("alert").value = savedAlert;
+      }
+
+      const alertRepeatCountSelect = document.getElementById("alertRepeatCount");
+      const savedRepeatCount = Number(localStorage.getItem("clearpath-alert-repeat-count")) || 1;
+      alertRepeatCountSelect.value = String(Math.min(5, Math.max(1, savedRepeatCount)));
+      alertRepeatCountSelect.addEventListener("change", () => {
+        const count = Number(alertRepeatCountSelect.value);
+        localStorage.setItem("clearpath-alert-repeat-count", String(count));
+        window.clearPathCamera?.setRepeatCount(count);
+      });
+
+      document.getElementById("save").addEventListener("click", () => {
+        localStorage.setItem(
+          "clearpath-alert",
+          document.getElementById("alert").value
+        );
+        localStorage.setItem("clearpath-alert-repeat-count", alertRepeatCountSelect.value);
+        window.clearPathCamera?.setRepeatCount(Number(alertRepeatCountSelect.value));
+        showToast("Preferences saved");
+      });
+
+      let customSoundFile = null;
+      const alertSoundSelect = document.getElementById("alertSound");
+      const customSoundInput = document.getElementById("customSound");
+      const customSoundRow = document.getElementById("customSoundRow");
+      const customSoundName = document.getElementById("customSoundName");
+
+      function updateCustomSoundVisibility() {
+        customSoundRow.hidden = alertSoundSelect.value !== "custom";
+      }
+
+      function openSoundDatabase() {
+        return new Promise((resolve, reject) => {
+          if (!("indexedDB" in window)) {
+            reject(new Error("Local audio storage is unavailable."));
+            return;
+          }
+
+          const request = indexedDB.open("clearpath-audio", 1);
+          request.onupgradeneeded = () => {
+            request.result.createObjectStore("sounds");
+          };
+          request.onsuccess = () => resolve(request.result);
+          request.onerror = () => reject(request.error);
+        });
+      }
+
+      async function saveCustomSound(file) {
+        const database = await openSoundDatabase();
+
+        return new Promise((resolve, reject) => {
+          const transaction = database.transaction("sounds", "readwrite");
+          transaction.objectStore("sounds").put(file, "custom-alert");
+          transaction.oncomplete = () => resolve();
+          transaction.onerror = () => reject(transaction.error);
+        });
+      }
+
+      async function getCustomSound() {
+        if (customSoundFile) return customSoundFile;
+
+        const database = await openSoundDatabase();
+
+        return new Promise((resolve, reject) => {
+          const request = database
+            .transaction("sounds", "readonly")
+            .objectStore("sounds")
+            .get("custom-alert");
+          request.onsuccess = () => resolve(request.result || null);
+          request.onerror = () => reject(request.error);
+        });
+      }
+
+      function playPresetSound(preset) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) throw new Error("Web Audio is unavailable.");
+
+        const audioContext = new AudioContext();
+        const tones = {
+          ping: [{ frequency: 880, start: 0, duration: 0.18, type: "sine" }],
+          double: [
+            { frequency: 660, start: 0, duration: 0.13, type: "square" },
+            { frequency: 660, start: 0.23, duration: 0.13, type: "square" }
+          ],
+          rising: [
+            { frequency: 520, start: 0, duration: 0.16, type: "sine" },
+            { frequency: 740, start: 0.14, duration: 0.18, type: "sine" },
+            { frequency: 1040, start: 0.3, duration: 0.24, type: "sine" }
+          ],
+          pulse: [
+            { frequency: 440, start: 0, duration: 0.2, type: "triangle" },
+            { frequency: 360, start: 0.27, duration: 0.2, type: "triangle" }
+          ],
+          soft: [
+            { frequency: 587, start: 0, duration: 0.22, type: "sine" },
+            { frequency: 784, start: 0.17, duration: 0.3, type: "sine" }
+          ]
+        };
+
+        const schedule = tones[preset] || tones.ping;
+        const now = audioContext.currentTime;
+
+        schedule.forEach(({ frequency, start, duration, type }) => {
+          const oscillator = audioContext.createOscillator();
+          const gain = audioContext.createGain();
+          const begins = now + start;
+
+          oscillator.type = type;
+          oscillator.frequency.value = frequency;
+          gain.gain.setValueAtTime(0.001, begins);
+          gain.gain.linearRampToValueAtTime(0.12, begins + 0.015);
+          gain.gain.exponentialRampToValueAtTime(0.001, begins + duration);
+          oscillator.connect(gain);
+          gain.connect(audioContext.destination);
+          oscillator.start(begins);
+          oscillator.stop(begins + duration + 0.02);
+        });
+
+        window.setTimeout(() => audioContext.close(), 1200);
+      }
+
+      async function testAlertSound() {
+        try {
+          if (alertSoundSelect.value === "custom") {
+            const file = await getCustomSound();
+
+            if (!file) {
+              showToast("Choose an audio file first");
+              return;
+            }
+
+            const audio = new Audio(URL.createObjectURL(file));
+            audio.addEventListener("ended", () => URL.revokeObjectURL(audio.src), { once: true });
+            audio.addEventListener("error", () => URL.revokeObjectURL(audio.src), { once: true });
+            await audio.play();
+          } else {
+            playPresetSound(alertSoundSelect.value);
+          }
+
+          document.getElementById("speakerPermissionSetting").textContent = "Sound test played";
+          showToast("Playing alert sound preview");
+        } catch (error) {
+          document.getElementById("speakerPermissionSetting").textContent = "Test failed — check the selected sound";
+          showToast(error.message || "Could not play this alert sound");
+        }
+      }
+
+      const savedSound = localStorage.getItem("clearpath-alert-sound") || "ping";
+      alertSoundSelect.value = savedSound;
+      updateCustomSoundVisibility();
+
+      alertSoundSelect.addEventListener("change", () => {
+        localStorage.setItem("clearpath-alert-sound", alertSoundSelect.value);
+        updateCustomSoundVisibility();
+      });
+
+      customSoundInput.addEventListener("change", async () => {
+        const file = customSoundInput.files?.[0];
+        if (!file) return;
+
+        if (!file.type.startsWith("audio/")) {
+          showToast("Choose an audio file");
+          customSoundInput.value = "";
+          return;
+        }
+
+        if (file.size > 10 * 1024 * 1024) {
+          showToast("Choose an audio file smaller than 10 MB");
+          customSoundInput.value = "";
+          return;
+        }
+
+        customSoundFile = file;
+        alertSoundSelect.value = "custom";
+        localStorage.setItem("clearpath-alert-sound", "custom");
+        updateCustomSoundVisibility();
+        customSoundName.textContent = file.name;
+
+        try {
+          await saveCustomSound(file);
+          showToast("Custom sound saved on this device");
+        } catch (error) {
+          showToast("Custom sound ready for this session");
+        }
+      });
+
+      document
+        .getElementById("testSpeaker")
+        .addEventListener("click", testAlertSound);
+
+      const permissionLabels = {
+        camera: document.getElementById("cameraPermissionSetting"),
+        microphone: document.getElementById("microphonePermissionSetting"),
+        notifications: document.getElementById("notificationPermissionSetting"),
+      };
+
+      function updateCameraPermissionUi(state) {
+        const granted = state === "granted";
+        document.querySelectorAll("#camera-permission-light, #ready-permission-light").forEach(light => {
+          light.classList.toggle("needs-permission", !granted);
+          light.classList.toggle("permission-granted", granted);
+        });
+        const readyLabel = document.getElementById("ready-to-walk-label");
+        const readyStatus = document.getElementById("ready-to-walk");
+        const cameraLabel = document.getElementById("camera-permission-label");
+        const settingsStatus = document.getElementById("cameraPermissionSetting");
+        if (readyLabel) readyLabel.textContent = granted ? "Ready to walk" : "Not ready to walk";
+        if (readyStatus) readyStatus.setAttribute("aria-label", granted
+          ? "Ready to walk. Camera permission granted."
+          : "Not ready to walk. Camera permission is not granted.");
+        if (cameraLabel) cameraLabel.textContent = granted
+          ? "Camera permission allowed"
+          : state === "denied"
+            ? "Camera permission denied — allow it in browser settings, then tap Start"
+            : "Camera permission needed — tap Start to allow";
+        if (settingsStatus) settingsStatus.textContent = permissionText(state);
+      }
+
+      window.addEventListener("clearpath:permissionchange", event => {
+        if (event.detail?.kind === "camera") updateCameraPermissionUi(event.detail.state);
+      });
+
+      function permissionText(state) {
+        if (state === "granted") return "Allowed";
+        if (state === "denied") return "Denied — allow access in browser settings";
+        return "Not allowed yet";
+      }
+
+      function reportPermission(kind, state, message) {
+        const target = permissionLabels[kind];
+        if (target) target.textContent = message || permissionText(state);
+        if (kind === "camera") {
+          window.dispatchEvent(new CustomEvent("clearpath:permissionchange", {
+            detail: { kind, state },
+          }));
+        }
+      }
+
+      async function refreshPermission(kind, permissionName = kind) {
+        const target = permissionLabels[kind];
+        if (!target) return;
+        try {
+          if (!navigator.permissions?.query) throw new Error("Permission status unavailable");
+          const status = await navigator.permissions.query({ name: permissionName });
+          reportPermission(kind, status.state);
+          status.addEventListener("change", () => reportPermission(kind, status.state));
+        } catch {
+          reportPermission(kind, "prompt", "Status unavailable — use Allow or Test to check");
+        }
+      }
+
+      async function requestMedia(kind, isTest = false) {
+        const target = permissionLabels[kind];
+        if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+          reportPermission(kind, "prompt", "Open this site over HTTPS or localhost to request access");
+          showToast("Device access requires HTTPS or localhost");
+          return;
+        }
+
+        if (target) target.textContent = `Waiting for ${kind} permission…`;
+        let stream;
+        try {
+          const constraints = kind === "camera"
+            ? { audio: false, video: { facingMode: { ideal: "environment" } } }
+            : { audio: true, video: false };
+          stream = await navigator.mediaDevices.getUserMedia(constraints);
+          reportPermission(kind, "granted", isTest ? `${kind === "camera" ? "Camera" : "Microphone"} test passed; access released` : "Allowed");
+          showToast(`${kind === "camera" ? "Camera" : "Microphone"} access allowed`);
+        } catch (error) {
+          const denied = error.name === "NotAllowedError" || error.name === "SecurityError";
+          reportPermission(kind, denied ? "denied" : "prompt", denied ? "Denied — allow access in browser settings" : "Could not access device — check availability");
+          showToast(denied ? `${kind === "camera" ? "Camera" : "Microphone"} permission was not allowed` : "Could not access that device");
+        } finally {
+          stream?.getTracks().forEach(track => track.stop());
+        }
+      }
+
+      document.getElementById("camera-start").addEventListener("click", async () => {
+        if (window.clearPathCamera) return;
+        const video = document.getElementById("camera-video");
+        const status = document.getElementById("camera-status");
+        const startButton = document.getElementById("camera-start");
+        const stopButton = document.getElementById("camera-stop");
+        if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+          status.textContent = "Camera access requires this page to be served from localhost or HTTPS. Open the site through its local web server, not as a file.";
+          return;
+        }
+        startButton.disabled = true;
+        status.textContent = "Requesting camera permission… choose Allow in the browser prompt.";
+        try {
+          previewFallbackStream = await navigator.mediaDevices.getUserMedia({
+            audio: false,
+            video: { facingMode: { ideal: "environment" } },
+          });
+          window.dispatchEvent(new CustomEvent("clearpath:permissionchange", {
+            detail: { kind: "camera", state: "granted" },
+          }));
+          video.srcObject = previewFallbackStream;
+          video.muted = true;
+          await video.play();
+          status.textContent = "Camera preview is on. Reload the page to restore obstacle detection controls.";
+          stopButton.disabled = false;
+        } catch (error) {
+          startButton.disabled = false;
+          previewFallbackStream?.getTracks().forEach(track => track.stop());
+          previewFallbackStream = null;
+          video.srcObject = null;
+          status.textContent = error.name === "NotAllowedError"
+            ? "Camera permission denied. Allow camera access in browser settings, then reload this page."
+            : "Camera could not start. Check camera permission and close any other app using the camera.";
+          if (error.name === "NotAllowedError") {
+            window.dispatchEvent(new CustomEvent("clearpath:permissionchange", {
+              detail: { kind: "camera", state: "denied" },
+            }));
+          }
+        }
+      });
+      document.getElementById("camera-stop").addEventListener("click", () => {
+        if (window.clearPathCamera || !previewFallbackStream) return;
+        previewFallbackStream.getTracks().forEach(track => track.stop());
+        previewFallbackStream = null;
+        document.getElementById("camera-video").srcObject = null;
+        document.getElementById("camera-status").textContent = "Camera off. Tap Start to restart.";
+        document.getElementById("camera-start").disabled = false;
+        document.getElementById("camera-stop").disabled = true;
+      });
+
+      document.getElementById("requestCamera").addEventListener("click", () => requestMedia("camera"));
+      document.getElementById("testCamera").addEventListener("click", () => requestMedia("camera", true));
+      document.getElementById("requestMicrophone").addEventListener("click", () => requestMedia("microphone"));
+      document.getElementById("testMicrophone").addEventListener("click", () => requestMedia("microphone", true));
+
+      function notificationStatus() {
+        if (!("Notification" in window)) return "Not supported in this browser";
+        if (Notification.permission === "granted") return "Allowed";
+        if (Notification.permission === "denied") return "Denied — allow access in browser settings";
+        return "Not allowed yet";
+      }
+
+      function updateNotificationStatus() {
+        permissionLabels.notifications.textContent = notificationStatus();
+      }
+
+      async function requestNotifications(sendTest = false) {
+        if (!("Notification" in window)) {
+          showToast("Notifications are not supported in this browser");
+          return;
+        }
+        try {
+          const result = Notification.permission === "granted"
+            ? "granted"
+            : await Notification.requestPermission();
+          updateNotificationStatus();
+          if (result === "granted" && sendTest) {
+            const registration = await navigator.serviceWorker?.getRegistration();
+            if (registration?.showNotification) {
+              await registration.showNotification("ClearPath test", { body: "Notifications are ready.", icon: "/icons/icon-192.png" });
+            } else {
+              new Notification("ClearPath test", { body: "Notifications are ready." });
+            }
+          }
+          showToast(result === "granted" ? sendTest ? "Test notification sent" : "Notifications allowed" : "Notification permission was not allowed");
+        } catch {
+          showToast("Could not request notifications. Check browser and device settings.");
+        }
+      }
+
+      document.getElementById("requestNotifications").addEventListener("click", () => requestNotifications());
+      document.getElementById("testNotifications").addEventListener("click", () => requestNotifications(true));
+      document.getElementById("testVibration").addEventListener("click", () => {
+        const supported = typeof navigator.vibrate === "function";
+        const worked = supported && navigator.vibrate([120, 80, 160]);
+        document.getElementById("vibrationPermissionSetting").textContent = supported
+          ? worked ? "Vibration test sent" : "Vibration is blocked by this device or browser"
+          : "Vibration is not supported by this device";
+      });
+
+      refreshPermission("camera");
+      refreshPermission("microphone");
+      refreshPermission("notifications");
+      document.getElementById("vibrationPermissionSetting").textContent = typeof navigator.vibrate === "function"
+        ? "Supported — no separate browser permission"
+        : "Not supported by this device or browser";
+    </script>
+    <script type="module" src="standalone.js"></script>
+  </body>
 </html>

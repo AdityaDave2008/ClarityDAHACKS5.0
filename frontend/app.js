@@ -1,3 +1,4 @@
+﻿import { notifyPhone } from './phone-notifications.js';
 import { containRect, captureSize } from './logic.js';
 
 const $ = (id) => document.getElementById(id);
@@ -96,26 +97,117 @@ function stopAlerts() {
   if (supports.speech) window.speechSynthesis.cancel();
   if (supports.vibration) navigator.vibrate(0);
 }
+function playTonePreset(preset) {
+  if (!state.audio || state.audio.state !== 'running') return false;
+
+  const tones = {
+    ping: [{ frequency: 880, start: 0, duration: .18, type: 'sine' }],
+    double: [
+      { frequency: 660, start: 0, duration: .13, type: 'square' },
+      { frequency: 660, start: .23, duration: .13, type: 'square' }
+    ],
+    rising: [
+      { frequency: 520, start: 0, duration: .16, type: 'sine' },
+      { frequency: 740, start: .14, duration: .18, type: 'sine' },
+      { frequency: 1040, start: .3, duration: .24, type: 'sine' }
+    ],
+    pulse: [
+      { frequency: 440, start: 0, duration: .2, type: 'triangle' },
+      { frequency: 360, start: .27, duration: .2, type: 'triangle' }
+    ],
+    soft: [
+      { frequency: 587, start: 0, duration: .22, type: 'sine' },
+      { frequency: 784, start: .17, duration: .3, type: 'sine' }
+    ]
+  };
+
+  const schedule = tones[preset] || tones.ping;
+  const now = state.audio.currentTime;
+
+  schedule.forEach(({ frequency, start, duration, type }) => {
+    const oscillator = state.audio.createOscillator();
+    const gain = state.audio.createGain();
+    const begins = now + start;
+
+    oscillator.type = type;
+    oscillator.frequency.value = frequency;
+    gain.gain.setValueAtTime(.001, begins);
+    gain.gain.linearRampToValueAtTime(.12, begins + .015);
+    gain.gain.exponentialRampToValueAtTime(.001, begins + duration);
+    oscillator.connect(gain).connect(state.audio.destination);
+    oscillator.start(begins);
+    oscillator.stop(begins + duration + .02);
+    state.oscillators.add(oscillator);
+    oscillator.onended = () => {
+      state.oscillators.delete(oscillator);
+      oscillator.disconnect();
+      gain.disconnect();
+    };
+  });
+
+  return true;
+}
+
+function readStoredCustomSound() {
+  return new Promise((resolve, reject) => {
+    if (!('indexedDB' in window)) {
+      reject(new Error('Custom sound storage is unavailable.'));
+      return;
+    }
+
+    const request = indexedDB.open('clearpath-audio', 1);
+    request.onupgradeneeded = () => request.result.createObjectStore('sounds');
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const database = request.result;
+      const getRequest = database
+        .transaction('sounds', 'readonly')
+        .objectStore('sounds')
+        .get('custom-alert');
+      getRequest.onsuccess = () => resolve(getRequest.result || null);
+      getRequest.onerror = () => reject(getRequest.error);
+    };
+  });
+}
+
+async function playCustomSound() {
+  if (!state.audio || state.audio.state !== 'running') return false;
+
+  const file = await readStoredCustomSound();
+  if (!file) return false;
+
+  const buffer = await state.audio.decodeAudioData(await file.arrayBuffer());
+  const source = state.audio.createBufferSource();
+  source.buffer = buffer;
+  source.connect(state.audio.destination);
+  source.start();
+  state.oscillators.add(source);
+  source.onended = () => {
+    state.oscillators.delete(source);
+    source.disconnect();
+  };
+  return true;
+}
+
+async function playSelectedAlertSound() {
+  const selected = localStorage.getItem('clearpath-alert-sound') || 'ping';
+
+  if (selected === 'custom') {
+    try {
+      if (await playCustomSound()) return true;
+    } catch { /* Fall back to a built-in cue if the custom file cannot be read. */ }
+    return playTonePreset('ping');
+  }
+
+  return playTonePreset(selected);
+}
+
 function notify(message, modes = selectedModes()) {
+  void notifyPhone(message);
   let delivered = 0;
   if (modes.includes('sound') && state.audio?.state === 'running') {
-    try {
-      const start = state.audio.currentTime;
-      [680, 900].forEach((frequency, index) => {
-        const oscillator = state.audio.createOscillator();
-        const gain = state.audio.createGain();
-        oscillator.frequency.value = frequency;
-        gain.gain.setValueAtTime(0, start + index * .16);
-        gain.gain.linearRampToValueAtTime(.12, start + index * .16 + .015);
-        gain.gain.exponentialRampToValueAtTime(.001, start + index * .16 + .13);
-        oscillator.connect(gain).connect(state.audio.destination);
-        oscillator.start(start + index * .16);
-        oscillator.stop(start + index * .16 + .14);
-        state.oscillators.add(oscillator);
-        oscillator.onended = () => { state.oscillators.delete(oscillator); oscillator.disconnect(); gain.disconnect(); };
-      });
-      delivered += 1;
-    } catch { /* Show the visual message below. */ }
+    playSelectedAlertSound().catch(() => playTonePreset('ping'));
+    delivered += 1;
   }
   if (modes.includes('speech') && supports.speech) {
     window.speechSynthesis.cancel();
@@ -128,7 +220,6 @@ function notify(message, modes = selectedModes()) {
   if (modes.includes('vibration') && supports.vibration && navigator.vibrate([180, 80, 180])) delivered += 1;
   toast(message + (modes.length && delivered === 0 ? ' Check your device’s alert support and volume.' : ''));
 }
-
 async function api(path, options = {}, signal = state.controller?.signal) {
   const response = await fetch(path, { ...options, signal, cache: 'no-store' });
   const data = response.status === 204 ? null : await response.json();
@@ -377,6 +468,82 @@ ui['demo-tab'].addEventListener('click', () => changeMode('demo'));
 ui['live-tab'].addEventListener('click', () => changeMode('live'));
 ui['start-button'].addEventListener('click', start);
 ui['test-alert'].addEventListener('click', async () => { await primeAudio(); notify('Test alert. Check your surroundings.'); log('Test alert requested', selectedModes().join(' + ') || 'Visual feedback only.'); });
+const soundSelect = $('alert-sound-select');
+const customSoundInput = $('custom-alert-sound');
+const customSoundRow = $('custom-alert-sound-row');
+const customSoundName = $('custom-alert-sound-name');
+const previewSoundButton = $('preview-alert-sound');
+let selectedCustomSound = null;
+
+function updateCustomSoundRow() {
+  customSoundRow.hidden = soundSelect.value !== 'custom';
+}
+
+soundSelect.value = localStorage.getItem('clearpath-alert-sound') || 'ping';
+updateCustomSoundRow();
+soundSelect.addEventListener('change', () => {
+  localStorage.setItem('clearpath-alert-sound', soundSelect.value);
+  updateCustomSoundRow();
+});
+
+customSoundInput.addEventListener('change', async () => {
+  const file = customSoundInput.files?.[0];
+  if (!file) return;
+
+  if (!file.type.startsWith('audio/') || file.size > 10 * 1024 * 1024) {
+    toast('Choose an audio file smaller than 10 MB.');
+    customSoundInput.value = '';
+    return;
+  }
+
+  selectedCustomSound = file;
+  soundSelect.value = 'custom';
+  localStorage.setItem('clearpath-alert-sound', 'custom');
+  updateCustomSoundRow();
+  customSoundName.textContent = file.name;
+
+  try {
+    const database = await new Promise((resolve, reject) => {
+      const request = indexedDB.open('clearpath-audio', 1);
+      request.onupgradeneeded = () => request.result.createObjectStore('sounds');
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    await new Promise((resolve, reject) => {
+      const transaction = database.transaction('sounds', 'readwrite');
+      transaction.objectStore('sounds').put(file, 'custom-alert');
+      transaction.oncomplete = resolve;
+      transaction.onerror = () => reject(transaction.error);
+    });
+    toast('Custom alert sound saved on this device.');
+  } catch {
+    toast('Custom sound is ready for this session.');
+  }
+});
+
+previewSoundButton.addEventListener('click', async () => {
+  await primeAudio();
+
+  if (soundSelect.value === 'custom' && selectedCustomSound) {
+    try {
+      const buffer = await state.audio.decodeAudioData(
+        await selectedCustomSound.arrayBuffer()
+      );
+      const source = state.audio.createBufferSource();
+      source.buffer = buffer;
+      source.connect(state.audio.destination);
+      source.start();
+      return;
+    } catch {
+      toast('Could not play the selected sound.');
+      return;
+    }
+  }
+
+  const previewed = await playSelectedAlertSound();
+  if (!previewed) toast('Choose an audio file before previewing your custom sound.');
+});
+
 ui['standard-preset'].addEventListener('click', () => setPreset('standard'));
 ui['accessible-preset'].addEventListener('click', () => setPreset('accessibility'));
 ui['add-obstacle'].addEventListener('click', () => { state.obstacle = 'center'; state.demoSeen = 0; state.lastDemoAlert = -Infinity; log('Demo backpack placed in the zone', 'Watch for a second observation before the alert.'); renderControls(); });

@@ -1,7 +1,27 @@
-const CACHE = 'stepsense-sample-v1';
-const ASSETS = ['/', '/app.js', '/logic.js', '/styles.css', '/demo-scene.svg', '/manifest.webmanifest', '/icons/icon.svg', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/apple-touch-icon.png'];
+const CACHE = 'clearpath-pwa-v4';
+const ASSETS = [
+  '/',
+  '/index.html',
+  '/camera.html',
+  '/homePage.css',
+  '/integration.css',
+  '/styles.css',
+  '/site.js',
+  '/app.js',
+  '/logic.js',
+  '/camera.js',
+  '/phone-notifications.js',
+  '/backend-detector.js',
+  '/standalone.js',
+  '/manifest.webmanifest',
+  '/demo-scene.svg',
+  '/icons/icon.svg',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png',
+  '/icons/apple-touch-icon.png',
+];
 self.addEventListener('install', (event) => event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(ASSETS)).then(() => self.skipWaiting())));
-self.addEventListener('activate', (event) => event.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((key) => key.startsWith('stepsense-sample-') && key !== CACHE).map((key) => caches.delete(key)))).then(() => self.clients.claim())));
+self.addEventListener('activate', (event) => event.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((key) => (key.startsWith('stepsense-sample-') || key.startsWith('clearpath-pwa-')) && key !== CACHE).map((key) => caches.delete(key)))).then(() => self.clients.claim())));
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   // Frame uploads, API results, and readiness are never cached.
@@ -10,4 +30,17 @@ self.addEventListener('fetch', (event) => {
     if (response.ok) { const copy = response.clone(); event.waitUntil(caches.open(CACHE).then((cache) => cache.put(event.request, copy))); }
     return response;
   }).catch(async () => (await caches.match(event.request)) || Response.error()));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const destination = new URL(event.notification.data?.url || '/#camera', self.location.origin).href;
+  event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (windows) => {
+    for (const client of windows) {
+      if (new URL(client.url).origin !== self.location.origin) continue;
+      if ('navigate' in client) await client.navigate(destination);
+      return client.focus();
+    }
+    return self.clients.openWindow(destination);
+  }));
 });

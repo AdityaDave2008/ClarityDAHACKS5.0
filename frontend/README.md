@@ -57,3 +57,31 @@ Test live mode separately in iPhone Safari, the iPhone home-screen app, Android 
 ## Team integration
 
 One shared frontend serves both contributors. Coordinate ownership before editing shared files: design owns the user flow, visual system, reusable controls, and accessibility review; integration owns frame capture, API requests, and loading/error states. Guided mode's simulated results must remain distinguishable from real live detections.
+
+## Combined website
+
+The `webpage` design is combined with the accessible camera and existing AI backend. Run from the repository root with Node.js 24+:
+
+```powershell
+npm ci --prefix backend
+npm --prefix backend start
+```
+
+In a second terminal:
+
+```powershell
+npm --prefix frontend start
+```
+
+Open **http://127.0.0.1:5180/**, choose Camera, then Start camera. Starting sends frames to the team's backend; no microphone or video recording is used. Wait for the backend model to be ready. Phones require a trusted HTTPS preview and its API proxy. The original AI demo is retained at `/camera.html`.
+
+Existing Settings speech controls are connected to the accessible camera. The AI recognizes selected objects; it does not measure distance or establish that a path is safe.
+
+Camera controller, detector adapter, and their tests live alongside the main app files. Run `npm run check` at the root and `npm --prefix frontend test` for frontend validation.
+## Camera page and team design
+
+The shared home, settings, and tab design lives in `index.html` with `homePage.css`. The retained AI camera page is **`camera.html`**, styled by **`styles.css`** and powered by **`app.js`** and **`logic.js`**. There is no separate `frontend/camera/` implementation.
+
+Open **http://127.0.0.1:5180/camera.html**. Choose Live camera, select Accessibility for spoken alerts, then Start camera and allow permission. Live mode sends frames to the running backend. Walkthrough mode uses simulated detections. The main page's own Camera tab currently provides a camera preview; it does not run this page's AI loop. Settings can link directly to `/camera.html`.
+
+Run `npm run check` at the repository root and `npm --prefix frontend test`. See [sharing and hosting](../docs/SHARE_AND_HOST.md) for PowerShell commands and HTTPS phone access, and [phone checks](../docs/PWA_INTEGRATION.md) for device validation.
