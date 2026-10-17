@@ -36,3 +36,14 @@ test('navigation and scanner action text scale and settings retain native contro
   assert.match(ui, /font\(\.body.weight\(\.semibold\)\)/);
   for (const control of ['distanceStepper("Near"', 'ForEach(AlertMode.allCases)', '$preferences.isLidarEnabled', 'model.applyPreferences(preferences)', 'model.testAlert()']) assert.ok(ui.includes(control), control);
 });
+
+test('primary scanner controls immediately follow preview, before verbose diagnostics', () => {
+  const content = ui.slice(ui.indexOf('private var scannerContent:'), ui.indexOf('private var header:'));
+  const camera = content.indexOf('cameraCard');
+  const start = content.indexOf('if model.isBusy { model.stop() } else { model.start() }');
+  const testAlert = content.indexOf('model.testAlert()');
+  const cancel = content.indexOf('if model.phase == .failed');
+  const legend = content.indexOf('proximityLegend');
+  assert.ok(camera < start && start < testAlert && testAlert < cancel && cancel < legend,
+    'preview → Start/Stop → test alert → failure cancel → diagnostics');
+});

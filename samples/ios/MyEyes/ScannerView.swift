@@ -104,19 +104,34 @@ struct ScannerView: View {
                 .foregroundStyle(Color.senseMuted)
 
                 cameraCard
-                proximityLegend
-
-                if model.preferences.isLidarEnabled {
-                    VStack(alignment: .leading, spacing: 5) {
-                        TimelineView(.periodic(from: .now, by: 0.1)) { _ in
-                            Text("Center-surface LiDAR test: \(model.centerSurfaceText)")
-                                .font(.subheadline.monospacedDigit())
-                        }
-                        Text("Raw center pixel. Not object distance or a safety indication.")
-                            .font(.caption)
-                        Text(model.depthStatus).font(.caption)
+                HStack(spacing: 12) {
+                    Button {
+                        if model.isBusy { model.stop() } else { model.start() }
+                    } label: {
+                        Label(model.isBusy ? "Stop scanning" : (model.phase == .failed ? "Retry" : "Start scanning"), systemImage: model.isBusy ? "stop.fill" : "viewfinder")
+                            .font(.body.weight(.semibold))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
                     }
-                    .foregroundStyle(Color.senseMuted)
+                    .buttonStyle(.borderedProminent)
+                    .tint(.senseTeal)
+                    .foregroundStyle(.black)
+                    .disabled(model.cameraStopping)
+
+                    Button { model.testAlert() } label: {
+                        Image(systemName: "speaker.wave.2")
+                            .font(.title3)
+                            .frame(width: 44, height: 44)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(.senseTeal)
+                    .accessibilityLabel("Test selected alert modes")
+                }
+
+                if model.phase == .failed {
+                    Button("Cancel") { model.stop() }
+                        .buttonStyle(.bordered)
+                        .tint(.senseTeal)
                 }
 
                 pictureInPictureCard
@@ -147,34 +162,19 @@ struct ScannerView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(Color.senseSurface, in: RoundedRectangle(cornerRadius: 18))
 
-                HStack(spacing: 12) {
-                    Button {
-                        if model.isBusy { model.stop() } else { model.start() }
-                    } label: {
-                        Label(model.isBusy ? "Stop scanning" : (model.phase == .failed ? "Retry" : "Start scanning"), systemImage: model.isBusy ? "stop.fill" : "viewfinder")
-                            .font(.body.weight(.semibold))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.senseTeal)
-                    .foregroundStyle(.black)
-                    .disabled(model.cameraStopping)
+                proximityLegend
 
-                    Button { model.testAlert() } label: {
-                        Image(systemName: "speaker.wave.2")
-                            .font(.title3)
-                            .frame(width: 44, height: 44)
+                if model.preferences.isLidarEnabled {
+                    VStack(alignment: .leading, spacing: 5) {
+                        TimelineView(.periodic(from: .now, by: 0.1)) { _ in
+                            Text("Center-surface LiDAR test: \(model.centerSurfaceText)")
+                                .font(.subheadline.monospacedDigit())
+                        }
+                        Text("Raw center pixel. Not object distance or a safety indication.")
+                            .font(.caption)
+                        Text(model.depthStatus).font(.caption)
                     }
-                    .buttonStyle(.bordered)
-                    .tint(.senseTeal)
-                    .accessibilityLabel("Test selected alert modes")
-                }
-
-                if model.phase == .failed {
-                    Button("Cancel") { model.stop() }
-                        .buttonStyle(.bordered)
-                        .tint(.senseTeal)
+                    .foregroundStyle(Color.senseMuted)
                 }
 
                 HStack(spacing: 14) {
