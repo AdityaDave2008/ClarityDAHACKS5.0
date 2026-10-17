@@ -157,7 +157,7 @@ export function createLocalDetector({
   maxResultAgeMs = 2500,
 } = {}) {
   return {
-    async start({ video, signal, onObstacle, onError, onStatus = () => {}, onResult = () => {}, onMetrics = () => {} }) {
+    async start({ video, signal, onObstacle, onError, onStatus = () => {}, onResult = () => {}, onMetrics = () => {}, onFrame }) {
       signal.throwIfAborted();
       let timer;
       let sequence = 0;
@@ -196,6 +196,14 @@ export function createLocalDetector({
           return null;
         }
         const detections = assessDetections(predictions, size.width, size.height, preferences.confidenceThreshold);
+        // Optional consumers must copy this canvas synchronously before the next frame.
+        // Their failures must never become v1 errors or suppress object results/alerts.
+        if (onFrame) {
+          try {
+            const pending = onFrame({ canvas, sequence, capturedAt: started, sourceWidth, sourceHeight, detections });
+            pending?.catch?.(() => {});
+          } catch { /* Experimental depth is independent of v1. */ }
+        }
         const alert = policy.update(detections, Date.now());
         onMetrics({ lastMs: Math.round(elapsed), averageMs: Math.round(elapsed), captureMaxSide: Math.max(size.width, size.height) });
         return {

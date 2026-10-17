@@ -34,6 +34,18 @@ async function chooseDetector() {
 }
 
 const feature = mountCamera(document.querySelector('#camera-feature'));
+let depth = null;
+let activeDepthContext = null;
+// Optional module failures must not prevent mounting or starting v1.
+import('./depth-ui.js').then(({ mountDepthUI }) => {
+  depth = mountDepthUI(document.querySelector('#camera-feature'));
+  if (activeDepthContext && !activeDepthContext.signal.aborted) depth?.start();
+}).catch(() => {
+  const status = document.querySelector('#depth-status');
+  if (status) status.textContent = 'Depth unavailable. Object detection is unchanged.';
+});
+function depthOnly(action) { try { action(); } catch { /* Never enter v1 error handling. */ } }
+
 
 // Registering happens before any camera start, because the camera feature rejects a
 // detector once running. The lazy wrapper lets the page finish loading while the choice
@@ -43,7 +55,21 @@ feature.registerDetector({
   async start(context) {
     const detector = await detectorChoice;
     if (context.signal.aborted) return () => {};
-    return detector.start(context);
+    activeDepthContext = context;
+    depthOnly(() => depth?.start());
+    const stopDepth = () => {
+      if (activeDepthContext === context) {
+        activeDepthContext = null;
+        depthOnly(() => depth?.stop());
+      }
+    };
+    context.signal.addEventListener('abort', stopDepth, { once: true });
+    try {
+      const stop = await detector.start({ ...context,
+        onFrame: frame => depthOnly(() => depth?.onFrame(frame, context.video)),
+      });
+      return () => { stopDepth(); stop?.(); };
+    } catch (error) { stopDepth(); throw error; }
   },
 });
 feature.setRepeatCount(Number(localStorage.getItem('clearpath-alert-repeat-count')) || 1);

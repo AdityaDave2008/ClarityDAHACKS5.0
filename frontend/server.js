@@ -19,6 +19,11 @@ const ASSETS = new Map([
   ['/phone-notifications.js', ['phone-notifications.js', 'text/javascript; charset=utf-8']],
   ['/backend-detector.js', ['backend-detector.js', 'text/javascript; charset=utf-8']],
   ['/local-detector.js', ['local-detector.js', 'text/javascript; charset=utf-8']],
+  ['/depth-controller.js', ['depth-controller.js', 'text/javascript; charset=utf-8']],
+  ['/depth-ui.js', ['depth-ui.js', 'text/javascript; charset=utf-8']],
+  ['/depth-sensors.js', ['depth-sensors.js', 'text/javascript; charset=utf-8']],
+  ['/depth-geometry.js', ['depth-geometry.js', 'text/javascript; charset=utf-8']],
+  ['/depth-model.js', ['depth-model.js', 'text/javascript; charset=utf-8']],
   ['/gradient.js', ['gradient.js', 'text/javascript; charset=utf-8']],
   ['/standalone.js', ['standalone.js', 'text/javascript; charset=utf-8']],
   ['/styles.css', ['styles.css', 'text/css; charset=utf-8']],
@@ -157,7 +162,15 @@ export function createPreviewServer({ apiOrigin } = loadPreviewConfig()) {
         sendJson(response, 405, 'METHOD_NOT_ALLOWED', 'Static frontend files accept GET and HEAD requests.');
         return;
       }
-      const asset = ASSETS.get(url.pathname);
+      let asset = ASSETS.get(url.pathname);
+      // Only vendored public assets. Never expose the repository or arbitrary files.
+      if (!asset && /^\/(vendor|vendor-depth)\/[A-Za-z0-9_./-]+$/.test(url.pathname)
+        && !url.pathname.split('/').some(part => part === '..' || part === '.')) {
+        const extension = url.pathname.split('.').at(-1);
+        const mime = { js: 'text/javascript', mjs: 'text/javascript', wasm: 'application/wasm', json: 'application/json' }[extension]
+          || 'application/octet-stream';
+        asset = [url.pathname.slice(1), mime];
+      }
       if (!asset) { sendJson(response, 404, 'NOT_FOUND', 'This preview serves only the browser demo assets and detection API.'); return; }
       let content;
       try { content = await readFile(new URL(asset[0], import.meta.url)); }

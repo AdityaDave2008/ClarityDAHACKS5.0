@@ -1,4 +1,4 @@
-const CACHE = 'myeyes-pwa-v6';
+const CACHE = 'myeyes-pwa-v7-depth';
 const ASSETS = [
   '/',
   '/index.html',
@@ -13,6 +13,11 @@ const ASSETS = [
   '/phone-notifications.js',
   '/backend-detector.js',
   '/local-detector.js',
+  '/depth-controller.js',
+  '/depth-ui.js',
+  '/depth-sensors.js',
+  '/depth-geometry.js',
+  '/depth-model.js',
   '/standalone.js',
   '/gradient.js',
   '/manifest.webmanifest',
@@ -24,14 +29,15 @@ const ASSETS = [
 ];
 self.addEventListener('install', (event) => event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(ASSETS)).then(() => self.skipWaiting())));
 self.addEventListener('activate', (event) => event.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((key) => (key.startsWith('myeyes-sample-') || key.startsWith('myeyes-pwa-') || key.startsWith('clearpath-pwa-') || key.startsWith('stepsense-sample-')) && key !== CACHE).map((key) => caches.delete(key)))).then(() => self.clients.claim())));
-const RUNTIME_PREFIX = '/vendor/';
+const RUNTIME_PREFIXES = ['/vendor/', '/vendor-depth/'];
+const isRuntime = path => RUNTIME_PREFIXES.some(prefix => path.startsWith(prefix));
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   // Frame uploads, API results, and readiness are never cached.
   if (event.request.method !== 'GET' || url.origin !== self.location.origin) return;
-  if (!ASSETS.includes(url.pathname) && !url.pathname.startsWith(RUNTIME_PREFIX)) return;
+  if (!ASSETS.includes(url.pathname) && !isRuntime(url.pathname)) return;
   // Model files are immutable and large, so a cache hit is served without a network round trip.
-  if (url.pathname.startsWith(RUNTIME_PREFIX)) {
+  if (isRuntime(url.pathname)) {
     event.respondWith(caches.match(event.request).then((hit) => hit || fetch(event.request).then((response) => {
       if (response.ok) { const copy = response.clone(); event.waitUntil(caches.open(CACHE).then((cache) => cache.put(event.request, copy))); }
       return response;

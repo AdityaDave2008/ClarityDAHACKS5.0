@@ -193,3 +193,19 @@ test('a cooldown prevents repeated alerts for the same object', () => {
   assert.equal(policy.update([item], 1200).triggered, true);
   assert.equal(policy.update([item], 1400).reason, 'cooldown');
 });
+
+test('optional synchronous frame hook receives exact canvas and sequence without affecting v1 on failure', async () => {
+  const stub = harness();
+  const frames = [];
+  const run = session({ onFrame: frame => { frames.push(frame); throw Error('optional depth failed'); } });
+  await createLocalDetector(stub.options).start(run.context);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(frames.length, 1);
+  assert.equal(frames[0].canvas, stub.canvas);
+  assert.equal(frames[0].sequence, run.events.results[0].sequence);
+  assert.equal(frames[0].capturedAt, 0);
+  assert.equal(frames[0].sourceWidth, 640);
+  assert.deepEqual(frames[0].detections, run.events.results[0].detections);
+  assert.equal(run.events.errors.length, 0);
+  assert.equal(run.events.results.length, 1);
+});
