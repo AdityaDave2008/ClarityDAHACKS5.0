@@ -1,32 +1,21 @@
-# Offline detector provenance
+# Experimental YOLOX-Nano candidate
 
-This is the **same pretrained TensorFlow.js COCO-SSD `lite_mobilenet_v2` model** selected by `backend/inference-worker.js`, not a newly trained detector or a substitute Core ML architecture. No conversion, fine-tuning, quantization, or edits to the graph/weight shards were performed.
+This testing branch runs the actual fine-tuned candidate, not baseline weights or TFJS COCO-SSD.
 
-## Exact artifact
+- Artifact: `candidate-export/pretrained-static.onnx` from training snapshot `20261017T064826Z-ed6a958c`.
+- Bundled as `candidate.onnx`, SHA256 `516617114420ce3c2bac545869ee91bac8ff7a63e148a73afdb12f126433fab4`.
+- Candidate threshold **0.7874982953071594**, not selected baseline 0.705. Native preferences pass it explicitly. User adjustments remain supported and change the evaluated operating point.
+- Fine-tuned candidate had worse mAP than baseline. Experimental testing only, no safety certification or navigation reliability claim.
+- ONNX Runtime Web **1.20.1**, npm distribution `ort.wasm.min.js`, `ort-wasm-simd-threaded.mjs`, `ort-wasm-simd-threaded.wasm`. MIT license in `ONNX-RUNTIME-LICENSE.txt`. Single-thread WASM, proxy disabled. No CDN or runtime/model downloads.
+- Model architecture: YOLOX-Nano (upstream YOLOX Apache-2.0). Training uses COCO categories. Dataset provenance/evaluation remains in the training artifacts, not a new quality claim.
+- `ASSETS.json` pins exact deployed runtime/model/adapter hashes.
 
-Repository path: `samples/ios/MyEyes/OfflineDetector/model/model.json`
+## Contract and limitations
 
-Weights: `model/group1-shard1of5` through `model/group1-shard5of5`, totalling **18,034,528 bytes**. The graph JSON specifies the order of those five files. Xcode copies the complete `OfflineDetector` directory into `Clarity.app/OfflineDetector`.
+`model-contract.json` defines BGR float32 [0,255], CHW [1,3,416,416], aspect-preserving resize with floor dimensions and top-left pad114. Decoded [1,3549,85] output uses center xywh, objectness times argmax class probability, class-aware external NMS IoU .65, then inverse resize.
 
-Official source, downloaded October 16, 2026:
+Canvas only decodes the full-resolution image; explicit half-pixel bilinear code performs resizing. Uint8 rounding differs from OpenCV fixed-point INTER_LINEAR by at most 1 on tested pixels. More importantly, **WebKit JPEG decoding differs from OpenCV JPEG decoding**. On the known-cat fixture, Python/OpenCV score .794304 is above the tuned threshold while WebKit score .743190 is below it. Thus full-image operating-point equivalence is **not established**. Identical WebKit input tensors produce Python ONNX .7431902885 versus WebKit ONNX .7431903384, confirming runtime agreement (~5e-8 score difference), not preprocessing equivalence. Do not lower the default to hide this limitation.
 
-`https://storage.googleapis.com/tfjs-models/savedmodel/ssdlite_mobilenet_v2/model.json`
+The unchanged policy exposes only 16 labels from the 80-class model: person, bicycle, car, motorcycle, bus, truck, bench, cat, dog, backpack, handbag, suitcase, bottle, cup, chair, potted plant. It retains two matching frames, cooldown, stale/failure streak breaking and the image-zone heuristic. The model does not recognize stairs, curbs, potholes or cables. Empty results do not mean a clear path.
 
-Each shard comes from the same URL directory. This is the default URL resolved by `@tensorflow-models/coco-ssd@2.2.3` when passed `{ base: 'lite_mobilenet_v2' }`. `ASSETS.json` pins byte sizes and SHA-256 hashes because the provider URL itself is not revision-versioned.
-
-## Runtime and licenses
-
-- `coco-ssd.min.js`: unmodified browser distribution from installed `@tensorflow-models/coco-ssd@2.2.3`.
-- `tf.min.js`: unmodified browser distribution from `@tensorflow/tfjs@4.22.0`.
-- `tf-backend-wasm.min.js` and all three `.wasm` files: unmodified browser distribution from `@tensorflow/tfjs-backend-wasm@4.22.0`. Only one single-threaded backend is selected. The fallback binaries remain bundled for backend feature detection.
-- Source package versions are pinned in `backend/package-lock.json`.
-- TensorFlow.js, its WASM backend, and the official TensorFlow.js models repository are **Apache-2.0**, copyright Google LLC. Full upstream Apache notices are retained under `licenses/`, along with original copyright/license headers in the JS distributions. The pretrained detector is distributed by the official TensorFlow.js models project under its repository license, with no separate weight license advertised by its COCO-SSD documentation.
-- Upstream documentation: <https://github.com/tensorflow/tfjs-models/tree/master/coco-ssd>.
-- License sources: <https://github.com/tensorflow/tfjs-models/blob/master/LICENSE> and <https://github.com/tensorflow/tfjs/blob/master/LICENSE>.
-- COCO is the original training/category dataset: <https://cocodataset.org/#termsofuse>. No COCO training images or test photograph is included in this app bundle.
-
-## Offline execution
-
-A nonpersistent WKWebView executes the packaged scripts. A `WKURLSchemeHandler` serves `stepsense://offline/` from the app bundle, with successful HTTP-style status/MIME headers for WebAssembly fetch. There is **no listening server** and no network request for the model, scripts, images, or inference. Camera JPEGs are passed directly to JavaScript as base64 and never uploaded. Content Security Policy disallows HTTP(S) fetch/navigation/resources. `unsafe-eval` is required for the pinned TensorFlow.js generated kernels, not for downloaded code.
-
-`policy.js` is a verbatim classic-script copy of `backend/alerts.js` with only the `export` keywords removed. Tests enforce this equivalence. It retains the 16 supported alert labels, normalized top-left boxes, bottom-center image-zone anchor, two spatially matching confirmations, cooldown, and failure/stale streak breaking. This is an image heuristic, not a walking-corridor or distance estimate. Empty detections do not prove a clear or safe path.
+The native camera, LiDAR sequence/age checks, depth enrichment, PiP and alert modalities are preserved. Depth does not gate these alerts. Nonpersistent WKWebView + custom bundled scheme + restrictive CSP prohibit remote inference/resources. Original StepSense app and its settings remain installed separately for rollback.

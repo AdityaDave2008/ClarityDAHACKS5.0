@@ -326,10 +326,11 @@ private struct SettingsView: View {
         NavigationStack {
             Form {
                 Section {
-                    Text("COCO-SSD · lite_mobilenet_v2")
+                    Text("Experimental YOLOX-Nano · fine-tuned candidate")
                     Text(model.modelStatus).font(.caption).foregroundStyle(.secondary)
+                    Text("Testing only. Candidate mAP is worse than baseline. Not safety-certified. 80 model classes, limited to the existing 16-label alert policy. iPhone image decoding differs from offline evaluation and can change threshold decisions. The 78.75% default may give sparse results; lowering it changes the evaluated operating point.").font(.caption).foregroundStyle(.secondary)
                 } header: { Text("Offline detector") } footer: {
-                    Text("Pretrained model and runtime are bundled on this iPhone. No server, Wi-Fi, or mobile data is needed. Start scanning to load the model.")
+                    Text("Fine-tuned model and runtime are bundled on this iPhone. No server, Wi-Fi, or mobile data is needed. Start scanning to load the model.")
                 }
 
                 Section {
