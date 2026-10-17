@@ -32,6 +32,8 @@ for WHICH in baseline candidate; do
   if [[ "$WHICH" == baseline && -s artifacts/baseline-tune/metrics.json ]]; then continue; fi
   timeout 900 "$PY" evaluate.py --root coco --checkpoint "$CHECKPOINT" --output "artifacts/${WHICH}-tune" > "${WHICH}-eval.log" 2>&1
 done
+CANDIDATE_CHECKPOINT=$("$PY" -c "import json; print(json.load(open('artifacts/candidate-tune/metrics.json'))['checkpoint'])")
+timeout 180 "$PY" smoke_export.py --checkpoint "$CANDIDATE_CHECKPOINT" --output artifacts/candidate-export > candidate-export.log 2>&1
 "$PY" - <<'PY'
 import json,shutil,pathlib
 base=json.load(open('artifacts/baseline-tune/metrics.json'))
