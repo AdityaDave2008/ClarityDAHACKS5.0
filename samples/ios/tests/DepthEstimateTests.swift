@@ -28,6 +28,15 @@ struct DepthEstimateTests {
         precondition(distribution.contains("beyond=1"))
         precondition(distribution.contains("center=2.000"))
         precondition(snapshot([2]).distributionSummary == "malformed map")
+        // Physical-device samples: all central neighbors below range, not isolated holes.
+        for value: Float in [0.184, 0.101, 0.121, 0.094] {
+            var reason = ""
+            precondition(snapshot(Array(repeating: value, count: 400)).centerSurface(now: 10.065, onRejection: { reason = $0 }) == nil)
+            precondition(reason == "center below 0.2 m")
+        }
+        for value: Float in [0.886, 1.063] {
+            precondition(snapshot(Array(repeating: value, count: 400)).centerSurface(now: 10.065) == Double(value))
+        }
         precondition(good.centerSurface(now: 10.1) == 2)
         precondition(good.centerSurface(now: 10.75) == nil, "center test expires")
         precondition(good.centerSurface(now: 9) == nil, "center test rejects future capture")
