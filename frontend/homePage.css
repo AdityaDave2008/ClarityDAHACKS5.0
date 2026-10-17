@@ -22,7 +22,8 @@
 
 body {
   margin: 0;
-  min-height: 100svh;
+  min-height: 100vh;
+  min-height: 100dvh;
   background-color: var(--bg);
   background-image: radial-gradient(circle, var(--background-dot) 0.8px, transparent 1px);
   background-size: 30px 30px;
@@ -44,7 +45,8 @@ body::after {
 
 .app {
   width: min(100%, 680px);
-  min-height: 100svh;
+  min-height: 100vh;
+  min-height: 100dvh;
   margin: auto;
   padding: max(env(safe-area-inset-top), 26px) clamp(18px, 4vw, 30px) 112px;
 }
@@ -62,18 +64,32 @@ header.camera-header-hidden {
 
 .brand {
   display: flex;
-  gap: 14px;
+  gap: 6px;
   align-items: center;
-  font-size: 25px;
+  color: var(--mint);
+  font-size: 36px;
   font-weight: 750;
+  line-height: 1;
 }
 
-.logo {
-  width: 52px;
-  height: 52px;
+.brand-logo-window {
+  position: relative;
   display: block;
-  object-fit: contain;
-  flex-shrink: 0;
+  flex: 0 0 94px;
+  width: 94px;
+  height: 56px;
+  overflow: hidden;
+}
+
+.brand-logo-window img {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 220px;
+  max-width: none;
+  height: auto;
+  transform: translate(-50%, -50%);
+  filter: url(#eye-palette-tint);
 }
 
 .status {
@@ -825,7 +841,8 @@ select {
   }
 
   .app {
-    min-height: calc(100svh - 36px);
+    min-height: calc(100vh - 36px);
+    min-height: calc(100dvh - 36px);
     border: 1px solid #ffffff12;
     border-radius: 30px;
   }
@@ -1329,13 +1346,7 @@ select {
 }
 
 .app.blindness-mode .brand {
-  font-size: 27px;
-}
-
-.app.blindness-mode .logo {
-  width: 56px;
-  height: 56px;
-  font-size: 29px;
+  font-size: 36px;
 }
 
 .app.blindness-mode .status {
@@ -1711,6 +1722,15 @@ select {
   line-height: 1.55;
 }
 
+#camera > .home-slogan {
+  margin: 0 0 14px;
+  color: var(--ink);
+  font-size: clamp(34px, 8.5vw, 46px);
+  font-weight: 750;
+  line-height: 1.06;
+  text-align: center;
+}
+
 #camera .camera-feature h1 {
   margin: 0;
   font-size: clamp(36px, 9vw, 48px);
@@ -1850,7 +1870,8 @@ select {
   display: block;
   position: static;
   width: 100%;
-  height: clamp(320px, calc(100svh - 300px), 650px);
+  height: clamp(320px, calc(100vh - 300px), 650px);
+  height: clamp(320px, calc(100dvh - 300px), 650px);
   min-height: 320px;
   border: 1px solid var(--line);
   border-radius: 20px;
@@ -2331,6 +2352,13 @@ html *::after {
   max-width: 100%;
 }
 
+.app:not(.blindness-mode) #settings #camera-announcements {
+  flex-basis: min(176px, 100%);
+  width: min(176px, 100%);
+  min-height: 43px;
+  padding: 9px 11px;
+}
+
 #settings .alert-control-setting input[type="number"] {
   box-sizing: border-box;
   width: 120px;
@@ -2364,8 +2392,9 @@ html *::after {
 
 #settings .install-card {
   gap: 16px;
-  margin-top: 24px;
+  margin-top: 0;
   padding: 24px;
+  padding-top: 0;
 }
 
 #settings .device-access {
@@ -2382,6 +2411,33 @@ html *::after {
 #settings .device-access-row {
   gap: 16px;
   padding: 21px 0;
+}
+
+#settings .notification-access-row {
+  flex-direction: row;
+  align-items: center;
+}
+
+#settings .notification-access-row > div:first-child {
+  min-width: 0;
+}
+
+#settings .notification-access-row .permission-actions {
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  width: auto;
+  gap: 6px;
+}
+
+#settings .notification-access-row .permission-button {
+  flex: 0 0 auto;
+  width: auto;
+  padding-right: 10px;
+  padding-left: 10px;
+}
+
+.app.blindness-mode #settings .notification-access-row .permission-button {
+  flex: 0 0 auto;
 }
 
 #settings .permission-actions {
@@ -2492,6 +2548,175 @@ html *::after {
 #camera .depth-panel [hidden] { display: none !important; }
 #camera #depth-status { font-weight: 700; }
 
+/* Clarity product UI polish: clear primary actions, consistent surfaces, and
+   compact but readable status information. Colors come from the active palette. */
+:root {
+  --surface-edge: color-mix(in srgb, var(--ink) 12%, transparent);
+  --surface-soft: color-mix(in srgb, var(--card-top) 72%, var(--bg));
+}
+
+.app {
+  width: min(100%, 720px);
+}
+
+.brand {
+  letter-spacing: -0.035em;
+}
+
+.screen > .eyebrow {
+  margin-bottom: 8px;
+}
+
+.screen > h1 {
+  letter-spacing: -0.045em;
+}
+
+#home > h1,
+#settings > h1 {
+  text-align: center;
+}
+
+.page-subtitle {
+  margin: 12px auto 26px !important;
+  color: var(--mint);
+  font-family: inherit;
+  font-size: 18px;
+  font-weight: 750;
+  line-height: 1.4;
+  text-align: center;
+}
+
+#camera .camera-feature,
+#settings .card,
+.forum-post {
+  border-color: var(--surface-edge);
+  background: linear-gradient(155deg, var(--card-top), var(--card-bottom) 78%);
+}
+
+#camera .camera-feature {
+  gap: 16px;
+  padding: clamp(16px, 3.5vw, 24px);
+  border-radius: 22px;
+}
+
+#camera #permission-help {
+  max-width: 42ch;
+  color: var(--muted);
+  font-size: 0.95em;
+}
+
+#camera .camera-preview {
+  border: 1px solid var(--surface-edge);
+  border-radius: 18px;
+  background: var(--camera-bottom);
+  box-shadow: inset 0 0 0 1px #ffffff08;
+}
+
+#camera .camera-actions {
+  gap: 10px;
+}
+
+#camera .camera-actions button,
+#camera .speech-controls > button,
+#settings .controls button {
+  min-height: 50px;
+  transition: transform 140ms ease, filter 140ms ease;
+}
+
+#camera .camera-actions button:not(:disabled):hover,
+#camera .speech-controls > button:not(:disabled):hover,
+#settings .controls button:not(:disabled):hover {
+  filter: brightness(1.07);
+}
+
+#camera .camera-actions button:not(:disabled):active,
+#camera .speech-controls > button:not(:disabled):active,
+#settings .controls button:not(:disabled):active {
+  transform: translateY(1px);
+}
+
+#camera .status-panel,
+#camera .camera-results {
+  border-color: var(--surface-edge);
+  background: var(--surface-soft);
+}
+
+#camera .camera-results {
+  padding: 15px 16px;
+}
+
+#camera .camera-result-note {
+  color: var(--muted);
+  font-size: 0.84em;
+}
+
+.forum-feed {
+  gap: 12px;
+}
+
+.forum-post {
+  padding: 18px;
+  border-radius: 18px;
+  transition: border-color 160ms ease, transform 160ms ease;
+}
+
+.forum-post:hover {
+  border-color: color-mix(in srgb, var(--mint) 42%, var(--line));
+  transform: translateY(-2px);
+}
+
+.post-tag,
+.issue-urgency {
+  display: inline-flex;
+  align-items: center;
+  min-height: 25px;
+  padding: 4px 8px;
+  border: 1px solid var(--surface-edge);
+  border-radius: 999px;
+  background: var(--accent-wash);
+}
+
+#settings .card {
+  border-radius: 22px;
+}
+
+#settings .section-title {
+  margin-top: 26px;
+}
+
+#settings .setting-row {
+  gap: 16px;
+  padding: 17px 0;
+}
+
+#settings .setting-row small {
+  line-height: 1.5;
+}
+
+.bottom-nav {
+  border-color: var(--surface-edge);
+  box-shadow: 0 8px 28px #0003;
+}
+
+@media (max-width: 480px) {
+  #camera .camera-feature,
+  #settings .card {
+    padding: 16px;
+  }
+
+  .forum-post {
+    padding: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #camera .camera-actions button,
+  #camera .speech-controls > button,
+  #settings .controls button,
+  .forum-post {
+    transition: none;
+  }
+}
 /* Startup is a visible screen, not a status below the full-height preview.
    Only model loading/failure shows this panel, never an active camera stream. */
 #camera .camera-startup-panel:not([hidden]) {

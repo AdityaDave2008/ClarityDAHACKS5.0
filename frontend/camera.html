@@ -6,27 +6,50 @@
   <meta name="theme-color" content="#101820">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="description" content="Try a camera scan or a walkthrough that shows how Clarity checks for obstacles.">
+  <meta name="description" content="Awareness within reach. Try a camera scan or a walkthrough that shows how Clarity checks for obstacles.">
   <link rel="manifest" href="/manifest.webmanifest">
-  <link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
-  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <link rel="icon" href="icons/logo-orange.svg?v=1" type="image/svg+xml" sizes="any">
+  <link rel="apple-touch-icon" href="icons/logo-orange.svg?v=1">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root { --mint: #f38b68; }
+    :root[data-color-vision="protanopia"] { --mint: #f2c76e; }
+    :root[data-color-vision="deuteranopia"] { --mint: #8fd9df; }
+    :root[data-color-vision="tritanopia"] { --mint: #ffb199; }
+    :root[data-color-vision="achromatopsia"] { --mint: #f1f1f1; }
+    .brand-logo-window { position: relative; display: block; flex: 0 0 92px; width: 92px; height: 52px; overflow: hidden; }
+    .brand-logo-window img { position: absolute; top: 50%; left: 50%; width: 230px; max-width: none; height: auto; transform: translate(-50%, -50%); filter: url(#eye-background-key); }
+    @media (max-width: 1120px) { .brand-logo-window { flex-basis: 76px; width: 76px; height: 44px; } .brand-logo-window img { width: 194px; } }
+  </style>
+  <script>
+    try { document.documentElement.dataset.colorVision = localStorage.getItem('clearpath-color-vision') || 'standard'; } catch {}
+  </script>
   <link rel="stylesheet" href="/styles.css">
+  <style>
+    .brand { color: var(--mint); font-size: 36px; line-height: 1; }
+  </style>
   <title>Clarity · Path alerts</title>
 </head>
 <body>
+  <svg aria-hidden="true" width="0" height="0" style="position:absolute;overflow:hidden">
+    <filter id="eye-background-key" color-interpolation-filters="sRGB">
+      <feColorMatrix type="matrix" result="keyed" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 3.5 -3.5 0 0"></feColorMatrix>
+      <feFlood result="palette-color" style="flood-color:var(--mint,#f38b68)"></feFlood>
+      <feComposite in="palette-color" in2="keyed" operator="in"></feComposite>
+    </filter>
+  </svg>
   <div class="app-shell">
     <aside class="sidebar" aria-label="About Clarity">
-      <a class="brand" href="/" aria-label="Clarity home"><img src="/icons/icon.svg" alt="" width="38" height="38"><span>Clarity</span></a>
-      <div class="sidebar-middle"><span class="eyebrow">WALK WITH MORE AWARENESS.</span><p>A heads-up<br>for the path<br>ahead.</p><div class="city-lines" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div></div>
+      <a class="brand" href="/" aria-label="Clarity home"><span class="brand-logo-window" aria-hidden="true"><img src="icons/eye_logo_smooth.gif" alt=""></span><span>Clarity</span></a>
+      <div class="sidebar-middle"><span class="eyebrow">AWARENESS WITHIN REACH.</span><p>For more confident<br>city walks.</p><div class="city-lines" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div></div>
       <div class="sidebar-bottom"><span class="small-dot"></span> Built for city life<br><span class="muted">DA Hacks 2026 · Prototype</span></div>
     </aside>
     <main>
       <header class="topbar"><span class="breadcrumb">THE LAB <span>/</span> OBSTACLE AWARENESS</span><button class="text-button" id="how-button">How it works <span aria-hidden="true">↗</span></button></header>
       <section class="intro">
-        <div><div class="eyebrow green">A SECOND LOOK AT THE PATH AHEAD.</div><h1>See what’s<br><span>in your way.</span></h1><p>Try the walkthrough, or start a live scan with your camera.</p></div>
+        <div><div class="eyebrow green">LIVE CAMERA + WALKTHROUGH.</div><h1>See what’s<br><span>in your way.</span></h1><p>Try the walkthrough, or start a live scan with your camera.</p></div>
         <div class="prototype-tag"><span class="small-dot"></span> BROWSER DEMO<span>01 / CAMERA</span></div>
       </section>
       <div class="workspace">

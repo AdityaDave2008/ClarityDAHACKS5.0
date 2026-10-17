@@ -39,11 +39,16 @@ const ASSETS = new Map([
   ['/manifest.webmanifest', ['manifest.webmanifest', 'application/manifest+json; charset=utf-8']],
   ['/sw.js', ['sw.js', 'text/javascript; charset=utf-8']],
   ['/demo-scene.svg', ['demo-scene.svg', 'image/svg+xml']],
-  ['/icons/clarity-eye.png', ['icons/clarity-eye.png', 'image/png']],
-  ['/icons/icon.svg', ['icons/icon.svg', 'image/svg+xml']],
-  ['/icons/apple-touch-icon.png', ['icons/apple-touch-icon.png', 'image/png']],
+  ['/icons/logo.png', ['icons/logo.png', 'image/png']],
+  ['/icons/logo-orange.svg', ['icons/logo-orange.svg', 'image/svg+xml']],
+  ['/icons/favicon-white.svg', ['icons/favicon-white.svg', 'image/svg+xml']],
+  ['/icons/eye_logo_smooth.gif', ['icons/eye_logo_smooth.gif', 'image/gif']],
+  ['/icons/mainLogo.png', ['icons/mainLogo.png', 'image/png']],
   ['/icons/icon-192.png', ['icons/icon-192.png', 'image/png']],
   ['/icons/icon-512.png', ['icons/icon-512.png', 'image/png']],
+  ['/icons/icon-maskable-512.png', ['icons/icon-maskable-512.png', 'image/png']],
+  ['/icons/apple-touch-icon.png', ['icons/apple-touch-icon.png', 'image/png']],
+  ['/icons/clarity-eye.png', ['icons/clarity-eye.png', 'image/png']],
 ]);
 
 const HOP_BY_HOP = new Set([
