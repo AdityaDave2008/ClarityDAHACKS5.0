@@ -9,4 +9,6 @@
 - [x] Implement yolox.js pure contract helpers and detector.js runtime adapter. Bundle model, runtime, license, hashes and contract. Run tests.
 - [x] Run real production WKWebView with actual candidate, known image and lifecycle harness. Validate reference output parity, cancellation/restart, malformed image, stale frame, timeout and network denial.
 - [ ] Build signed testing app with Xcode. Install and launch on verified connected iPhone without uninstall or permission reset. Report physical validation separately.
-- [ ] Run complete regression suite, document evidence and limits, commit scoped files, push only v2-testing.
+- [x] Run complete regression suite, document evidence and limits, commit scoped files, push only v2-testing.
+
+Deployment status: final signed app installed, launch blocked by locked phone. No physical acceptance claim.
