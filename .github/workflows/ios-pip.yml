@@ -11,6 +11,13 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Run native regression and Swift execution tests
+        env:
+          JCODE_SCRATCH_DIR: ${{ runner.temp }}/stepsense-native-tests
+        run: node --test samples/ios/tests/*.test.mjs
       - name: Build the native iPhone app without signing
         run: >-
           xcodebuild

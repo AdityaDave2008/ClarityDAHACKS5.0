@@ -9,7 +9,6 @@ private struct CompletedAudioObject: @unchecked Sendable {
 
 @MainActor
 final class AlertPlayer: NSObject, AVAudioPlayerDelegate, AVSpeechSynthesizerDelegate {
-    var keepsAudioSessionActive = false
     private let speech = AVSpeechSynthesizer()
     private let haptics = UINotificationFeedbackGenerator()
     private var player: AVAudioPlayer?
@@ -28,8 +27,14 @@ final class AlertPlayer: NSObject, AVAudioPlayerDelegate, AVSpeechSynthesizerDel
         player?.stop()
         speech.stopSpeaking(at: .immediate)
         if modes.contains(.sound) || modes.contains(.speech) {
-            try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
-            try? AVAudioSession.sharedInstance().setActive(true)
+            do {
+                try AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
+                PiPDiagnostics.log("audio.category.success")
+            } catch { PiPDiagnostics.error("audio.category.failure", error) }
+            do {
+                try AVAudioSession.sharedInstance().setActive(true)
+                PiPDiagnostics.log("audio.activate.success")
+            } catch { PiPDiagnostics.error("audio.activate.failure", error) }
         }
         if modes.contains(.vibration) {
             haptics.prepare()
@@ -61,8 +66,9 @@ final class AlertPlayer: NSObject, AVAudioPlayerDelegate, AVSpeechSynthesizerDel
     }
 
     private func deactivateWhenFinished() {
-        guard !keepsAudioSessionActive, activePlayer == nil, activeUtterance == nil else { return }
-        try? AVAudioSession.sharedInstance().setActive(false, options: [.notifyOthersOnDeactivation])
+        guard activePlayer == nil, activeUtterance == nil else { return }
+        // The audio session stays active: deactivating it would end background audio while a
+        // video-call Picture in Picture window is scanning. Ducking already yields to other audio.
     }
 
     nonisolated func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {

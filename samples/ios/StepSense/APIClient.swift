@@ -23,6 +23,12 @@ struct ScanPreferences: Codable, Equatable {
     var alertModes: [AlertMode] = [.sound]
     var confidenceThreshold: Double = 0.6
     var cooldownMs: Int = 3000
+    // Optional storage preserves decoding of preferences saved before LiDAR existed.
+    private var lidarEnabled: Bool? = nil
+    var isLidarEnabled: Bool {
+        get { lidarEnabled ?? false }
+        set { lidarEnabled = newValue }
+    }
 }
 
 struct ScanSession: Decodable {
@@ -32,24 +38,35 @@ struct ScanSession: Decodable {
     let expiresAt: String
 }
 
-struct NormalizedPoint: Decodable {
+struct NormalizedPoint: Decodable, Equatable {
     let x: Double
     let y: Double
 }
 
-struct NormalizedBox: Decodable {
+struct NormalizedBox: Decodable, Equatable {
     let x: Double
     let y: Double
     let width: Double
     let height: Double
 }
 
-struct Detection: Decodable {
+struct Detection: Decodable, Equatable {
     let label: String
     let confidence: Double
     let bbox: NormalizedBox
     let anchor: NormalizedPoint
     let inZone: Bool
+    // Native-only enrichment. The detector does not supply or use depth for alerts.
+    var depthMeters: Double? = nil
+    var depthRequested: Bool? = nil
+    var depthExpiresAt: TimeInterval? = nil
+    var depthLabel: String? { depthLabel(at: ProcessInfo.processInfo.systemUptime) }
+    func depthLabel(at now: TimeInterval) -> String? {
+        guard depthRequested == true else { return nil }
+        guard let depthMeters, depthMeters.isFinite, depthMeters > 0,
+              let depthExpiresAt, now.isFinite, depthExpiresAt.isFinite, now < depthExpiresAt else { return "depth unavailable" }
+        return String(format: "depth ≈%.1f m", depthMeters)
+    }
 }
 
 struct ModelMetadata: Decodable {
