@@ -79,6 +79,13 @@ struct FloorCalibrationTests {
         for map in [mapping(w: 0), mapping(h: 0), mapping(w: .nan), mapping(h: .infinity), mapping(dw: 0), mapping(dh: -1), mapping(dw: 51), mapping(w: 200, h: 100), mapping(dw: 100, dh: 50), mapping(portrait: false), mapping(mirrored: true)] {
             rejects(.invalidTransform) { try calibration(map: map) }
         }
+        // Portrait is strict in both coordinate spaces, even when aspect tolerance
+        // would otherwise accept a square paired with a nearly-square portrait map.
+        for map in [mapping(w: 100, h: 100, dw: 50, dh: 50),
+                    mapping(w: 100, h: 100, dw: 1000, dh: 1001),
+                    mapping(w: 100, h: 100.1, dw: 50, dh: 50)] {
+            rejects(.invalidTransform) { try calibration(map: map) }
+        }
         for map in [mapping(crop: false), mapping(oriented: false)] {
             rejects(.unavailable("unproven delivered transform")) { try calibration(map: map) }
         }

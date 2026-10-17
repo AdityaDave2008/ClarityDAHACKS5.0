@@ -51,7 +51,7 @@ struct FloorCalibration: Sendable {
         let h = mapping.referenceHeight
         guard w.isFinite, h.isFinite, w > 0, h > 0,
               mapping.deliveredWidth > 0, mapping.deliveredHeight > 0,
-              h >= w, mapping.deliveredHeight >= mapping.deliveredWidth,
+              h > w, mapping.deliveredHeight > mapping.deliveredWidth,
               mapping.portrait, !mapping.mirrored,
               abs(w / h - Double(mapping.deliveredWidth) / Double(mapping.deliveredHeight)) <= 0.001
         else { throw FloorCalibrationError.invalidTransform }
