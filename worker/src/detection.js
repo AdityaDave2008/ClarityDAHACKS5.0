@@ -22,7 +22,11 @@
  * detector. Labels and confidences will not match them frame for frame.
  */
 
-/** Categories the clients draw and alert on, matching the Node backend's list. */
+/**
+ * Categories this deployment can actually return. This is a subset of the Node
+ * backend's full COCO list, bounded by the ImageNet mapping below rather than by
+ * client policy: the classifier cannot name anything outside these families.
+ */
 export const SUPPORTED_LABELS = Object.freeze([
   'person', 'bicycle', 'car', 'motorcycle', 'bus', 'truck', 'bench', 'cat',
   'dog', 'backpack', 'handbag', 'suitcase', 'bottle', 'cup', 'chair', 'potted plant',

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { assessDetections, createAlertPolicy } from '../alerts.js';
+import { assessDetections, createAlertPolicy, SUPPORTED_LABELS } from '../alerts.js';
 
 function observed(label = 'backpack', bbox = [140, 120, 100, 150], score = 0.9) {
   return assessDetections([{ class: label, score, bbox }], 400, 300, 0.6);
@@ -11,7 +11,8 @@ test('assesses supported detections using normalized geometry and a bottom-cente
     { class: 'backpack', score: 0.9, bbox: [140, 120, 100, 150] },
     { class: 'chair', score: 0.8, bbox: [0, 0, 40, 60] },
     { class: 'backpack', score: 0.3, bbox: [140, 120, 100, 150] },
-    { class: 'toothbrush', score: 0.99, bbox: [140, 120, 100, 150] },
+    // Not a COCO category the detectors can emit, so it is still rejected.
+    { class: 'pothole', score: 0.99, bbox: [140, 120, 100, 150] },
   ], 400, 300, 0.6);
 
   assert.equal(detections.length, 2);
@@ -21,6 +22,15 @@ test('assesses supported detections using normalized geometry and a bottom-cente
   assert.ok(Math.abs(backpack.anchor.y - 0.9) < 1e-10);
   assert.equal(backpack.inZone, true);
   assert.equal(detections.find(({ label }) => label === 'chair').inZone, false);
+});
+
+test('the full trained COCO vocabulary reaches the clients', () => {
+  // A narrow whitelist previously hid 64 of the 80 classes the models detect,
+  // so correct predictions such as a stop sign or a bed were dropped silently.
+  assert.equal(SUPPORTED_LABELS.length, 80);
+  for (const label of ['stop sign', 'bed', 'tv', 'couch', 'dining table', 'toothbrush', 'traffic light']) {
+    assert.equal(assessDetections([{ class: label, score: 0.9, bbox: [140, 120, 100, 150] }], 400, 300, 0.6).length, 1, label);
+  }
 });
 
 test('an object touching the bottom image edge can still be in the alert zone', () => {

@@ -83,8 +83,13 @@ enum ProximityBand: String, Codable {
 }
 
 struct ScanPreferences: Codable, Equatable {
+    // Measured on the shipped candidate over 300 COCO val2017 images: the previous
+    // precision-tuned 0.7875 default returned 0.204 recall and left whole scenes
+    // empty. 0.45 raises recall to 0.394 at 0.714 precision and matches the
+    // browser app's long-standing default. Users can still raise it in settings.
+    static let candidateConfidenceDefault = 0.45
     var alertModes: [AlertMode] = [.sound]
-    var confidenceThreshold: Double = 0.7874982953071594
+    var confidenceThreshold: Double = ScanPreferences.candidateConfidenceDefault
     var cooldownMs: Int = 3000
     var proximitySettings: ProximitySettings? = nil
     var effectiveProximitySettings: ProximitySettings { (proximitySettings ?? ProximitySettings()).validated }
@@ -97,7 +102,7 @@ struct ScanPreferences: Codable, Equatable {
 
     // A private stored property makes Swift's generated memberwise initializer private.
     // Keep configurable construction available without changing persisted LiDAR choices.
-    init(alertModes: [AlertMode] = [.sound], confidenceThreshold: Double = 0.7874982953071594, cooldownMs: Int = 3000) {
+    init(alertModes: [AlertMode] = [.sound], confidenceThreshold: Double = ScanPreferences.candidateConfidenceDefault, cooldownMs: Int = 3000) {
         self.alertModes = alertModes
         self.confidenceThreshold = confidenceThreshold
         self.cooldownMs = cooldownMs

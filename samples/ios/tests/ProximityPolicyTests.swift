@@ -30,7 +30,7 @@ struct ProximityPolicyTests {
         precondition(preferences.effectiveProximitySettings == defaults)
         preferences.proximitySettings = custom
         precondition(try! JSONDecoder().decode(ScanPreferences.self, from: try! JSONEncoder().encode(preferences)) == preferences)
-        precondition(ScanPreferences().confidenceThreshold == 0.7874982953071594)
+        precondition(ScanPreferences().confidenceThreshold == 0.45)
         for (depth, expected): (Double, ProximityBand) in [(0.2, .near), (1, .near), (1.00001, .intermediate), (2, .intermediate), (2.00001, .far), (3, .far), (3.00001, .outOfRange), (5, .outOfRange)] {
             precondition(band(depth) == expected, "inclusive band boundary \(depth)")
         }

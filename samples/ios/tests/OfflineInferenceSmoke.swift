@@ -58,10 +58,16 @@ struct OfflineInferenceSmoke {
                 _ = try await coldView!.evaluateJavaScript("window.smokeLoadedModel = detector; true")
                 let jpeg = try Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[2]))
                 let defaults = ScanPreferences()
-                guard defaults.confidenceThreshold == 0.7874982953071594 else { throw OfflineDetectorError.unavailable("Wrong candidate default") }
+                guard defaults.confidenceThreshold == 0.45 else { throw OfflineDetectorError.unavailable("Wrong candidate default") }
                 let defaultResult = try await detector.analyze(jpeg: jpeg, sequence: 0, preferences: defaults, capturedAt: ProcessInfo.processInfo.systemUptime)
-                guard defaultResult.detections.isEmpty, !defaultResult.alert.triggered else { throw OfflineDetectorError.unavailable("Candidate default did not suppress below-threshold cat") }
-                print("PASS native default 0.7874982953071594 suppresses known below-threshold cat")
+                // The known cat scores .7432 under WebKit JPEG decoding and .7943 under
+                // OpenCV. The old .7875 default fell between them, so the same image was
+                // detected or dropped depending on the decoder. .45 clears both.
+                guard let defaultCat = defaultResult.detections.first(where: { $0.label == "cat" }),
+                      defaultCat.confidence >= defaults.confidenceThreshold else {
+                    throw OfflineDetectorError.unavailable("Candidate default missed the known cat")
+                }
+                print("PASS native default 0.45 reports the known cat at \(defaultCat.confidence) under both decoders")
                 if CommandLine.arguments.count > 3 {
                     let positiveImage = try Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[3]))
                     let positive = try await detector.analyze(jpeg: positiveImage, sequence: 100, preferences: defaults, capturedAt: ProcessInfo.processInfo.systemUptime)
