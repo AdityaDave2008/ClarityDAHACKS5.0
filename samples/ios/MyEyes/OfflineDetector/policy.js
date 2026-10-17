@@ -1,6 +1,18 @@
+// The full COCO vocabulary the detectors are trained on. A narrow whitelist
+// silently discarded correct predictions: on the v2 candidate it hid 64 of 80
+// classes, so whole scenes (a stop sign, a bed, a TV) reported nothing at all.
 const SUPPORTED_LABELS = Object.freeze([
-  'person', 'bicycle', 'car', 'motorcycle', 'bus', 'truck', 'bench', 'cat',
-  'dog', 'backpack', 'handbag', 'suitcase', 'bottle', 'cup', 'chair', 'potted plant',
+  'person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck', 'boat',
+  'traffic light', 'fire hydrant', 'stop sign', 'parking meter', 'bench', 'bird', 'cat',
+  'dog', 'horse', 'sheep', 'cow', 'elephant', 'bear', 'zebra', 'giraffe', 'backpack',
+  'umbrella', 'handbag', 'tie', 'suitcase', 'frisbee', 'skis', 'snowboard', 'sports ball',
+  'kite', 'baseball bat', 'baseball glove', 'skateboard', 'surfboard', 'tennis racket',
+  'bottle', 'wine glass', 'cup', 'fork', 'knife', 'spoon', 'bowl', 'banana', 'apple',
+  'sandwich', 'orange', 'broccoli', 'carrot', 'hot dog', 'pizza', 'donut', 'cake', 'chair',
+  'couch', 'potted plant', 'bed', 'dining table', 'toilet', 'tv', 'laptop', 'mouse',
+  'remote', 'keyboard', 'cell phone', 'microwave', 'oven', 'toaster', 'sink',
+  'refrigerator', 'book', 'clock', 'vase', 'scissors', 'teddy bear', 'hair drier',
+  'toothbrush',
 ]);
 const supported = new Set(SUPPORTED_LABELS);
 
