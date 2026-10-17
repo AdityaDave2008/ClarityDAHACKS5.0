@@ -25,8 +25,13 @@ const mime = bytes[0] === 0x89 && bytes[1] === 0x50 ? 'image/png' : 'image/jpeg'
 const fixture = `data:${mime};base64,${bytes.toString('base64')}`;
 const expectedLabel = process.env.MODEL_EXPECTED_LABEL || 'cat';
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
-const cacheName = 'myeyes-pwa-v10-pip-depth-assets';
-const oldCaches = ['myeyes-pwa-v9-depth-assets', 'myeyes-pwa-v9-pip-yolox-51661711'];
+const productionSources = Object.fromEntries(['sw.js', 'local-detector.js', 'logic.js'].map(name =>
+  [name, readFileSync(new URL(`../frontend/${name}`, import.meta.url), 'utf8')]));
+const cacheName = productionSources['sw.js'].match(/^const CACHE = '([^']+)';/m)?.[1];
+assert.ok(cacheName, 'Production service-worker cache declaration must be identifiable');
+const confidenceThreshold = Number(productionSources['local-detector.js'].match(/function assessDetections\(predictions, width, height, threshold = ([\d.]+)\)/)?.[1]);
+assert.equal(confidenceThreshold, 0.45, 'Team-selected COCO threshold changed; review acceptance contract');
+const oldCaches = ['myeyes-pwa-v9-depth-assets', 'myeyes-pwa-v9-pip-yolox-51661711', 'myeyes-pwa-v10-pip-depth-assets'].filter(name => name !== cacheName);
 const target = process.env.MODEL_APP_URL ? new URL(process.env.MODEL_APP_URL) : null;
 if (target) assert.ok(['http:', 'https:'].includes(target.protocol) && !target.username && !target.password,
   'MODEL_APP_URL must be an HTTP(S) app URL without embedded credentials');
@@ -37,6 +42,15 @@ let browser;
 const observations = [];
 const record = item => { observations.push(item); console.log('JCODE_PROGRESS ' + JSON.stringify(item)); };
 try {
+  // A hosted run must validate this checkout, not silently accept an older deployment.
+  const sourceHashes = {};
+  for (const [name, source] of Object.entries(productionSources)) {
+    const response = await fetch(new URL(`/${name}`, url), { cache: 'no-store' });
+    assert.equal(response.status, 200, `${name} must be served by the target`);
+    assert.equal(await response.text(), source, `${name}: target differs from current checkout`);
+    sourceHashes[name] = createHash('sha256').update(source).digest('hex');
+  }
+  record({ check: 'target service worker, detector and preprocessing match current checkout', pass: true, sourceHashes, cacheName, confidenceThreshold });
   browser = await chromium.launch({ headless: true,
     ...(process.env.MODEL_CHROME_PATH ? { executablePath: process.env.MODEL_CHROME_PATH } : {}),
     args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'] });
@@ -72,9 +86,13 @@ try {
       script: new URL(navigator.serviceWorker.controller.scriptURL).pathname, caches: await caches.keys() })) });
 
   async function infer() {
-    return page.evaluate(async ({ fixture, expectedLabel }) => {
+    return page.evaluate(async ({ fixture, expectedLabel, confidenceThreshold }) => {
       const { loadModel, assessDetections, createAlertPolicy } = await import('/local-detector.js');
       const { captureSize } = await import('/logic.js');
+      const boundary = score => assessDetections([{ class: expectedLabel, score, bbox: [0, 0, 10, 10] }], 100, 100);
+      if (boundary(confidenceThreshold - 0.000001).length !== 0 || boundary(confidenceThreshold).length !== 1) {
+        throw new Error('Production confidence boundary differs from the acceptance contract');
+      }
       const model = await loadModel();
       const image = new Image(); image.src = fixture; await image.decode();
       const size = captureSize(image.naturalWidth, image.naturalHeight);
@@ -89,13 +107,13 @@ try {
         source: size, zoneCandidate: Boolean(zoneCandidate),
         reasons: zoneCandidate ? [policy.update([zoneCandidate], 1000).reason, policy.update([zoneCandidate], 1100).reason,
           policy.update([zoneCandidate], 1200).reason] : null };
-    }, { fixture, expectedLabel });
+    }, { fixture, expectedLabel, confidenceThreshold });
   }
   const first = await infer();
   assert.equal(first.backend, 'wasm');
   assert.ok(first.detections.some(item => item.label === expectedLabel), `Known positive fixture must detect ${expectedLabel} at baseline threshold`);
   for (const item of first.detections) {
-    assert.ok(item.confidence >= .6 && item.confidence <= 1);
+    assert.ok(item.confidence >= confidenceThreshold && item.confidence <= 1);
     for (const value of Object.values(item.bbox)) assert.ok(Number.isFinite(value) && value >= 0 && value <= 1);
   }
   if (first.zoneCandidate) assert.deepEqual(first.reasons, ['confirming', 'triggered', 'cooldown']);
