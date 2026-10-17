@@ -27,7 +27,7 @@ struct PiPOverlayState: Equatable {
     var zone: [NormalizedPoint] = []
     var detections: [Detection] = []
     var imageSize: CGSize = CGSize(width: 480, height: 640)
-    var title: String = "StepSense"
+    var title: String = "Clarity"
     var alerting: Bool = false
     var live: Bool = true
 }
@@ -214,7 +214,7 @@ final class PiPContentView: UIView {
             ? .systemYellow
             : (state.live ? UIColor(red: 0.29, green: 0.91, blue: 0.79, alpha: 1) : .systemOrange)
         bannerText.foregroundColor = accent.cgColor
-        bannerText.string = state.live ? "\(state.title)  ·  \(shown)" : "Paused · open StepSense"
+        bannerText.string = state.live ? "\(state.title)  ·  \(shown)" : "Paused · open Clarity"
         bannerLayer.borderWidth = state.alerting ? 1 : 0
         bannerLayer.borderColor = accent.cgColor
     }

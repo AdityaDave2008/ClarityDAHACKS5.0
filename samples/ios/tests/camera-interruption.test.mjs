@@ -4,8 +4,8 @@ import { readFileSync } from 'node:fs';
 
 // Structural regression guards. Actual interruption behavior, including hiding and moving the
 // floating window, must be exercised on a physical iPhone.
-const camera = readFileSync(new URL('../StepSense/CameraCapture.swift', import.meta.url), 'utf8');
-const model = readFileSync(new URL('../StepSense/ScanModel.swift', import.meta.url), 'utf8');
+const camera = readFileSync(new URL('../MyEyes/CameraCapture.swift', import.meta.url), 'utf8');
+const model = readFileSync(new URL('../MyEyes/ScanModel.swift', import.meta.url), 'utf8');
 
 test('a capture interruption is not treated as a failed scan', () => {
   // Hiding, moving, or resizing the floating window interrupts capture. Reporting those as
@@ -86,14 +86,14 @@ test('the liveness timer runs only while capture is active', () => {
 });
 
 test('a wedged display layer is flushed instead of freezing forever', () => {
-  const pip = readFileSync(new URL('../StepSense/PictureInPicture.swift', import.meta.url), 'utf8');
+  const pip = readFileSync(new URL('../MyEyes/PictureInPicture.swift', import.meta.url), 'utf8');
   const enqueue = pip.slice(pip.indexOf('func enqueue(_ sampleBuffer:'), pip.indexOf('func markNeedsFlush()'));
   assert.match(enqueue, /notReady/, 'A persistently unready layer must be recovered');
   assert.match(enqueue, /displayLayer\.flush\(\)[\s\S]{0,80}notReady = 0/);
 });
 
 test('becoming visible again rebuilds the decoder', () => {
-  const pip = readFileSync(new URL('../StepSense/PictureInPicture.swift', import.meta.url), 'utf8');
+  const pip = readFileSync(new URL('../MyEyes/PictureInPicture.swift', import.meta.url), 'utf8');
   assert.match(pip, /override func didMoveToWindow\(\)/);
   const moved = pip.slice(pip.indexOf('override func didMoveToWindow()'), pip.indexOf('override func layoutSubviews()'));
   assert.match(moved, /needsFlush = true/);

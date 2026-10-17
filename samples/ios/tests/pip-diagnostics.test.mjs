@@ -8,7 +8,7 @@ import { spawnSync } from 'node:child_process';
 // Exercises the real Swift logger. Removing opt-in gating or exposing NSError userInfo
 // must fail this test. PiP callbacks themselves still require the physical device.
 test('diagnostics are opt-in and errors expose domain/code only', { skip: process.platform !== 'darwin' }, () => {
-  const source = new URL('../StepSense/PiPDiagnostics.swift', import.meta.url).pathname;
+  const source = new URL('../MyEyes/PiPDiagnostics.swift', import.meta.url).pathname;
   assert.ok(existsSync(source), 'privacy-safe diagnostic logger must exist');
   const scratch = process.env.JCODE_SCRATCH_DIR || join(homedir(), '.jcode', 'scratch');
   mkdirSync(scratch, { recursive: true });

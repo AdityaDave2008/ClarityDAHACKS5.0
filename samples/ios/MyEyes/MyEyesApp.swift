@@ -2,7 +2,7 @@ import AVFoundation
 import SwiftUI
 
 @main
-struct StepSenseApp: App {
+struct MyEyesApp: App {
     @StateObject private var model = ScanModel()
     @Environment(\.scenePhase) private var scenePhase
 

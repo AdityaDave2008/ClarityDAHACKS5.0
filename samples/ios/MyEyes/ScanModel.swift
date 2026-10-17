@@ -52,7 +52,7 @@ final class ScanModel: ObservableObject {
     private let maxResultAge: TimeInterval = 2.5
 
     init() {
-        if let data = UserDefaults.standard.data(forKey: "stepsense.preferences"),
+        if let data = UserDefaults.standard.data(forKey: "myeyes.preferences"),
            let saved = try? JSONDecoder().decode(ScanPreferences.self, from: data) {
             preferences = saved
         } else {
@@ -219,7 +219,7 @@ final class ScanModel: ObservableObject {
     }
 
     func testAlert() {
-        alerts.deliver(preferences.alertModes, message: "This is a StepSense test alert.")
+        alerts.deliver(preferences.alertModes, message: "This is a Clarity test alert.")
         if preferences.alertModes.isEmpty { detail = "Visual-only mode. Object warnings appear on this screen." }
     }
 
@@ -233,7 +233,7 @@ final class ScanModel: ObservableObject {
         clearDisplayedResult()
         refreshPiPOverlay()
         if let encoded = try? JSONEncoder().encode(preferences) {
-            UserDefaults.standard.set(encoded, forKey: "stepsense.preferences")
+            UserDefaults.standard.set(encoded, forKey: "myeyes.preferences")
         }
         alerts.stop()
     }

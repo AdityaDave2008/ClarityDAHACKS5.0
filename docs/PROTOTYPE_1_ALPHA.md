@@ -4,7 +4,7 @@ Integration verified October 16, 2026 (PDT). This release combines native work f
 
 ## Implemented architecture
 
-- **Native Swift app:** `samples/ios/StepSense.xcodeproj`, target/scheme **StepSense**, entrypoint `StepSenseApp`. The historical sample directory contains the actual Swift app. Camera frames, bundled pretrained COCO-SSD inference, alert decisions, local preferences, PiP and optional LiDAR remain on-device. `ScanModel` does not construct the legacy network client. No native camera or LiDAR upload is added by this merge.
+- **Native Swift app:** `samples/ios/MyEyes.xcodeproj`, target/scheme **Clarity**, entrypoint `MyEyesApp`. Camera frames, bundled pretrained COCO-SSD inference, alert decisions, local preferences, PiP and optional LiDAR remain on-device. `ScanModel` does not construct the legacy network client. No native camera or LiDAR upload is added by this merge.
 - **Website/browser:** `frontend/` retains the team's website and browser camera UI. Its production adapter uploads frames through the same-origin frontend proxy to the existing Fastify detection API. This browser flow is not offline.
 - **Existing backend:** health, model readiness/metadata, ephemeral detection sessions, session preferences and frame inference. Sessions are in-memory bearer capabilities, not accounts, and disappear on restart.
 

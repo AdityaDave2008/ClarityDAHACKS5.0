@@ -63,7 +63,7 @@ export class CameraFeature {
       }
       if (run !== this.generation) { stream.getTracks().forEach(track => track.stop()); return; }
       this.stream = stream;
-      this.emit('clearpath:permissionchange', { kind: 'camera', state: 'granted' });
+      this.emit('myeyes:permissionchange', { kind: 'camera', state: 'granted' });
       for (const track of stream.getTracks()) {
         track.addEventListener('ended', () => {
           if (run === this.generation) this.stop('Camera interrupted. Close other camera apps, then tap Start again.');
@@ -322,7 +322,8 @@ export class CameraFeature {
 }
 
 export function mountCamera(root, platform = window, { onState = () => {} } = {}) {
-  const find = id => root.querySelector(`#camera-${id}`);
+  const find = id => root.querySelector(`#camera-${id}`)
+    || root.ownerDocument.getElementById(`camera-${id}`);
   const announcer = find('announcer');
   let permissionState = 'prompt';
   let announceTimer;
@@ -364,14 +365,16 @@ export function mountCamera(root, platform = window, { onState = () => {} } = {}
       renderPermission(state);
       find('status').textContent = state.camera;
       root.querySelector('#detection-status').textContent = state.detection;
-      find('distance').textContent = state.distance;
+      const distance = find('distance');
+      if (distance) distance.textContent = state.distance;
       const objects = find('objects');
       if (objects) objects.textContent = state.result
         ? state.detections.length ? state.detections.map(item => `${item.label} ${Math.round(item.confidence * 100)}%`).join(' · ')
           : 'No supported objects in this frame. This does not mean the path is safe.'
         : state.phase === 'off' ? 'Start scanning to see supported objects.' : 'No fresh detections to display.';
       drawDetectionOverlay(find('overlay'), find('video'), state.detections, platform.devicePixelRatio, state.result);
-      find('obstacle').textContent = state.obstacle || 'No alert. Keep watching your path.';
+      const obstacle = find('obstacle');
+      if (obstacle) obstacle.textContent = state.obstacle || 'No alert. Keep watching your path.';
       find('start').disabled = state.pending || state.phase !== 'off';
       find('stop').disabled = state.phase === 'off';
       find('stop').textContent = state.phase === 'requesting' ? 'Cancel camera request' : 'Stop camera';
@@ -398,7 +401,7 @@ export function mountCamera(root, platform = window, { onState = () => {} } = {}
   find('announcements').addEventListener('change', event => feature.setAnnouncements(event.target.value));
   find('cooldown').addEventListener('change', event => {
     const seconds = Number(event.target.value);
-    if (Number.isInteger(seconds) && seconds >= 1 && seconds <= 30) feature.cooldownMs = seconds * 1000;
+    if (Number.isInteger(seconds) && seconds >= 1 && seconds <= 5) feature.cooldownMs = seconds * 1000;
     event.target.value = String(feature.cooldownMs / 1000);
   });
   find('simulate').hidden = !feature.development;
@@ -407,7 +410,7 @@ export function mountCamera(root, platform = window, { onState = () => {} } = {}
     if (root.ownerDocument.hidden) feature.stop('Camera off because this page was hidden. Tap Start when you return.');
   });
   platform.addEventListener('pagehide', () => feature.stop('Camera off because you left the page. Tap Start to restart.'));
-  platform.addEventListener('clearpath:permissionchange', event => {
+  platform.addEventListener('myeyes:permissionchange', event => {
     if (event.detail?.kind === 'camera') {
       permissionState = event.detail.state;
       renderPermission(feature.state);
@@ -438,7 +441,7 @@ export function mountCamera(root, platform = window, { onState = () => {} } = {}
 }
 
 export function exposeCamera(feature, platform = window) {
-  platform.clearPathCamera = Object.freeze({ video: feature.video, start: () => feature.start(), stop: () => feature.stop(),
+  platform.myEyesCamera = Object.freeze({ video: feature.video, start: () => feature.start(), stop: () => feature.stop(),
     registerDetector: detector => feature.registerDetector(detector),
     setRepeatCount: count => feature.setRepeatCount(count) });
 }

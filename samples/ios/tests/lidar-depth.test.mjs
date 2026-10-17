@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { spawnSync } from 'node:child_process';
-const source = name => new URL(`../StepSense/${name}`, import.meta.url).pathname;
+const source = name => new URL(`../MyEyes/${name}`, import.meta.url).pathname;
 const read = name => readFileSync(source(name), 'utf8');
 
 test('production Swift depth estimator rejects invalid, mixed and expired maps; preferences migrate OFF', { skip: process.platform !== 'darwin' }, () => {

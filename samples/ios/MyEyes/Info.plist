@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>StepSense</string>
+	<string>Clarity</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -30,9 +30,9 @@
 		<true/>
 	</dict>
 	<key>NSCameraUsageDescription</key>
-	<string>StepSense uses the rear camera during a scan and sends small frames to the detection backend you select.</string>
+	<string>Clarity uses the rear camera for local scanning. Camera frames are not uploaded.</string>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>Connect to your development laptop's StepSense backend over your local network.</string>
+	<string>Connect to a development backend on your local network if configured.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

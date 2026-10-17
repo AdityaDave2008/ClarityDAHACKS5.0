@@ -1,4 +1,4 @@
-# Try the three StepSense samples
+# Try the Clarity samples
 
 Try one scanner at a time: all three use the same real backend, which processes one frame at a time. Camera frames are uploaded for analysis and are not saved by the backend. The existing pretrained model recognizes selected objects such as backpacks, chairs, suitcases, and people; it does not identify every floor hazard or measure distance.
 
@@ -21,11 +21,11 @@ Open **http://localhost:5180**.
 
 The walkthrough is clearly labeled as simulated. Live camera and detections use the actual backend; no mocked responses are substituted. Adding this sample to the home screen does not enable background scanning. Phone browsers need trusted HTTPS; desktop `localhost` works for development. See [browser instructions](../frontend/README.md).
 
-The combined launcher reuses an existing StepSense backend on port 3001; otherwise it starts one. Ctrl+C stops only servers launched by that command. It leaves existing servers alone. Model weights need an internet connection during startup.
+The combined launcher reuses an existing Clarity backend on port 3001; otherwise it starts one. Ctrl+C stops only servers launched by that command. It leaves existing servers alone. Model weights need an internet connection during startup.
 
 ## 2. Native iPhone — camera and native alerts
 
-Open [the Xcode project](ios/StepSense.xcodeproj) on your Mac. Select your signing team and physical iPhone, then Run. In the app's settings, enter the reachable backend origin, choose alert types, and check the connection.
+Open [the Xcode project](ios/MyEyes.xcodeproj) on your Mac. Select your signing team and physical iPhone, then Run. In the app's settings, enter the reachable backend origin, choose alert types, and check the connection.
 
 For a physical phone, start the backend with `HOST=0.0.0.0 npm start` from `backend/` and use your laptop's LAN address, such as `http://192.168.1.20:3001`. Keep both devices on the same network. A phone's `localhost` refers to the phone. If another backend already occupies port 3001, stop it from its original terminal before starting the LAN-bound instance.
 

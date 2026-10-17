@@ -1,14 +1,14 @@
 {
   "id": "/",
-  "name": "ClearPath — Walk with confidence",
-  "short_name": "ClearPath",
-  "description": "Stay aware of walking path issues and choose alerts that fit your needs.",
+  "name": "Clarity — Walk with confidence",
+  "short_name": "Clarity",
+  "description": "Check reports about blocked paths and choose how Clarity alerts you.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "display_override": ["standalone"],
-  "background_color": "#101c25",
-  "theme_color": "#101c25",
+  "background_color": "#101820",
+  "theme_color": "#101820",
   "icons": [
     {
       "src": "/icons/icon-192.png",

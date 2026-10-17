@@ -4,9 +4,9 @@ This is the **same pretrained TensorFlow.js COCO-SSD `lite_mobilenet_v2` model**
 
 ## Exact artifact
 
-Repository path: `samples/ios/StepSense/OfflineDetector/model/model.json`
+Repository path: `samples/ios/MyEyes/OfflineDetector/model/model.json`
 
-Weights: `model/group1-shard1of5` through `model/group1-shard5of5`, totalling **18,034,528 bytes**. The graph JSON specifies the order of those five files. Xcode copies the complete `OfflineDetector` directory into `StepSense.app/OfflineDetector`.
+Weights: `model/group1-shard1of5` through `model/group1-shard5of5`, totalling **18,034,528 bytes**. The graph JSON specifies the order of those five files. Xcode copies the complete `OfflineDetector` directory into `Clarity.app/OfflineDetector`.
 
 Official source, downloaded October 16, 2026:
 

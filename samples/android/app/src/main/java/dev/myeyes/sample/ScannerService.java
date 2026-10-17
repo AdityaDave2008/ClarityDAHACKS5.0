@@ -1,4 +1,4 @@
-package dev.stepsense.sample;
+package dev.myeyes.sample;
 
 import android.Manifest;
 import android.app.Notification;
@@ -51,9 +51,9 @@ import java.util.concurrent.atomic.AtomicLong;
 
 /** User-started, visible camera foreground service. No boot/background auto-start. */
 public final class ScannerService extends Service {
-    static final String ACTION_START = "dev.stepsense.sample.START";
-    static final String ACTION_STOP = "dev.stepsense.sample.STOP";
-    private static final String CHANNEL = "stepsense-scanning";
+    static final String ACTION_START = "dev.myeyes.sample.START";
+    static final String ACTION_STOP = "dev.myeyes.sample.STOP";
+    private static final String CHANNEL = "myeyes-scanning";
     private static final int NOTIFICATION = 17;
     private static final long FRAME_INTERVAL_MS = 333, MAX_ALERT_AGE_MS = 2500;
     private final Handler main = new Handler(Looper.getMainLooper());
@@ -107,11 +107,11 @@ public final class ScannerService extends Service {
 
     @Override public void onCreate() {
         super.onCreate();
-        cameraThread = new HandlerThread("stepsense-camera");
+        cameraThread = new HandlerThread("myeyes-camera");
         cameraThread.start();
         cameraHandler = new Handler(cameraThread.getLooper());
         NotificationChannel channel = new NotificationChannel(CHANNEL, "Active camera scanning", NotificationManager.IMPORTANCE_LOW);
-        channel.setDescription("Shows when camera frames are being analyzed, with a Stop action.");
+        channel.setDescription("Shows scan status and lets you stop camera scanning.");
         channel.setSound(null, null);
         getSystemService(NotificationManager.class).createNotificationChannel(channel);
         try { tone = new ToneGenerator(AudioManager.STREAM_NOTIFICATION, 80); }
@@ -231,7 +231,7 @@ public final class ScannerService extends Service {
                 @Override public void onDisconnected(CameraDevice device) {
                     if (openingToken == token) openingCamera = false;
                     device.close();
-                    failCamera(token, "Camera access ended. Return to StepSense and tap Start again.");
+                    failCamera(token, "Camera access ended. Return to Clarity and tap Start again.");
                     finishCameraThreadIfDestroyed();
                 }
                 @Override public void onError(CameraDevice device, int error) {
@@ -408,7 +408,7 @@ public final class ScannerService extends Service {
         PendingIntent open = PendingIntent.getActivity(this, 0, new Intent(this, MainActivity.class), PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         PendingIntent stop = PendingIntent.getService(this, 1, new Intent(this, ScannerService.class).setAction(ACTION_STOP), PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         return new Notification.Builder(this, CHANNEL)
-                .setSmallIcon(R.drawable.ic_scan).setContentTitle("StepSense · camera scanning")
+                .setSmallIcon(R.drawable.ic_scan).setContentTitle("Clarity · camera scanning")
                 .setContentText(detail).setContentIntent(open).setOngoing(true).setOnlyAlertOnce(true)
                 .setCategory(Notification.CATEGORY_SERVICE)
                 .addAction(new Notification.Action.Builder(null, "Stop", stop).build()).build();

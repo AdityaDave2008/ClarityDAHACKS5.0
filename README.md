@@ -6,9 +6,9 @@ Team project for De Anza Hacks 5.0, October 16–17, 2026.
 
 ## Start here
 
-The selected concept is StepSense, a camera obstacle-alert prototype. **Prototype 1 — Alpha (α)** combines the team's website/browser frontend and the native Swift app. The browser in `frontend/` uses the Node.js/Fastify detection backend in `backend/`. The primary Swift app is the **StepSense** target in `samples/ios/StepSense.xcodeproj`, despite the historical `samples/` directory name. Its camera detection, alerts, preferences, and optional LiDAR run offline. An Android example also remains in `samples/`.
+Clarity is a camera-based obstacle alert prototype. **Prototype 1 — Alpha (α)** combines the website/browser frontend and native samples. The browser in `frontend/` uses the Node.js/Fastify detection backend in `backend/`. The iPhone sample in `samples/ios/` uses packaged offline object detection, with optional LiDAR depth estimation. An Android example also remains in `samples/`.
 
-See [Alpha architecture, verification, and limitations](docs/PROTOTYPE_1_ALPHA.md). Backend app/account features are the intended native-app architecture, not an implemented account system: no account/auth API exists yet, so Swift account integration is deferred. No camera or LiDAR data is uploaded by the Swift scanner.
+See [Alpha architecture, verification, and limitations](docs/PROTOTYPE_1_ALPHA.md) and [the sample guide](samples/README.md). Backend account features are planned architecture rather than an implemented account system. The native iPhone scanner does not upload camera or LiDAR data.
 
 ## Try the browser sample
 
