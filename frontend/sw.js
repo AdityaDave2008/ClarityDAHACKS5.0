@@ -1,4 +1,4 @@
-const CACHE = 'myeyes-pwa-v13-model-first-screen';
+const CACHE = 'myeyes-pwa-v14-clarity-eye';
 const ASSETS = [
   '/',
   '/index.html',
@@ -25,6 +25,7 @@ const ASSETS = [
   '/gradient.js',
   '/manifest.webmanifest',
   '/demo-scene.svg',
+  '/icons/clarity-eye.png',
   '/icons/icon.svg',
   '/icons/icon-192.png',
   '/icons/icon-512.png',

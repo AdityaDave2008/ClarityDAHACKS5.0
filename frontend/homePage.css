@@ -71,12 +71,9 @@ header.camera-header-hidden {
 .logo {
   width: 52px;
   height: 52px;
-  display: grid;
-  place-items: center;
-  border-radius: 16px;
-  background: var(--mint);
-  color: #132820;
-  font-size: 27px;
+  display: block;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 
 .status {

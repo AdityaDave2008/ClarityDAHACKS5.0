@@ -39,6 +39,7 @@ const ASSETS = new Map([
   ['/manifest.webmanifest', ['manifest.webmanifest', 'application/manifest+json; charset=utf-8']],
   ['/sw.js', ['sw.js', 'text/javascript; charset=utf-8']],
   ['/demo-scene.svg', ['demo-scene.svg', 'image/svg+xml']],
+  ['/icons/clarity-eye.png', ['icons/clarity-eye.png', 'image/png']],
   ['/icons/icon.svg', ['icons/icon.svg', 'image/svg+xml']],
   ['/icons/apple-touch-icon.png', ['icons/apple-touch-icon.png', 'image/png']],
   ['/icons/icon-192.png', ['icons/icon-192.png', 'image/png']],
