@@ -1,6 +1,7 @@
 // Baseline COCO-SSD acceptance using the app's exported loader and real bundled weights.
 // Uses an isolated browser and synthetic camera, never a personal profile or camera.
 // PLAYWRIGHT_MODULE=/absolute/path/playwright/index.mjs MODEL_FIXTURE=/path/cat.png node scripts/browser-model-smoke.mjs
+// MODEL_APP_URL=https://preview.example/ optionally tests a hosted app without starting a local server.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
@@ -26,9 +27,12 @@ const expectedLabel = process.env.MODEL_EXPECTED_LABEL || 'cat';
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const cacheName = 'myeyes-pwa-v10-pip-depth-assets';
 const oldCaches = ['myeyes-pwa-v9-depth-assets', 'myeyes-pwa-v9-pip-yolox-51661711'];
-const server = createPreviewServer({ apiOrigin: new URL('http://127.0.0.1:3001') });
-await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-const url = `http://127.0.0.1:${server.address().port}/`;
+const target = process.env.MODEL_APP_URL ? new URL(process.env.MODEL_APP_URL) : null;
+if (target) assert.ok(['http:', 'https:'].includes(target.protocol) && !target.username && !target.password,
+  'MODEL_APP_URL must be an HTTP(S) app URL without embedded credentials');
+const server = target ? null : createPreviewServer({ apiOrigin: new URL('http://127.0.0.1:3001') });
+if (server) await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+const url = target?.href || `http://127.0.0.1:${server.address().port}/`;
 let browser;
 const observations = [];
 const record = item => { observations.push(item); console.log('JCODE_PROGRESS ' + JSON.stringify(item)); };
@@ -48,6 +52,8 @@ try {
     if (/vendor-depth|huggingface/.test(request.url())) depthRequests.push(request.url());
   });
   await page.goto(new URL('/demo-scene.svg', url).href);
+  assert.equal(new URL(page.url()).origin, new URL(process.env.MODEL_APP_URL || url).origin,
+    'Browser acceptance must run against the requested app origin');
   await page.evaluate(async names => {
     for (const name of names) await (await caches.open(name)).put('/local-detector.js', new Response('old detector'));
     // This unrelated cache must be preserved but must not supply stale runtime assets.
@@ -140,9 +146,9 @@ try {
   assert.deepEqual(errors, []);
   assert.equal(uploads.length, 0);
   record({ check: 'offline reload runs fresh baseline WASM inference and loads current PiP module, not unrelated stale cache', pass: true, ms: offline.ms });
-  console.log(JSON.stringify({ browser: await browser.version(), model: 'COCO-SSD lite_mobilenet_v2',
+  console.log(JSON.stringify({ appUrl: url, browser: await browser.version(), model: 'COCO-SSD lite_mobilenet_v2',
     fixtureSha256: createHash('sha256').update(bytes).digest('hex'), expectedLabel, observations }, null, 2));
 } finally {
   await browser?.close();
-  await new Promise(resolve => server.close(resolve));
+  if (server) await new Promise(resolve => server.close(resolve));
 }

@@ -6,6 +6,8 @@ A camera-based obstacle alert **prototype** for De Anza Hacks 5.0, October 16–
 
 ## Try the browser app
 
+**[Open the hosted judge demo](https://stepsense-yolox-v2-preview.stepsense-dahacks.workers.dev/)**. It uses browser-local COCO-SSD and supported live-camera PiP. The historical `yolox-v2-preview` hostname is not the current model identity. See [verified deployment and limits](docs/JUDGES.md).
+
 Requires **Node.js 24+**. From the repository root:
 
 ```sh
