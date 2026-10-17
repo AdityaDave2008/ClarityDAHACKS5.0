@@ -16,6 +16,7 @@ const ASSETS = new Map([
   ['/app.js', ['app.js', 'text/javascript; charset=utf-8']],
   ['/logic.js', ['logic.js', 'text/javascript; charset=utf-8']],
   ['/camera.js', ['camera.js', 'text/javascript; charset=utf-8']],
+  ['/phone-notifications.js', ['phone-notifications.js', 'text/javascript; charset=utf-8']],
   ['/backend-detector.js', ['backend-detector.js', 'text/javascript; charset=utf-8']],
   ['/standalone.js', ['standalone.js', 'text/javascript; charset=utf-8']],
   ['/styles.css', ['styles.css', 'text/css; charset=utf-8']],

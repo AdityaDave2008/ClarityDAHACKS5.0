@@ -664,6 +664,41 @@ select {
   line-height: 1.5;
 }
 
+.notification-test-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin: 14px 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: linear-gradient(145deg, var(--card-top), var(--card-bottom));
+}
+
+.notification-test-card b,
+.notification-test-card small {
+  display: block;
+}
+
+.notification-test-card b {
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.notification-test-card small {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.notification-test-card .permission-button {
+  border-color: transparent;
+  background: var(--mint);
+  color: #142a22;
+}
+
 .device-access-row {
   display: flex;
   justify-content: space-between;
@@ -1194,6 +1229,18 @@ body.blindness-mode {
   grid-template-columns: minmax(0, 1fr);
   gap: 12px;
   padding: 20px 0;
+}
+
+.app.blindness-mode .notification-test-card {
+  align-items: stretch;
+  flex-direction: column;
+  padding: 20px;
+}
+
+.app.blindness-mode .notification-test-card .permission-button {
+  width: 100%;
+  min-height: 64px;
+  font-size: 18px;
 }
 
 .app.blindness-mode .setting-row select,

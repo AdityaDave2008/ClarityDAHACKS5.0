@@ -1,4 +1,4 @@
-const CACHE = 'clearpath-pwa-v3';
+const CACHE = 'clearpath-pwa-v4';
 const ASSETS = [
   '/',
   '/index.html',
@@ -10,6 +10,7 @@ const ASSETS = [
   '/app.js',
   '/logic.js',
   '/camera.js',
+  '/phone-notifications.js',
   '/backend-detector.js',
   '/standalone.js',
   '/manifest.webmanifest',
@@ -29,4 +30,17 @@ self.addEventListener('fetch', (event) => {
     if (response.ok) { const copy = response.clone(); event.waitUntil(caches.open(CACHE).then((cache) => cache.put(event.request, copy))); }
     return response;
   }).catch(async () => (await caches.match(event.request)) || Response.error()));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const destination = new URL(event.notification.data?.url || '/#camera', self.location.origin).href;
+  event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (windows) => {
+    for (const client of windows) {
+      if (new URL(client.url).origin !== self.location.origin) continue;
+      if ('navigate' in client) await client.navigate(destination);
+      return client.focus();
+    }
+    return self.clients.openWindow(destination);
+  }));
 });

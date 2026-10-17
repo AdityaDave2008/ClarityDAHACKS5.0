@@ -251,7 +251,12 @@
           </section>
           <section class="device-access" aria-labelledby="device-access-title">
             <h2 class="section-title" id="device-access-title">Permissions & device tests</h2>
-            <p class="device-access-intro">Allow camera, microphone, or notification access here. Speaker and vibration tests work without separate browser permissions. To revoke access later, use your browser’s site settings.</p>
+            <p class="device-access-intro">Allow notifications to receive a phone alert when scanning detects an object nearby. Alerts run while the scanner is open. Speaker and vibration tests work without separate browser permissions. To revoke access later, use your browser’s site settings.</p>
+
+            <div class="notification-test-card">
+              <div><b>Phone notification test</b><small>Tap to send a test notification to this device.</small></div>
+              <button type="button" class="permission-button" id="testNotifications">Send test notification</button>
+            </div>
 
             <div class="device-access-row">
               <div><b>Camera</b><small id="cameraPermissionSetting" role="status">Checking camera access…</small></div>
@@ -263,7 +268,7 @@
             </div>
             <div class="device-access-row">
               <div><b>Notifications</b><small id="notificationPermissionSetting" role="status">Checking notification access…</small></div>
-              <div class="permission-actions"><button type="button" class="permission-button" id="requestNotifications">Allow</button><button type="button" class="permission-button" id="testNotifications">Test</button></div>
+              <div class="permission-actions"><button type="button" class="permission-button" id="requestNotifications">Allow</button></div>
             </div>
             <div class="device-access-row">
               <div><b>Speaker</b><small id="speakerPermissionSetting">No separate browser permission</small></div>
@@ -930,7 +935,12 @@
             : await Notification.requestPermission();
           updateNotificationStatus();
           if (result === "granted" && sendTest) {
-            new Notification("ClearPath test", { body: "Notifications are ready." });
+            const registration = await navigator.serviceWorker?.getRegistration();
+            if (registration?.showNotification) {
+              await registration.showNotification("ClearPath test", { body: "Notifications are ready.", icon: "/icons/icon-192.png" });
+            } else {
+              new Notification("ClearPath test", { body: "Notifications are ready." });
+            }
           }
           showToast(result === "granted" ? sendTest ? "Test notification sent" : "Notifications allowed" : "Notification permission was not allowed");
         } catch {
