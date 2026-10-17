@@ -28,26 +28,15 @@ final class AlertPlayer: NSObject, AVAudioPlayerDelegate, AVSpeechSynthesizerDel
         speech.delegate = self
     }
 
-    /// Root supplies every fresh result. Nil or unvalidated depth stops feedback immediately.
+    /// Root supplies every fresh result. Invalid measured/visual evidence stops feedback.
     func updateProximity(target: Detection?, modes: [AlertMode]) {
         let now = ProcessInfo.processInfo.systemUptime
-        guard let target, target.proximityConfirmed == true,
-              let depth = target.freshProximityDepth(at: now),
-              let expiry = target.depthExpiresAt else {
+        guard let target, let input = ProximityFeedbackInput(target: target, modes: modes, now: now) else {
             stopProximity()
             return
         }
-        let band = target.freshProximityBand(at: now)
-        guard let interval = band.pulseInterval else { stopProximity(); return }
-        let identity = target.proximityTrackID.map(String.init) ?? target.label
         if !proximity.isRunning { stopGenericOutputs() }
-        proximity.update(ProximityFeedbackInput(
-            interval: interval, expiry: expiry,
-            speechKey: "\(identity):\(target.label):\(band.title)",
-            message: String(format: "%@, approximately %.1f meters axial depth, %@", target.label, depth, band.title),
-            sound: modes.contains(.sound), haptic: modes.contains(.vibration),
-            speech: modes.contains(.speech)
-        ))
+        proximity.update(input)
     }
 
     func stopProximity() { proximity.stop() }

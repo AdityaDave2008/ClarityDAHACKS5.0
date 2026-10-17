@@ -22,8 +22,10 @@ test('AlertPlayer handoff stops generic audio and rejects non-pulsing bands', as
   const { readFileSync } = await import('node:fs');
   const source = readFileSync(new URL('../MyEyes/AlertPlayer.swift', import.meta.url), 'utf8');
   const adapter = source.slice(source.indexOf('func updateProximity('), source.indexOf('func stopProximity()'));
-  assert.match(adapter, /target\.proximityConfirmed == true/);
-  assert.match(adapter, /let interval = band\.pulseInterval/);
+  assert.match(adapter, /ProximityFeedbackInput\(target: target, modes: modes, now: now\)/);
+  const bridge = readFileSync(new URL('../MyEyes/ProximityAlertRouting.swift', import.meta.url), 'utf8');
+  assert.match(bridge, /target\.proximityConfirmed == true/);
+  assert.match(bridge, /let interval = target\.freshProximityBand\(at: now\)\.pulseInterval/);
   assert.match(adapter, /if !proximity\.isRunning \{ stopGenericOutputs\(\) \}/);
   assert.ok(adapter.indexOf('stopGenericOutputs()') < adapter.indexOf('proximity.update('));
   assert.match(source, /event\.replaceSpeech \|\| !proximitySpeech\.isSpeaking/);

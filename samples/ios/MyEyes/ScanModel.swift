@@ -21,6 +21,7 @@ final class ScanModel: ObservableObject {
     @Published private(set) var zone: [NormalizedPoint] = []
     @Published private(set) var detections: [Detection] = []
     @Published private(set) var imageSize = CGSize(width: 480, height: 640)
+    @Published private(set) var lidarHardwareAvailable: Bool?
     @Published private(set) var modelStatus = "Experimental YOLOX-Nano · offline"
     @Published private(set) var multitaskingSupported: Bool?
     /// True once the capture session actually grants camera access while backgrounded.
@@ -131,6 +132,7 @@ final class ScanModel: ObservableObject {
                     })
                     guard self.generation == current, !Task.isCancelled else { return }
                     self.depthStatus = diagnostics.depthStatus
+                    self.lidarHardwareAvailable = diagnostics.lidarHardwareAvailable
                     self.multitaskingSupported = diagnostics.multitaskingSupported
                     self.multitaskingEnabled = diagnostics.multitaskingEnabled
                     self.cameraRunning = true
@@ -311,8 +313,9 @@ final class ScanModel: ObservableObject {
                         && result.frame.width == Int(frame.size.width) && result.frame.height == Int(frame.size.height)
                     var depthRejections: [String: Int] = [:]
                     detections = result.detections.map { detection in
-                        detection.addingDepth(from: frame.depth, enabled: self.preferences.isLidarEnabled,
-                                              matchingFrame: matchingFrame, now: ProcessInfo.processInfo.systemUptime) { reason in
+                        detection.addingProximity(from: frame.depth, lidarCapable: self.lidarHardwareAvailable,
+                                              enabled: self.preferences.isLidarEnabled, matchingFrame: matchingFrame,
+                                              capturedAt: frame.capturedAt, now: ProcessInfo.processInfo.systemUptime) { reason in
                             depthRejections[reason, default: 0] += 1
                         }
                     }
@@ -421,15 +424,17 @@ final class ScanModel: ObservableObject {
         case .proximity(let target):
             alerts.updateProximity(target: target, modes: preferences.alertModes)
             alertReason = "proximity"
-            detail = "\(target.label): \(target.freshProximityBand(at: now).title.lowercased()), \(target.depthLabel(at: now) ?? "depth unavailable"). Approximate camera-axis depth, not clearance."
+            detail = "\(target.label): \(target.freshProximityBand(at: now).title.lowercased()), \(target.proximityDescription(at: now) ?? "proximity unavailable"). Not a clearance or safety measurement."
         case .confirmingProximity(let target):
             alerts.stop()
             alertReason = "confirming"
-            detail = "Confirming \(target.label) across fresh matched frames before distance feedback."
+            detail = "Confirming \(target.label) across fresh frames before proximity feedback."
         case .outsideRange(let target):
             alerts.stop()
             alertReason = "outside-range"
-            detail = "\(target.label): beyond the configured proximity alert range. Not a clear-path indication."
+            detail = target.freshProximitySource(at: now) == .visual
+                ? "\(target.label): small image footprint, outside visual alert bands. Not a measured distance or clear-path indication."
+                : "\(target.label): beyond the configured proximity alert range. Not a clear-path indication."
         case .detectionOnly(let shouldAlert):
             alerts.stopProximity()
             if shouldAlert {
@@ -457,7 +462,7 @@ final class ScanModel: ObservableObject {
 
     private func expireDepth(sequence: Int, capturedAt: TimeInterval, generation current: UUID) {
         depthExpirationTask?.cancel()
-        guard detections.contains(where: { $0.depthMeters != nil }) else { return }
+        guard detections.contains(where: { $0.proximityExpiresAt != nil || $0.depthExpiresAt != nil }) else { return }
         let remaining = max(0, DepthSnapshot.maximumAge - (ProcessInfo.processInfo.systemUptime - capturedAt))
         depthExpirationTask = Task { [weak self] in
             do { try await Task.sleep(nanoseconds: UInt64(remaining * 1_000_000_000)) } catch { return }
@@ -466,6 +471,9 @@ final class ScanModel: ObservableObject {
                 var expired = detection
                 expired.depthMeters = nil
                 expired.depthExpiresAt = nil
+                expired.proximitySource = nil
+                expired.visualProximityArea = nil
+                expired.proximityExpiresAt = nil
                 expired.proximityBand = .unknown
                 expired.proximityTrackID = nil
                 expired.proximityConfirmed = nil
@@ -475,7 +483,7 @@ final class ScanModel: ObservableObject {
             proximityPolicy.reset()
             if alertReason == "proximity" || alertReason == "outside-range" {
                 alertReason = "depth-unavailable"
-                detail = "Object depth expired. Proximity feedback paused until a fresh matched estimate."
+                detail = "Proximity observation expired. Feedback paused until a fresh estimate."
             }
             refreshPiPOverlay()
         }

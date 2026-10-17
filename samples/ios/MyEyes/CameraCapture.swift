@@ -16,6 +16,7 @@ struct CameraDiagnostics: Sendable {
     let multitaskingSupported: Bool
     let multitaskingEnabled: Bool
     let depthStatus: String
+    let lidarHardwareAvailable: Bool
 }
 
 enum CameraFailure: LocalizedError {
@@ -308,7 +309,8 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
                     guard session.isRunning else { throw CameraFailure.configuration }
                     startLivenessTimer()
                     continuation.resume(returning: CameraDiagnostics(multitaskingSupported: supported,
-                                                                     multitaskingEnabled: enabledAccess, depthStatus: depthStatus))
+                                                                     multitaskingEnabled: enabledAccess, depthStatus: depthStatus,
+                                                                     lidarHardwareAvailable: AVCaptureDevice.default(.builtInLiDARDepthCamera, for: .video, position: .back) != nil))
                 } catch {
                     clearHandlers(ifToken: token)
                     continuation.resume(throwing: error)

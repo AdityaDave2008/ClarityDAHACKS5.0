@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 test('fresh proximity routing bypasses generic cooldown without masking unknown objects', { skip: process.platform !== 'darwin' }, () => {
   const scratch = process.env.JCODE_SCRATCH_DIR || join(homedir(), '.jcode', 'scratch'); mkdirSync(scratch, { recursive: true });
   const binary = join(mkdtempSync(join(scratch, 'proximity-routing-')), 'tests');
-  const source = ['../MyEyes/APIClient.swift', '../MyEyes/ProximityPolicy.swift', '../MyEyes/ProximityAlertRouting.swift', 'ProximityAlertRoutingTests.swift'].map(p => fileURLToPath(new URL(p, import.meta.url)));
+  const source = ['../MyEyes/APIClient.swift', '../MyEyes/ProximityPolicy.swift', '../MyEyes/ProximityAlertRouting.swift', '../MyEyes/ProximityFeedback.swift', 'ProximityAlertRoutingTests.swift'].map(p => fileURLToPath(new URL(p, import.meta.url)));
   execFileSync('swiftc', ['-parse-as-library', ...source, '-o', binary], { timeout: 60000 });
   assert.match(execFileSync(binary, { encoding: 'utf8', timeout: 10000 }), /PASS proximity alert routing/);
 });
