@@ -107,3 +107,24 @@ test('accepted scene grid always has finite ordered bounds and explicit units', 
   }
   assert.ok(accepted > 10);
 });
+test('attitude timestamps require finite numbers without coercion', () => {
+  for (const timestamp of [null, '1000', true, false, '', [], [1000], NaN, Infinity, -Infinity, -1]) {
+    const s = scene(); s.attitude.timestamp = timestamp;
+    if (timestamp !== '1000' && !(Array.isArray(timestamp) && timestamp.length)) { s.now = 0; s.frame.capturedAt = 0; }
+    noMeters(estimateGroundDepth(s));
+  }
+});
+test('fit envelope combines residual and reference uncertainty around exact affine truth', () => {
+  const a = anchors().map((anchor, i) => {
+    const truth = 1 / (.15 * anchor.relative + .1);
+    const meters = truth * (1 + .06 * Math.sin(78 + i * 7));
+    return { ...anchor, kind: 'measured', meters, lowerMeters: Math.min(truth, meters) * .999, upperMeters: Math.max(truth, meters) * 1.001 };
+  });
+  const fit = fitInverseDepth(a); assert.equal(fit.kind, 'fit');
+  for (const value of [1, 2, 3, 4, 5]) {
+    const out = estimateModelDepth(sample(value), fit);
+    const truth = 1 / (.15 * value + .1);
+    if (out.kind === 'unavailable') noMeters(out);
+    else assert.ok(out.lowerMeters <= truth && truth <= out.upperMeters, `${truth} outside [${out.lowerMeters}, ${out.upperMeters}]`);
+  }
+});

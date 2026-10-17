@@ -38,7 +38,7 @@ export function estimateGroundDepth({ anchor: a, calibration: c, attitude: t, fr
   if (!f || !Number.isInteger(f.width) || !Number.isInteger(f.height) || f.width < 16 || f.height < 16 || typeof f.deviceId !== 'string' || !f.deviceId || typeof f.orientation !== 'string' || !f.orientation || ['width', 'height', 'deviceId', 'orientation'].some(k => c[k] !== f[k])) return reject('calibration-frame-mismatch');
   if (!a || a.groundContact !== true || !inRange(a.x, 0, 1) || !inRange(a.y, 0, 1)) return reject('ground-contact-not-established');
   if (!finite(now) || !inRange(now - f.capturedAt, 0, 500)) return reject('stale-frame');
-  if (!t || !inRange(now - t.timestamp, 0, 250) || Math.abs(t.timestamp - f.capturedAt) > 250 || !inRange(t.pitchRad, -Math.PI / 3, Math.PI / 3) || !inRange(t.rollRad, -.25, .25)) return reject('invalid-or-stale-attitude');
+  if (!t || !finite(t.timestamp) || t.timestamp < 0 || !inRange(now - t.timestamp, 0, 250) || Math.abs(t.timestamp - f.capturedAt) > 250 || !inRange(t.pitchRad, -Math.PI / 3, Math.PI / 3) || !inRange(t.rollRad, -.25, .25)) return reject('invalid-or-stale-attitude');
   if (!inRange(c.cameraHeightM, .2, 3) || !inRange(c.verticalFovRad, .2, 2.5) || !inRange(c.heightUncertaintyM, 0, .5) || !inRange(c.pitchUncertaintyRad, 0, .15) || !inRange(c.fovUncertaintyRad, 0, .15)) return reject('invalid-calibration-uncertainty');
   const dh = Math.max(.01, c.heightUncertaintyM), dp = Math.max(Math.PI / 360, c.pitchUncertaintyRad), df = Math.max(Math.PI / 360, c.fovUncertaintyRad), dr = Math.PI / 360;
   // Interval arithmetic encloses every perturbation, including interior extrema.
@@ -92,11 +92,18 @@ export function fitInverseDepth(anchors) {
   if (!finite(line.slope) || line.slope <= 0 || !finite(line.intercept)) return reject('nonpositive-slope');
   let errorInverse = 0;
   for (let i = 0; i < anchors.length; i++) {
-    const a = anchors[i], inv = 1 / a.meters, predicted = line.slope * a.relative + line.intercept;
+    const a = anchors[i], predicted = line.slope * a.relative + line.intercept;
     const held = robustLine(anchors.filter((_, j) => i !== j));
     const heldPrediction = held.slope * a.relative + held.intercept;
     if (held.slope <= 0 || !finite(heldPrediction) || heldPrediction <= 0 || predicted <= 0 || Math.abs(1 / predicted - a.meters) / a.meters > .1 || Math.abs(1 / heldPrediction - a.meters) / a.meters > .15) return reject('residual-or-heldout-disagreement');
-    errorInverse = Math.max(errorInverse, Math.abs(predicted - inv), Math.abs(heldPrediction - inv), Math.abs(inv - 1 / a.lowerMeters), Math.abs(inv - 1 / a.upperMeters));
+    // Residual and reference uncertainty can reinforce each other. Bound both
+    // fitted and leave-one-out predictions against the entire reference interval,
+    // not their independent deviations from its point estimate. For any affine
+    // truth enclosed at the domain endpoints, this uniform inverse-depth envelope
+    // also encloses its interpolation throughout the accepted (non-extrapolated) domain.
+    errorInverse = Math.max(errorInverse,
+      Math.abs(predicted - 1 / a.lowerMeters), Math.abs(predicted - 1 / a.upperMeters),
+      Math.abs(heldPrediction - 1 / a.lowerMeters), Math.abs(heldPrediction - 1 / a.upperMeters));
   }
   const fit = Object.freeze({ kind: 'fit', source, ...line, errorInverse: Math.max(errorInverse, .005), minRelative: Math.min(...anchors.map(a => a.relative)), maxRelative: Math.max(...anchors.map(a => a.relative)), frameSequence: anchors[0].frameSequence, capturedAt: anchors[0].capturedAt, calibrationRevision: anchors[0].calibrationRevision, anchorCount: anchors.length });
   acceptedFits.add(fit);
