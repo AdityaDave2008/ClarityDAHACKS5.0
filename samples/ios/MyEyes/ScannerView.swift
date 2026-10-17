@@ -354,7 +354,7 @@ private struct SettingsView: View {
                 }
 
                 Section {
-                    Toggle("LiDAR depth estimates", isOn: $preferences.isLidarEnabled)
+                    Toggle("Automatic hardware depth", isOn: $preferences.isLidarEnabled)
                         .disabled(model.isBusy || model.cameraRunning || model.cameraStopping || saving)
                     LabeledContent("Capture status", value: model.depthStatus)
                     TimelineView(.periodic(from: .now, by: 0.1)) { _ in
@@ -362,8 +362,8 @@ private struct SettingsView: View {
                     }
                     Text("Raw center pixel, not object distance. Requires fresh absolute LiDAR depth.")
                         .font(.caption).foregroundStyle(.secondary)
-                } header: { Text("Optional LiDAR") } footer: {
-                    Text("Off by default. Stop scanning to change LiDAR, then tap Apply. On supported rear cameras, labels show approximate axial depth in meters along the camera's forward axis, not radial distance to an object. Missing, mixed, unreliable, or stale depth is unavailable. Detection continues without LiDAR. Depth does not establish a clear or safe path.")
+                } header: { Text("Hardware depth") } footer: {
+                    Text("Automatic by default when no choice is saved. Your saved opt-out is preserved. Stop scanning to change hardware depth, then tap Apply. On supported rear cameras, labels show approximate axial depth in meters along the camera's forward axis, not radial distance to an object. Missing, mixed, unreliable, or stale depth is unavailable. Detection continues without LiDAR. Depth does not establish a clear or safe path.")
                 }
 
                 Section("Detection preferences") {

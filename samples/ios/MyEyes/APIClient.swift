@@ -23,10 +23,10 @@ struct ScanPreferences: Codable, Equatable {
     var alertModes: [AlertMode] = [.sound]
     var confidenceThreshold: Double = 0.6
     var cooldownMs: Int = 3000
-    // Optional storage preserves decoding of preferences saved before LiDAR existed.
+    // Missing storage enables automatic hardware depth; explicit saved choices are preserved.
     private var lidarEnabled: Bool? = nil
     var isLidarEnabled: Bool {
-        get { lidarEnabled ?? false }
+        get { lidarEnabled ?? true }
         set { lidarEnabled = newValue }
     }
 }

@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 const source = name => fileURLToPath(new URL(`../MyEyes/${name}`, import.meta.url));
 const read = name => readFileSync(source(name), 'utf8');
 
-test('production Swift depth estimator rejects invalid, mixed and expired maps; preferences migrate OFF', { skip: process.platform !== 'darwin' }, () => {
+test('production Swift depth estimator rejects invalid, mixed and expired maps; missing preferences enable automatic hardware depth and explicit choices persist', { skip: process.platform !== 'darwin' }, () => {
   assert.ok(existsSync(source('DepthEstimate.swift')), 'depth estimator must exist');
   const scratch = process.env.JCODE_SCRATCH_DIR || join(homedir(), '.jcode', 'scratch');
   mkdirSync(scratch, { recursive: true });
