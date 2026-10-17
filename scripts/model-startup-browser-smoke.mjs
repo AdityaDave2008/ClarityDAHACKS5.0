@@ -10,7 +10,10 @@ import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { createPreviewServer } from '../frontend/server.js';
 
+// Hosted model downloads must fit the same 120s bound as production startup.
+// Keep UI/navigation/route waits shorter so unrelated failures remain prompt.
 const timeout = 45000;
+const modelTimeout = 120000;
 const target = process.env.SMOKE_BASE_URL ? new URL(process.env.SMOKE_BASE_URL) : null;
 if (target) assert.ok(['http:', 'https:'].includes(target.protocol) && !target.username && !target.password,
   'SMOKE_BASE_URL must be an HTTP(S) URL without embedded credentials');
@@ -102,13 +105,13 @@ try {
       window.startupSmokeModelState = typeof model.detect === 'function' ? 'ready' : 'invalid';
     }).catch(error => { window.startupSmokeModelState = `error: ${error.message}`; });
   });
-  await page.waitForFunction(() => window.startupSmokeModelState !== 'loading', null, { timeout });
+  await page.waitForFunction(() => window.startupSmokeModelState !== 'loading', null, { timeout: modelTimeout });
   assert.equal(await page.evaluate(() => window.startupSmokeModelState), 'ready');
   assert.equal(await page.evaluate(() => cameraRequests.length), 0);
   assert.equal(await page.evaluate(() => document.querySelector('#camera-video').srcObject), null);
   console.log('PASS: real model request shows visible accessible loading before camera; Cancel blocks late activation');
   await page.locator('#camera-start').click();
-  await page.waitForFunction(() => document.querySelector('#camera-status').textContent === 'Camera active.', null, { timeout });
+  await page.waitForFunction(() => document.querySelector('#camera-status').textContent === 'Camera active.', null, { timeout: modelTimeout });
   await page.waitForFunction(() => !/^Start scanning|^No fresh/.test(document.querySelector('#camera-objects').textContent), null, { timeout });
   assert.equal(await page.evaluate(() => cameraRequests.length), 1);
   assert.equal(await page.locator('#camera-startup').isVisible(), false);
@@ -127,7 +130,7 @@ try {
   await assertStartupScreen(failed.page, 'error');
   await failed.page.unroute('**/vendor/model/model.json');
   await failed.page.locator('#camera-startup-retry').click();
-  await failed.page.waitForFunction(() => document.querySelector('#camera-status').textContent === 'Camera active.', null, { timeout });
+  await failed.page.waitForFunction(() => document.querySelector('#camera-status').textContent === 'Camera active.', null, { timeout: modelTimeout });
   assert.equal(await failed.page.evaluate(() => cameraRequests.length), 1);
   console.log('PASS: real model network failure keeps camera off with Retry/Cancel; explicit Retry loads actual model before camera');
   await failed.page.locator('#camera-stop').click();
