@@ -292,12 +292,12 @@ struct ScannerView: View {
                     .font(.caption.weight(.semibold))
                 Text("Near ≤ \(settings.nearMeters, specifier: "%.1f") m · red · 2 Hz\nIntermediate ≤ \(settings.intermediateMeters, specifier: "%.1f") m · amber · 1 Hz\nFar ≤ \(settings.farMeters, specifier: "%.1f") m · green · 0.5 Hz\nOut of range > \(settings.farMeters, specifier: "%.1f") m · muted blue · no pulses\nUnknown · gray · depth unavailable")
                     .font(.caption.monospacedDigit())
-                Text("LiDAR measurements only on this device. Disabled, missing or stale depth remains unknown; visual size is not substituted.")
+                Text("Valid LiDAR readings take priority. When disabled, missing or rejected, fresh detection-box area supplies a visual proximity estimate, not meters: ≥35% near, ≥12% intermediate, ≥3% far. Stale images remain unknown.")
                     .font(.caption)
             } else {
                 Text("Checking depth capability")
                     .font(.caption.weight(.semibold))
-                Text("Start scanning to check this device. Unknown · gray · no pulses. No visual estimate until absence of LiDAR is confirmed.")
+                Text("Start scanning to check this device. Fresh detection-box area can supply a visual proximity estimate while depth is unavailable. Without a fresh detection: Unknown · gray · no pulses.")
                     .font(.caption)
             }
             Text("Cadence applies to selected sound/vibration alerts. Green means a farther band, not a clear path. Estimates are not a safety indication.")

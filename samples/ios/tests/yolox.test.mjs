@@ -24,10 +24,10 @@ test('invalid output and dimensions fail closed',()=>{
  assert.throws(()=>context.preprocessRGBA(new Uint8ClampedArray(),0,0));
  const a=output();row(a,0,0);a[0]=NaN;assert.equal(context.decodeYOLOX(a,640,480).length,0);
 });
-test('native candidate defaults and test identity are explicit',()=>{
+test('native candidate defaults and Clarity display name are explicit',()=>{
  const native=fs.readFileSync(new URL('../MyEyes/APIClient.swift',import.meta.url),'utf8');
  assert.match(native,/confidenceThreshold: Double = 0\.7874982953071594/);
- const info=fs.readFileSync(new URL('../MyEyes/Info.plist',import.meta.url),'utf8');assert.match(info,/<string>Clarity V2 Test<\/string>/);
+ const info=fs.readFileSync(new URL('../MyEyes/Info.plist',import.meta.url),'utf8');assert.match(info,/<key>CFBundleDisplayName<\/key>\s*<string>Clarity<\/string>/);
 });
 test('candidate threshold travels through native preferences',()=>{
  const native=fs.readFileSync(new URL('../MyEyes/APIClient.swift',import.meta.url),'utf8');

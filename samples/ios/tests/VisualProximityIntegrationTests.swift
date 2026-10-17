@@ -30,9 +30,14 @@ import Foundation
         precondition(cadence.tick(input, at: 100.4).isEmpty)
         precondition(cadence.tick(input, at: 100.95).isEmpty, "expired visual result must stop output")
         precondition(ProximityFeedbackInput(target: target, modes: [.sound], now: 100.95) == nil)
-        for invalid in [enriched(true), enriched(nil), enriched(true, depth: 1.5, enabled: false), enriched(false, matched: false)] {
-            precondition(invalid.freshProximitySource(at: 100.1) == nil, "missing/disabled LiDAR or unproven frame cannot use visual fallback")
+        for fallback in [enriched(true), enriched(nil), enriched(true, depth: 1.5, enabled: false), enriched(true, depth: .nan)] {
+            precondition(fallback.freshProximitySource(at: 100.1) == .visual, "unusable LiDAR must fall back to fresh box area")
+            precondition(fallback.depthMeters == nil && fallback.freshProximityDepth(at: 100.1) == nil)
+            precondition(abs(fallback.visualProximityArea! - 0.49) < 1e-12)
+            precondition(fallback.freshProximitySource(at: 100.75) == nil, "visual fallback must expire with RGB frame")
         }
+        precondition(enriched(false, matched: false).freshProximitySource(at: 100.1) == nil,
+                     "an unproven RGB frame cannot supply a visual estimate")
         var measuredPolicy = ProximityPolicy()
         _ = measuredPolicy.update([enriched(true, depth: 2.5)], settings: .init(), now: 100.1)
         let measured = measuredPolicy.update([enriched(true, time: 100.2, depth: 2.5)], settings: .init(), now: 100.3)[0]

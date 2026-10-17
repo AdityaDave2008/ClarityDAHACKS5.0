@@ -91,6 +91,20 @@ struct DepthEstimateTests {
         precondition(snapshot([2]).estimate(in: full, now: 10) == nil, "malformed map")
         let mixed = (0..<400).map { Float($0 % 20 < 10 ? 1 : 4) }
         precondition(snapshot(mixed).estimate(in: full, now: 10) == nil, "mixed foreground/background")
+        // Real surfaces need not be parallel to the camera. Broad spread must not
+        // discard a spatially coherent patch at the detection's exact center.
+        let slope = (0..<1600).map { Float(1 + Double($0 % 40) * 0.01) }
+        let curved = (0..<1600).map { i -> Float in
+            let x = Double(i % 40 - 20), y = Double(i / 40 - 20)
+            return Float(1 + (x * x + y * y) * 0.001)
+        }
+        let slopedDepth = snapshot(slope, width: 40, height: 40).estimate(in: full, now: 10)
+        precondition(slopedDepth != nil && abs(slopedDepth! - 1.2) < 0.03, "coherent sloped center surface must remain measurable")
+        let curvedDepth = snapshot(curved, width: 40, height: 40).estimate(in: full, now: 10)
+        precondition(curvedDepth != nil && abs(curvedDepth! - 1) < 0.02, "coherent curved center surface must remain measurable")
+        var centralHoles = curved
+        for y in 18...22 { for x in 18...22 { centralHoles[y * 40 + x] = .nan } }
+        precondition(snapshot(centralHoles, width: 40, height: 40).estimate(in: full, now: 10) == nil, "do not relocate a missing center patch onto the background")
         var sparse = Array(repeating: Float.nan, count: 400)
         for y in 5..<15 { for x in 5..<10 { sparse[y * 20 + x] = 2 } }
         precondition(snapshot(sparse).estimate(in: full, now: 10) == nil, "sparse foreground")
