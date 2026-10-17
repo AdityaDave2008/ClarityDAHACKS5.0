@@ -23,7 +23,7 @@ Implementation follows `docs/superpowers/specs/2026-10-17-capability-aware-depth
 | Freshness and stop/restart | Controller lifecycle tests and browser start/stop workflow | PASS: integrated browser start/stop/restart, actual v1 and depth snapshot inference, no page errors or frame uploads; disabling model hid its output |
 | Optional snapshot public controls | Actual browser checkbox, real model download, Analyze action and rendered source/map | PASS: paired source image/map appeared with historical/not-live caption while v1 remained running |
 | Calibration workflow and invalidation | Actual browser controls with explicitly synthetic rear-camera identity, granted permission and orientation | PASS: calibrated output 2.1–2.8 m for the declared fixture; changing camera height invalidated output and cleared contact declaration. Real headless motion permission denial separately produced unavailable, not metres |
-| Public deployment and runtime asset availability | HTTPS public app and runtime/module endpoints | Pending final deployment |
+| Public deployment and runtime asset availability | HTTPS public app and runtime/module endpoints | PASS: Cloudflare version d70a3b6f-8b64-48e0-a9f8-6ea1eab90ec3. Public-browser calibration, actual model download/inference, paired384x288 snapshot, v1 coexistence and restart all passed. Direct-HF CORS failure corrected with allowlisted same-origin streaming route |
 | Real-world accuracy at 0.5/1/2/3 m | Tape-measure comparison on physical devices | BLOCKED: no physical device/reference measurements observed. No accuracy percentage is claimed |
 
 ## Physical measurement protocol
@@ -49,6 +49,8 @@ The browser harness uses an isolated synthetic camera, never the user's actual c
 
 ## Final automated suite
 
-`node --test frontend/*.test.js worker/tests/*.test.mjs samples/ios/tests/*.test.mjs`: **251 passed, 0 failed, 0 skipped** after opt-out lifecycle fix `6cea7a9`. This includes 50 native tests and real Swift execution. It does not establish physical accuracy.
+`node --test frontend/*.test.js worker/tests/*.test.mjs samples/ios/tests/*.test.mjs`: **260 passed, 0 failed, 0 skipped** after opt-out lifecycle fix `6cea7a9`. This includes 50 native tests and real Swift execution. It does not establish physical accuracy.
 
 Enable `DEPTH_TEST_MODEL=1` for actual optional-model UI inference, and `DEPTH_TEST_GEOMETRY=1` for explicitly simulated permission/pose/camera-identity calibration coverage in the browser harness. Sensor fixtures are not real hardware evidence.
+
+Final public browser acceptance ran 2026-10-17 at07:18 UTC on `https://stepsense-detection.stepsense-dahacks.workers.dev/?detector=local&release=depth8`. No frame uploads or page errors observed. Permission, camera identity and orientation were explicit synthetic fixtures for calibration, not physical accuracy evidence. The actual depth model and actual browser worker executed without stubs.

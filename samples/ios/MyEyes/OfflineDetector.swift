@@ -20,7 +20,7 @@ final class OfflineAssetHandler: NSObject, WKURLSchemeHandler {
             let mime: String
             switch file.pathExtension {
             case "html": mime = "text/html"
-            case "js": mime = "application/javascript"
+            case "js", "mjs": mime = "application/javascript"
             case "json": mime = "application/json"
             case "wasm": mime = "application/wasm"
             default: mime = "application/octet-stream"

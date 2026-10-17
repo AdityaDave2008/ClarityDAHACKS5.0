@@ -1,4 +1,4 @@
-const CACHE = 'myeyes-pwa-v7-depth';
+const CACHE = 'myeyes-pwa-v8-depth-assets-yolox-51661711';
 const ASSETS = [
   '/',
   '/index.html',
