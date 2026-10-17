@@ -19,6 +19,7 @@ struct ProximityFeedbackEvent: Equatable, Sendable {
     var sound = false
     var haptic = false
     var message: String?
+    var replaceSpeech = false
     var isEmpty: Bool { !sound && !haptic && message == nil }
 }
 
@@ -46,6 +47,7 @@ struct ProximityCadence {
         let speechInterval = speechKey == input.speechKey ? 3.0 : 1.0
         if input.speech, lastSpeech.map({ now - $0 >= speechInterval }) ?? true {
             event.message = input.message
+            event.replaceSpeech = speechKey != input.speechKey
             lastSpeech = now
             speechKey = input.speechKey
         }
@@ -86,7 +88,7 @@ struct ProximityCadence {
         }
         self.input = input
         tick()
-        guard task == nil else { return }
+        guard self.input != nil, task == nil else { return }
         let sleep = self.sleep
         task = Task { @MainActor [weak self] in
             while !Task.isCancelled {

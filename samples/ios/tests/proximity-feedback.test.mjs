@@ -17,3 +17,13 @@ test('production proximity cadence and actual cancellable task execute', { skip:
   assert.equal(run.status, 0, run.stderr);
   assert.match(run.stdout, /proximity cadence, modes, freshness, speech and async cancellation passed/);
 });
+
+test('AlertPlayer handoff stops generic audio and rejects non-pulsing bands', async () => {
+  const { readFileSync } = await import('node:fs');
+  const source = readFileSync(new URL('../MyEyes/AlertPlayer.swift', import.meta.url), 'utf8');
+  const adapter = source.slice(source.indexOf('func updateProximity('), source.indexOf('func stopProximity()'));
+  assert.match(adapter, /let interval = band\.pulseInterval/);
+  assert.match(adapter, /if !proximity\.isRunning \{ stopGenericOutputs\(\) \}/);
+  assert.ok(adapter.indexOf('stopGenericOutputs()') < adapter.indexOf('proximity.update('));
+  assert.match(source, /event\.replaceSpeech \|\| !proximitySpeech\.isSpeaking/);
+});

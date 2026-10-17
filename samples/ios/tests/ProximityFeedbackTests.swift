@@ -76,8 +76,11 @@ func input(_ now: Double, interval: Double? = 0.5, key: String = "chair:near", s
         check(talk.tick(input(0), at: 0).message != nil, "initial speech")
         check(talk.tick(input(0.9, key: "other"), at: 0.9).message == nil, "speech change bounded")
         check(talk.tick(input(1, key: "other"), at: 1).message != nil, "speech change after second")
-        check(talk.tick(input(3.9, key: "other"), at: 3.9).message == nil, "repeat bounded")
-        check(talk.tick(input(4, key: "other"), at: 4).message != nil, "repeat after three seconds")
+        check(talk.tick(input(3.5, key: "other"), at: 3.5).message == nil, "repeat bounded")
+        let repeated = talk.tick(input(4, key: "other"), at: 4)
+        check(repeated.message != nil && !repeated.replaceSpeech, "repeat never interrupts unfinished speech")
+        let changed = talk.tick(input(5, key: "new target"), at: 5)
+        check(changed.message != nil && changed.replaceSpeech, "changed target replaces bounded speech")
 
         let clock = ManualClock()
         var events: [ProximityFeedbackEvent] = []
@@ -111,6 +114,14 @@ func input(_ now: Double, interval: Double? = 0.5, key: String = "chair:near", s
         let nilCount = events.count
         await clock.advance(3)
         check(events.count == nilCount, "nil depth stops loop")
+        var reentrant: ProximityFeedback!
+        reentrant = ProximityFeedback(now: { 0 }, sleep: { _ in try await Task.sleep(nanoseconds: 1_000_000) }, emit: { _ in reentrant.stop() }, stopOutputs: {})
+        reentrant.update(input(0))
+        check(!reentrant.isRunning, "reentrant stop during output must not start a new task")
+        var clockReads = 0
+        let crossesExpiry = ProximityFeedback(now: { clockReads += 1; return clockReads == 1 ? 0 : 0.75 }, emit: { _ in fatalError("expired output") }, stopOutputs: {})
+        crossesExpiry.update(input(0))
+        check(!crossesExpiry.isRunning, "expiry crossing during update must not start a task")
         let beforeModeChange = stops
         loop.update(input(3))
         loop.update(input(3, sound: false, haptic: true, speech: false))

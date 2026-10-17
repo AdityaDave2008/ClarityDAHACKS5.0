@@ -37,10 +37,11 @@ final class AlertPlayer: NSObject, AVAudioPlayerDelegate, AVSpeechSynthesizerDel
             return
         }
         let band = target.freshProximityBand(at: now)
-        guard band != .unknown else { stopProximity(); return }
+        guard let interval = band.pulseInterval else { stopProximity(); return }
         let identity = target.proximityTrackID.map(String.init) ?? target.label
+        if !proximity.isRunning { stopGenericOutputs() }
         proximity.update(ProximityFeedbackInput(
-            interval: band.pulseInterval, expiry: expiry,
+            interval: interval, expiry: expiry,
             speechKey: "\(identity):\(target.label):\(band.title)",
             message: String(format: "%@, approximately %.1f meters axial depth, %@", target.label, depth, band.title),
             sound: modes.contains(.sound), haptic: modes.contains(.vibration),
@@ -69,7 +70,7 @@ final class AlertPlayer: NSObject, AVAudioPlayerDelegate, AVSpeechSynthesizerDel
             proximityPlayer?.volume = 0.65
             proximityPlayer?.play()
         }
-        if let message = event.message {
+        if let message = event.message, event.replaceSpeech || !proximitySpeech.isSpeaking {
             // Replace rather than queue. Beeps never touch the independent speech channel.
             proximitySpeech.stopSpeaking(at: .immediate)
             let utterance = AVSpeechUtterance(string: message)
@@ -89,11 +90,7 @@ final class AlertPlayer: NSObject, AVAudioPlayerDelegate, AVSpeechSynthesizerDel
 
     func deliver(_ modes: [AlertMode], message: String) {
         stopProximity()
-        // Invalidate old completion callbacks before interrupting an earlier alert.
-        activePlayer = nil
-        activeUtterance = nil
-        player?.stop()
-        speech.stopSpeaking(at: .immediate)
+        stopGenericOutputs()
         if modes.contains(.sound) || modes.contains(.speech) {
             do {
                 try AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
@@ -127,6 +124,11 @@ final class AlertPlayer: NSObject, AVAudioPlayerDelegate, AVSpeechSynthesizerDel
 
     func stop() {
         stopProximity()
+        stopGenericOutputs()
+    }
+
+    private func stopGenericOutputs() {
+        // Invalidate callbacks before interrupting an earlier generic alert.
         activePlayer = nil
         activeUtterance = nil
         speech.stopSpeaking(at: .immediate)
