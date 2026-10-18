@@ -50,13 +50,35 @@ export class CameraFeature {
     }
     const run = ++this.generation;
     // Keep this lock until the browser settles permission, even after Cancel.
-    const request = { kind: 'permission' };
+    const request = { kind: 'loading' };
     const controller = new AbortController();
     this.startupController = controller;
     this.state.startupError = false;
     this.pending = request;
     let stream;
+    let loadingTimer;
     try {
+      if (this.detector?.prepare) {
+        this.state.phase = 'loading';
+        this.state.camera = 'Loading detection model. Camera stays off until it is ready. You can Cancel.';
+        this.update(this.state.camera);
+        await Promise.race([
+          this.detector.prepare({ signal: controller.signal, onStatus: message => {
+            if (run === this.generation && !controller.signal.aborted) {
+              this.state.detection = message;
+              this.update(message);
+            }
+          } }),
+          new Promise((_, reject) => {
+            loadingTimer = this.schedule(() => reject(new Error('Model loading timed out.')), 120000);
+            controller.signal.addEventListener('abort', () => reject(controller.signal.reason), { once: true });
+          }),
+        ]);
+        this.unschedule(loadingTimer);
+        if (run !== this.generation || controller.signal.aborted) return;
+        if (!this.isVisible()) { this.stop('Camera off because this page is hidden. Tap Start when you return.'); return; }
+      }
+      request.kind = 'permission';
       this.state.phase = 'requesting';
       this.state.camera = 'Requesting camera permission. Choose Allow in the browser prompt, or Cancel camera request below.';
       this.update(this.state.camera);
@@ -90,6 +112,12 @@ export class CameraFeature {
     } catch (error) {
       if (run !== this.generation) return;
       if (this.pending === request) this.pending = null;
+      if (request.kind === 'loading') {
+        this.stop('Model could not load. Camera is off. Retry loading or Cancel.');
+        this.state.startupError = true;
+        this.update(this.state.camera);
+        return;
+      }
       const messages = {
         NotAllowedError: 'Camera permission denied. Allow camera access in this site’s browser permissions, then tap Start.',
         SecurityError: 'Camera access is blocked. Open this page directly over HTTPS and check browser camera permissions.',
@@ -100,6 +128,7 @@ export class CameraFeature {
       };
       this.stop(messages[error.name] || 'Camera could not start. Check camera access and close other camera apps, then tap Start.');
     } finally {
+      this.unschedule(loadingTimer);
       if (this.startupController === controller) this.startupController = null;
       if (this.pending === request) this.pending = null;
       this.update();
@@ -111,6 +140,7 @@ export class CameraFeature {
     this.generation++;
     this.startupController?.abort();
     this.startupController = null;
+    if (this.pending?.kind === 'loading') this.pending = null;
     this.state.startupError = false;
     this.state.previewOnly = false;
     this.unschedule(this.stallTimer);
@@ -203,7 +233,6 @@ export class CameraFeature {
     this.detectionController = controller;
     this.state.detection = 'Detection starting.';
     this.update();
-    this.detectionRunning = true;
     try {
       await this.detector.start({ video: this.video, signal: controller.signal,
         onObstacle: () => { if (run === this.generation && !controller.signal.aborted && this.isVisible()) this.obstacle(false); },
@@ -228,6 +257,7 @@ export class CameraFeature {
         },
       });
       if (run !== this.generation || controller.signal.aborted) return;
+      this.detectionRunning = true;
       if (!this.state.result) this.state.detection = 'Detection running.';
       this.update(this.state.detection);
     } catch (error) {

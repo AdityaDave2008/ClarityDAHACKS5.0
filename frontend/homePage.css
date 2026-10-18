@@ -72,24 +72,12 @@ header.camera-header-hidden {
   line-height: 1;
 }
 
-.brand-logo-window {
-  position: relative;
+.logo {
+  width: 52px;
+  height: 52px;
   display: block;
-  flex: 0 0 94px;
-  width: 94px;
-  height: 56px;
-  overflow: hidden;
-}
-
-.brand-logo-window img {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 220px;
-  max-width: none;
-  height: auto;
-  transform: translate(-50%, -50%);
-  filter: url(#eye-palette-tint);
+  object-fit: contain;
+  flex-shrink: 0;
 }
 
 .status {

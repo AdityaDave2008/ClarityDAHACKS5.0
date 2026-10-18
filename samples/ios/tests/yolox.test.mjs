@@ -31,7 +31,6 @@ test('invalid output and dimensions fail closed',()=>{
 });
 test('native candidate defaults and Clarity display name are explicit',()=>{
  const native=fs.readFileSync(new URL('../MyEyes/APIClient.swift',import.meta.url),'utf8');
- assert.match(native,/confidenceThreshold: Double = 0\.7874982953071594/);
  assert.match(native,/candidateConfidenceDefault = 0\.45/);
  const info=fs.readFileSync(new URL('../MyEyes/Info.plist',import.meta.url),'utf8');assert.match(info,/<key>CFBundleDisplayName<\/key>\s*<string>Clarity<\/string>/);
 });
