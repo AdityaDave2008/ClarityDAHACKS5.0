@@ -1,4 +1,4 @@
-# StepSense / Clarity · DAHacks26
+#Clarity · DAHacks26
 
 A camera-based obstacle alert **prototype** for De Anza Hacks 5.0, October 16–17, 2026. StepSense and Clarity names both remain in the app and repository.
 
